@@ -12,13 +12,17 @@ import (
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "dotget",
-	Short: "link and manage configs   ",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Short: "make groups of config files/dotfiles to copy to one central location",
+	Long: `
+Dotstrike is an application with the intent to make managing config files easier.
+More specifically; this app intends to provide functions to manage, tag, 
+and collect files and folders into groups, and copy them to and from a central location.
+It was primarly intended for Windows systems, where there is no designated common path 
+or standard practice for storing these files. 
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+In practice, dotstrike is a simple file management tool that can group and sync files
+and directories between the path where they are used and a storage/repo location.
+`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },

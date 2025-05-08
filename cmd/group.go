@@ -1,6 +1,5 @@
 /*
 Copyright © 2025 NAME HERE <EMAIL ADDRESS>
-
 */
 package cmd
 
@@ -12,14 +11,23 @@ import (
 
 // groupCmd represents the group command
 var groupCmd = &cobra.Command{
-	Use:   "group",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Use:     "group",
+	Aliases: []string{"g"},
+	Short:   "Command used to make and manage groups",
+	Long: `
+	group provides subcommands for managing groups of appconfigs.
+	the group command can be used in the following ways:
+		
+	> dg group 'groupName':	switch to existing group; 
+				if 'groupName' does not exist, user will be prompted
+				to confirm if they would like to create 'groupName'
+	
+	subcommands:
+		'add' - 
+		'delete' - 
+		'clone' -
+		'merge' -
+	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("group called")
 	},
