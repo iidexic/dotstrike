@@ -23,7 +23,7 @@ var groupCmd = &cobra.Command{
 				to confirm if they would like to create 'groupName'
 	
 	subcommands:
-		'add' - 
+		'new' - 
 		'delete' - 
 		'clone' -
 		'merge' -
