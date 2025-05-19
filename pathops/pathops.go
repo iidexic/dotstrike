@@ -9,7 +9,14 @@ import (
 	"syscall"
 )
 
-func autoerr(e error, msg ...string) {
+type coreconfig struct {
+}
+type CFG struct {
+	fileRead os.File
+	core     coreconfig
+}
+
+func ce(e error, msg ...string) {
 	if e != nil {
 		if len(msg) > 0 {
 			log.Panic(e)
@@ -36,9 +43,12 @@ func OpenReadall(fpath string) *os.File {
 	}
 	return file
 }
-func makeOpenFileF(fpath string) *os.File {
+
+// MakeOpenFileF will open the given fpath as a file
+// It will make the file if it does not exist, and it will make all directories necessary if they do not exist
+func MakeOpenFileF(fpath string) *os.File {
 	e := os.MkdirAll(filepath.Dir(fpath), os.ModeDir)
-	autoerr(e)
+	ce(e)
 	file, e := os.OpenFile(fpath, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
 	if os.IsExist(e) {
 		file, e = os.Open(fpath)

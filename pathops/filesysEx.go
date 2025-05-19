@@ -11,7 +11,7 @@ import (
 
 func dig() {
 	contents, e := os.ReadDir(".")
-	autoerr(e)
+	ce(e)
 	for i, c := range contents {
 		fmt.Print(i, ":", c.Name(), " - ", filepath.Ext(c.Name()))
 	}
@@ -42,15 +42,15 @@ func storageFile(pathf string) {
 	file := openFile(pathf)
 	// need to handle err on file.close. jk dont need another function
 	// need to move/remove if working with file in a diff function?
-	defer autoerr(file.Close())
+	defer ce(file.Close())
 	// bingo now do what you gotta do with this file
 	finf, e := file.Stat()
-	autoerr(e)
+	ce(e)
 	content := make([]byte, finf.Size())
 	rnum, e := file.Read(content)
 
 	fmt.Print(rnum)
-	autoerr(e)
+	ce(e)
 }
 
 func readF(openfile os.File) {
