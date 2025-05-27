@@ -9,11 +9,9 @@ import (
 	"syscall"
 )
 
-type coreconfig struct {
-}
-type CFG struct {
-	fileRead os.File
-	core     coreconfig
+type fileReadResult struct {
+	Contents any
+	Fail     bool
 }
 
 func ce(e error, msg ...string) {
@@ -24,7 +22,8 @@ func ce(e error, msg ...string) {
 	}
 }
 
-func OpenReadall(fpath string) *os.File {
+// OpenFile(fpath) opens an existing file
+func OpenFile(fpath string) *os.File {
 	file, err := os.Open(fpath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) || errors.Is(err, syscall.ENOTDIR) {
@@ -44,9 +43,16 @@ func OpenReadall(fpath string) *os.File {
 	return file
 }
 
-// MakeOpenFileF will open the given fpath as a file
-// It will make the file if it does not exist, and it will make all directories necessary if they do not exist
+// TY says ur welcome
+func TY() {
+	print("yw :)")
+}
+
+// MakeOpenFileF will open the given fpath as a file. It will make the file if it does not exist,
+//  and it will make any missing directories necessary.
+/* Basically, it will tear its way to whatever you give it, even if it doesn't exist */
 func MakeOpenFileF(fpath string) *os.File {
+	// Check 3 locationsthat
 	e := os.MkdirAll(filepath.Dir(fpath), os.ModeDir)
 	ce(e)
 	file, e := os.OpenFile(fpath, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
@@ -59,11 +65,15 @@ func MakeOpenFileF(fpath string) *os.File {
 	return file
 
 }
-
-func initConfig(dir string) {
-	if dir == "" {
-		dir = "~/dotget/"
+func ReadF(fpath string) *fileReadResult {
+	file, e := os.ReadFile(fpath)
+	if e != nil && os.IsNotExist(e) {
+		return &fileReadResult{Fail: true}
+	} else if e != nil {
+		panic(fmt.Errorf("error: %w \ndatafile: %s exists but failed to open file", e, fpath))
 	}
+
+	return &fileReadResult{Contents: file}
 
 }
 

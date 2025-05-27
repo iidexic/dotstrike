@@ -1,11 +1,11 @@
 /*
 Copyright © 2025 NAME HERE <EMAIL ADDRESS>
-
 */
 package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -13,16 +13,32 @@ import (
 // showCmd represents the show command
 var showCmd = &cobra.Command{
 	Use:   "show",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "show details of running program",
+	Long:  `I'M LEARNING OVER HERE OKAY!!!`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("show called")
+		exec, e := os.Executable()
+		ce(e)
+		home, e := os.UserHomeDir()
+		ce(e)
+		cachedir, e := os.UserCacheDir()
+		ce(e)
+		cfgdir, e := os.UserConfigDir()
+		ce(e)
+		wd, e := os.Getwd()
+
+		fmt.Print("-> show called\nExecutable:")
+		fmt.Println(exec)
+		fmt.Printf("~ = %s\n", home)
+		fmt.Printf("cache dir: %s\n", cachedir)
+		fmt.Println("config dir:", cfgdir)
+		fmt.Printf("workingDir: %s\n", wd)
+		fmt.Printf("dotstrike | VERSION", verstr)
+
 	},
+}
+
+func checkflags(cmd *cobra.Command, flags []string) {
+
 }
 
 func init() {
@@ -36,5 +52,5 @@ func init() {
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// showCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// showCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle"),``
 }

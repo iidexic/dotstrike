@@ -12,13 +12,13 @@ import (
 // newSCmd represents the new command
 var newSCmd = &cobra.Command{
 	Use:   "new",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Short: "create a new group/config",
+	Long: `e a new group.
+Default args:
+	[1] group name
+	[2] path
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	`,
 	Run: actionGroupAdd,
 }
 
