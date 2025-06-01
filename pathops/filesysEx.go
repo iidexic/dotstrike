@@ -1,5 +1,6 @@
 package pops
 
+/*
 import (
 	//	"encoding/json"
 	"errors"
@@ -54,7 +55,7 @@ func storageFile(pathf string) {
 }
 
 func readF(openfile os.File) {
-}
+} */
 
 /* now have all the tools to build the crud dotget
 Filesystem Manipulation Notes

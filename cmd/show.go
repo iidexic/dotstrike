@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	pops "iidexic.dotstrike/pathops"
 )
 
 // showCmd represents the show command
@@ -25,6 +26,7 @@ var showCmd = &cobra.Command{
 		cfgdir, e := os.UserConfigDir()
 		ce(e)
 		wd, e := os.Getwd()
+		callfrom := pops.CalledFrom()
 
 		fmt.Print("-> show called\nExecutable:")
 		fmt.Println(exec)
@@ -32,13 +34,10 @@ var showCmd = &cobra.Command{
 		fmt.Printf("cache dir: %s\n", cachedir)
 		fmt.Println("config dir:", cfgdir)
 		fmt.Printf("workingDir: %s\n", wd)
-		fmt.Printf("dotstrike | VERSION", verstr)
+		fmt.Printf("dotstrike | VERSION %s", verstr)
+		fmt.Printf("args[0]- called from: %s", callfrom)
 
 	},
-}
-
-func checkflags(cmd *cobra.Command, flags []string) {
-
 }
 
 func init() {

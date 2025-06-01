@@ -1,0 +1,47 @@
+
+# before the first table callout is the root table
+[example]
+# strings
+doublequote = "standard string with escapes: \n" # backslash escapes in double-quoted string
+singlequote = 'literal no escapes: \'            # no escapes from single-quote: useful for filepaths(windows)
+# Local date & time (Refer to RFC 3339 format)
+dateonly = 2025-05-31          #yyyy-MM-dd
+timeonly = 16:38:13.1          # HH:MM:SS.1 == 4:38pm, 13.1seconds
+datetime = 2025-06-04 09:25:00 #alternatively, space can be "T" ex 2025-06-04T09:25:00
+# Offset datetime
+odatetime = 2025-06-04 09:25:00-07:00 #define timezone-offset
+# Arrays
+anum = [1, 2, 3]
+aanum = [[1, 2], [3, 4, 5]]
+amixed = [[6, 7], ['multi-line', "table", "allowed"]]
+# Tables (map/dict) - use dot notation or square-bracket headers
+table0.count = 1
+[example.table1] # any key can only be defined once. this would fail if table1 was added above
+val = "table-inner"
+otherval = "still the same" #example.table1 is now: {val = "table-inner", otherval = "still the same"}
+nested = { key = 100, details = [
+   "this",
+   "that",
+], real = true } # still within example.table1
+
+# Arrays of Tables:
+[[groups]] #this is still within the example table
+name = 'basic'
+value = 11
+tags = ['basic', 'default', 'group']
+cfg = { mode = 'automatic', enable_by_default = true }
+[[groups]] # another table in the array
+name = 'alt'
+value = 12
+tags = ['manual', 'optional', 'group']
+# can add more tables in the example.groups array of tables if we want
+# if we add another header within the array of tables, it refers to the table we most recently defined/declared:
+[groups.cfg] # same as line 28, but for the name = 'alt' entry in the groups array
+mode = 'manual'
+enable_by_default = false
+[example.continue]
+inline_aot = [
+   { a = 1, b = 2 },
+   { a = 12, b = 200 },
+   { a = -1, b = 0.5 },
+] # also an array of tables

@@ -9,20 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type configStatus int
-
-const (
-	noInit configStatus = iota
-	envBad
-	envBadCC
-	envBadCCandFile
-	exeDirBadToml
-	exeDirToml
-	env
-)
-
 const verstr string = "0.0.1"
-const cconfigFileName = "ds"
 
 func ce(e error) {
 	if e != nil {
@@ -73,12 +60,12 @@ func init() {
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
-
+	initfunctions := []func(){coreConfig}
 	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.iidexic.dotstrike.yaml)")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	cobra.OnInitialize(coreConfig) // pass all initialization functions here
+	cobra.OnInitialize(initfunctions...) // pass all initialization functions here
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "shows additional details on execution (debug)")
 	rootCmd.PersistentFlags().BoolP("global", "g", false, "target the global group")
 	rootCmd.PersistentFlags().BoolP("help", "?", false, "prints long help for command")

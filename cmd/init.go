@@ -30,14 +30,14 @@ var initCmd = &cobra.Command{
 	This includes both a main config file, as well as a file or environment variable that points to that file's directory.
 	standard filepath: '~/.config/dotstrike/dsglobal.toml'
 	possible path identifiers:
-		2. 'dotstrikeroot.toml' file in same directory as dotstrike executable
-		3. 'dotstrikeroot.toml' file in {cachedir}/dotstrike dir (Appdata/Local/dotstrike on Windows)
+		1. 'dotstrikeroot.toml' file in same directory as dotstrike executable
+		2. 'dotstrikeroot.toml' file in {cachedir}/dotstrike dir (Appdata/Local/dotstrike on Windows)
+		3. 'dotstrikeroot.toml' file in user home dir (~)
 	
-	If none of these are detected, running init attempts to create them, in the priority listed.
+	If neither of these are detected, running init attempts to create them, in the priority listed.
 	`,
 
 	Run: func(cmd *cobra.Command, args []string) {
-		print("checking for config")
 
 	},
 }
@@ -45,13 +45,7 @@ var initCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(initCmd)
 	iset.dir = initCmd.Flags().String("directory", "~/.config/dotstrike/dsglobal.toml", "dir")
-	pref := initCmd.Flags().String("preferred path identifier", "env", "prefer")
-	switch *pref {
-	case "exec", "exe", "executable directory", "exe dir", "2":
-		iset.priority = execPath
-	case "cache", "cache dir", "cache directory", "appdata", "appdata/local", "3":
-		iset.priority = cacheDirADLocal
-	}
+	prefidentifier()
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
@@ -61,4 +55,15 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// initCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+}
+
+// NOTE: No longer necessary, probably remove
+func prefidentifier() {
+	pref := initCmd.Flags().String("preferred path identifier", "env", "prefer")
+	switch *pref {
+	case "exec", "exe", "executable directory", "exe dir", "2":
+		iset.priority = execPath
+	case "cache", "cache dir", "cache directory", "appdata", "appdata/local", "3":
+		iset.priority = cacheDirADLocal
+	}
 }
