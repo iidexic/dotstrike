@@ -37,6 +37,7 @@ var extraConfigs = []config{}
 type configContainer interface {
 	load()
 }
+
 type globalconfig struct {
 	status configStatus
 	apps   []config

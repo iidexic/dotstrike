@@ -1,4 +1,4 @@
-package cfg
+package dscore
 
 type keep struct {
 	repo, hidden bool
@@ -22,35 +22,6 @@ type GlobalData struct {
 
 // global defaults for settings fields
 var globalDefault = GlobalData{
-	prefs: prefs{keep: keep{repo: true, hidden: true}, storedata: storedata{sourcedir: true, central: true}},
-
+	prefs:           prefs{keep: keep{repo: true, hidden: true}, storedata: storedata{sourcedir: true, central: true}},
 	mainStoragePath: "~/.config/dotstrike/store",
-}
-
-type pathType int
-type pathConfig int
-
-const (
-	filePath pathType = iota
-	dirPath
-	//filePattern //eventually; paths with wildcards/regex
-)
-
-type pathInfo struct {
-	path  string
-	ptype pathType
-}
-
-type pathComponent struct {
-	pathInfo
-	abspath string
-	ignores []string
-	alias   string
-}
-
-// Config for a given app or location
-// stores info on
-type Config struct {
-	name         string
-	source, dest pathComponent
 }

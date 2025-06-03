@@ -1,0 +1,7 @@
+[global]
+storagePath = '~/.config/dotstrike/store'
+[global.prefs]
+keep.repo = true
+keep.hidden = true
+storedata.sourcedir = true
+storedata.central = true
