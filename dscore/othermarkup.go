@@ -1,0 +1,5 @@
+package dscore
+
+func goo() {
+
+}

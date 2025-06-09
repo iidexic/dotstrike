@@ -1,7 +1,19 @@
 [global]
 storagePath = '~/.config/dotstrike/store'
+
 [global.prefs]
 keep.repo = true
 keep.hidden = true
 storedata.sourcedir = true
 storedata.central = true
+
+[global.data]
+[[cfgs]]
+alias = 'wezterm'
+sources = ['~/.config/wezterm']
+targets = ['@GLOBAL']
+
+[[cfgs]]
+alias = 'nvim'
+sources = ['~/AppData/Local/nvim']
+targets = ['@GLOBAL']

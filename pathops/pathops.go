@@ -10,8 +10,33 @@ import (
 	"syscall"
 )
 
+// enum type for file op outcomes
 type failureType int
 
+func (f failureType) Detail() string {
+	var rstr string
+	switch f {
+	case None:
+		rstr = fmt.Sprintf("Path Operation successful")
+	case BadPattern:
+		rstr = "bad pattern provided"
+	case DirNotExist:
+		rstr = "directory does not exist"
+	case FileNotExist:
+		rstr = fmt.Sprintf("file does not exist")
+	case FileExist:
+		rstr = fmt.Sprintf("file already exists")
+	case FailedOpen:
+		rstr = fmt.Sprintf("file seems to exist, but failed to open")
+	case Error:
+		rstr = fmt.Sprintf("General Error")
+	}
+	return rstr
+
+}
+
+// Possible outcomes for attempting filesystem operations
+// Different operations have the potential to trigger different subsets of these outcomes
 const (
 	None failureType = iota
 	BadPattern
@@ -23,9 +48,9 @@ const (
 )
 
 type PathEvent interface {
-	opfail(failureType, error)
-	explain() string
-	OpPath() string
+	// opfail(failureType, error)
+	Explain() string // returns result printable to user
+	OpPath() string  // returns read path/path used
 }
 type MakeOpenResult struct {
 	PathsMade []string
@@ -41,31 +66,21 @@ type ReadResult struct {
 	Err      error
 }
 
+// I don't actually know if these are needed
+/* type OpResult interface{ MakeOpenResult | ReadResult }
+
+func IsResErr[R OpResult](e error, result R) {}
 func (rr *ReadResult) opfail(t failureType, e error) {
 	rr.Fail = t
 	rr.Err = e
 }
+*/
+
 func (rr ReadResult) OpPath() string { return rr.readpath }
-func (rr *ReadResult) explain() string {
-	var rstr string
-	switch rr.Fail {
-	case None:
-		rstr = fmt.Sprintf("No failure type. Data read:\n %s", string(rr.Contents))
-	case BadPattern:
-		rstr = "bad pattern provided"
-	case DirNotExist:
-		rstr = "directory does not exist"
-	case FileNotExist:
-		rstr = fmt.Sprintf("file %s does not exist", rr.readpath)
-	case FileExist:
-		rstr = fmt.Sprintf("file %s already exists", rr.readpath)
-	case FailedOpen:
-		rstr = fmt.Sprintf("file %s seems to exist, but failed to open", rr.readpath)
-	case Error:
-		rstr = fmt.Sprintf("General Error: %e\nPath: %s", rr.Err, rr.readpath)
-	}
-	return rstr
-}
+
+/* func (rr *ReadResult) Explain() string {
+	return rr.Fail.Detail(rr.readpath, rr.Err)
+} */
 
 //var errDie []error = []error{filepath.ErrBadPattern, path.ErrBadPattern, os.ErrExist, os.ErrNotExist,os.ErrPermission}
 
@@ -78,6 +93,9 @@ func ce(e error, msg ...string) {
 }
 
 // OpenFile(fpath) opens a file; whether or not it or its parent directories exist
+// TODO: OPENFILE AND MAKEOPENFILE ARE SUPPOSEDLY THE SAME BASED OFF OF DOC COMMENT.
+//
+//	Check differences; Remove OpenFileF or MakeOpenFileF, OR rewrite OpenFileF to only open if exists
 func OpenFileF(fpath string) *os.File {
 	file, err := os.Open(fpath)
 	if err != nil {
@@ -100,6 +118,9 @@ func OpenFileF(fpath string) *os.File {
 func Result() {
 
 }
+
+// makeabs returns absolute path of inpath
+// inpath may or may not be relative from home dir/cwd
 func makeabs(inpath string) string {
 	if !path.IsAbs(inpath) {
 		var e error
@@ -112,8 +133,8 @@ func makeabs(inpath string) string {
 }
 
 // MakeOpenFileF will open the given fpath as a file. It will make the file if it does not exist,
-//  and it will make any missing directories necessary.
-/* Basically, it will tear its way to whatever you give it, even if it doesn't exist */
+//
+//	and it will make any missing directories necessary.
 func MakeOpenFileF(fpath string) *os.File {
 	// Check 3 locationsthat
 	e := os.MkdirAll(filepath.Dir(fpath), os.ModeDir)
@@ -128,7 +149,11 @@ func MakeOpenFileF(fpath string) *os.File {
 	return file
 
 }
-func ReadFile(fpath string) *ReadResult {
+
+// ReadFile will read contents of file into a ReadResult object and return a ptr
+// result contains file and/or operation outcome/error if e!=nil
+func ReadFile(pathElements ...string) *ReadResult {
+	fpath := path.Join(pathElements...)
 	result := &ReadResult{Fail: None, readpath: fpath}
 	file, e := os.ReadFile(fpath)
 	if e != nil && os.IsNotExist(e) {

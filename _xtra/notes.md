@@ -1,6 +1,30 @@
-# Dotstrike Notes
+# Dotstrike Structure
 
+## Current Structure
+### Package: main
+Serves exclusively to kick off the cmd package (cobra-based cli)
+### Package: cmd
+CLI functionality & direct user interface code
+using Cobra; made up of individual command .go files
+#### Files:
+- root.go
+- cfg.go
+- config.go (remove)
+- init.go
+- show(debug).go
+#### Commands
+##### cfg.go
+#####  config.go (remove)
+#####  init.go
+#####  show(debug).go
+### Package: dscore
+Structure of components required to perform actual functionality of building filesets and copying them between locations
+### Package: pathops
+Performs actual filesystem operations required; this includes:
+* creating/reading/writing user data files (dotstrike config and user structure data)
+* create/copy files; to be used by dscore for core functionality
 
+# General Dotstrike Notes
 ## Cobra
 
 ## Planning
@@ -32,7 +56,6 @@ So far, probably leaning toward kit, bag, pack?
 
 ### Running other shit
 * os/exec package is how we would run other executable thingz
-
 
 # Extras:
 ## Random go code
