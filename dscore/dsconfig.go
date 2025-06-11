@@ -2,6 +2,8 @@ package dscore
 
 import (
 	"fmt"
+
+	"github.com/BurntSushi/toml"
 )
 
 func ifer(e error) {
@@ -13,14 +15,24 @@ func ifer(e error) {
 // globals holds configuration status and data
 // globals must be read from file in config step every time ds is run
 type globals struct {
+	data          globalData
 	status        globalsReadResult
 	loaded        bool
-	cfgs          []cfg
-	preferences   prefs
-	dsconfigPath  string
 	checkedpaths  []string
 	rawContents   string
 	GlobalMessage []string
+}
+type globalData struct {
+	//check later if omitempty is needed
+	cfgs         []cfg `toml:"cfgs, omitempty"`
+	prefs        `toml:"prefs, omitempty"`
+	dsconfigPath string `toml:"targetPath,omitempty"`
+}
+
+type prefs struct {
+	keepRepo     bool
+	keepHidden   bool
+	globalTarget bool
 }
 
 type allTemp struct {
@@ -54,9 +66,9 @@ func (G *globals) Dump() []string {
 		"__GLOBALS__",
 		G.status.string(),
 		fmt.Sprintf("globals loaded: %t", G.loaded),
-		fmt.Sprintf("user cfgs: %v", G.cfgs),
-		fmt.Sprintf("preferences: %+v", G.preferences),
-		fmt.Sprintf("globals file path: %s", G.dsconfigPath),
+		fmt.Sprintf("user cfgs: %v", G.data.cfgs),
+		fmt.Sprintf("preferences: %+v", G.data.prefs),
+		fmt.Sprintf("globals file path: %s", G.data.dsconfigPath),
 		fmt.Sprintf("checked paths: %v", G.checkedpaths),
 		"__MESSAGES__",
 	}
@@ -66,4 +78,9 @@ func (G *globals) Dump() []string {
 
 func (G globals) DumpRaw() string {
 	return fmt.Sprintf("%+v", G)
+}
+
+func (G globals) DecodeRawData() {
+	toml.Decode(G.rawContents, G.data)
+
 }

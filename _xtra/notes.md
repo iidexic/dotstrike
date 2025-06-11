@@ -1,3 +1,8 @@
+# Todo:
+## structure
+- [ ] clarify difference + relationship between dscore package files
+	- [ ] specifically, globals + dsconfig have a lot of overlap
+
 # Dotstrike Structure
 
 ## Current Structure
@@ -81,3 +86,40 @@ So far, probably leaning toward kit, bag, pack?
 		for _, v := range evars {
 			print(v, "|")
 ```
+
+# toml format + notes
+
+toml structure:
+
+storagePath:string
+prefs: struct
+|- keepRepo:bool
+|- keepHidden:bool
+|- storedataSourcedir:bool (do not remember purpose)
+|- globalTarget:bool
+
+cfgs: []struct
+|- alias:string
+|- sources:[]string
+|- targets:[]string
+
+## Types
+[toml table] --> go struct or map
+[toml table array] --> go []struct or []map
+
+## KEYS:
+[toml key] -> go map key or go struct field name
+### Map a non-matching field name to toml key:
+```Go
+server struct {
+	//omitempty avoids encoding blank val if struct field empty
+	IP     string       `toml:"ip,omitempty"` 
+	Config serverConfig `toml:"config"`
+}
+```
+---------
+* use backtick as doublequote of tomlkey seems necessary (though technically can make a tag with any quotation mark)
+- most of our fields may need omitempty as we will be doing many partial
+	edits to toml file; do not want to overwrite toml data with blank values
+ ───────────────────────────────────────
+*/

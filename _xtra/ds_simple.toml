@@ -1,11 +1,11 @@
 [global]
-storagePath = '~/.config/dotstrike/store'
+targetPath = '~/.config/dotstrike/store'
 
 [global.prefs]
-keep.repo = true
-keep.hidden = true
+keepRepo = true
+keepHidden = true
 storedata.sourcedir = true
-storedata.central = true
+globalTarget = true
 
 [global.data]
 [[cfgs]]

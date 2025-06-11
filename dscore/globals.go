@@ -44,11 +44,6 @@ checkedpaths  []string
 rawContents   []byte
 GlobalMessage []string */
 
-type prefs struct {
-	keepRepo     bool
-	keepDotfiles bool
-}
-
 // globalsFilename is the file that ds looks to pull settings and userdata from
 const globalsFilename = "dotstrikeData.toml"
 
@@ -56,8 +51,8 @@ const globalsFilename = "dotstrikeData.toml"
 var defaults = globals{
 	status: noInit,
 	loaded: false,
-	preferences: prefs{
-		keepRepo: true, keepDotfiles: true,
+	data: globalData{prefs: prefs{
+		keepRepo: true, keepHidden: true, globalTarget: true},
 	},
 }
 
@@ -70,7 +65,7 @@ func (G *globals) GetConfig(dirpath string) bool {
 	if fread.Fail == pops.None {
 		if !G.loaded {
 			G.rawContents = string(fread.Contents)
-			G.dsconfigPath = fpath
+			G.data.dsconfigPath = fpath
 			return true
 		} else {
 			G.checkedpaths = append(G.checkedpaths, dirpath)
@@ -92,9 +87,8 @@ func CoreConfig() {
 	ifer(errcfg)
 	gotConfig := GD.GetConfig(cfgdir)
 	if gotConfig {
-		GD.loadFromRaw()
+		GD.DecodeRawData()
 	} else {
-		// Need to add anything to GD here?
 	}
 
 }
