@@ -12,6 +12,10 @@ func ifer(e error) {
 	}
 }
 
+// ╭─────────────────────────────────────────────────────────╮
+// │              Dotstrike Config+Data Structs              │
+// ╰─────────────────────────────────────────────────────────╯
+
 // globals holds configuration status and data
 // globals must be read from file in config step every time ds is run
 type globals struct {
@@ -20,13 +24,16 @@ type globals struct {
 	loaded        bool
 	checkedpaths  []string
 	rawContents   string
+	dsconfigPath  string
 	GlobalMessage []string
+	md            toml.MetaData
 }
 type globalData struct {
 	//check later if omitempty is needed
-	cfgs         []cfg `toml:"cfgs, omitempty"`
-	prefs        `toml:"prefs, omitempty"`
-	dsconfigPath string `toml:"targetPath,omitempty"`
+	cfgs       []cfg
+	Prefs      prefs     `toml:"prefs, omitempty"`
+	TargetPath string    `toml:"storagePath"`
+	CfgToml    []cfgMake `toml:"cfgs, omitempty"`
 }
 
 type prefs struct {
@@ -34,21 +41,25 @@ type prefs struct {
 	keepHidden   bool
 	globalTarget bool
 }
-
-type allTemp struct {
-	components []component
-	aliases    []string
+type cfgMake struct {
+	Alias     string            `toml:"alias"`   // name, unique
+	Sources   []string          `toml:"sources"` // files or directories marked as origin points
+	Targets   []string          `toml:"targets"` // files or directories marked as destination points
+	Ignorepat []string          // ignore patterns that apply to all sources
+	Overrides map[string]string //map of settings that will be prioritized over global set
 }
 
-// tempGlob exists to store new global data temporarily during runtime
-// tempGlob will then be checked + merged with main globals, and written to globals file
-var tempGlob globals
+// TempGlob exists to store new global data temporarily during runtime
+// this will then be checked/merged with GD, and written to globals file
+var TempGlob globals
 
-// tempComponent stores changes to a component before being merged with that component and written to globals file
-// may be superfluous; can use tempGlob.cfgs for this
-var tempComponent allTemp
-
-// func (G *globals) exists() { }// Uncertain of original intent. Most likely covered by G.Getcomponent
+func (G globals) DecodeRawData() {
+	md, err := toml.Decode(G.rawContents, &G.data)
+	if err != nil {
+		panic(fmt.Errorf("Error in dscore DecodeRawData() from data toml\n%e", err))
+	}
+	CheckDataDecode(G.data, md)
+}
 
 func (G *globals) loadFromRaw() {
 	fromTomlString(G.rawContents)
@@ -59,28 +70,4 @@ func (G *globals) output(outStr string) {
 }
 func (G *globals) outputf(outStr string, anyfmt ...any) {
 	G.GlobalMessage = append(G.GlobalMessage, fmt.Sprintf(outStr, anyfmt...))
-}
-
-func (G *globals) Dump() []string {
-	dump := []string{
-		"__GLOBALS__",
-		G.status.string(),
-		fmt.Sprintf("globals loaded: %t", G.loaded),
-		fmt.Sprintf("user cfgs: %v", G.data.cfgs),
-		fmt.Sprintf("preferences: %+v", G.data.prefs),
-		fmt.Sprintf("globals file path: %s", G.data.dsconfigPath),
-		fmt.Sprintf("checked paths: %v", G.checkedpaths),
-		"__MESSAGES__",
-	}
-	dump = append(dump, G.GlobalMessage...)
-	return dump
-}
-
-func (G globals) DumpRaw() string {
-	return fmt.Sprintf("%+v", G)
-}
-
-func (G globals) DecodeRawData() {
-	toml.Decode(G.rawContents, G.data)
-
 }

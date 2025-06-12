@@ -25,6 +25,7 @@ type component interface {
 type pathComponent struct {
 	path    string
 	ptype   pathType
+	ctype   componentType
 	abspath string
 	ignores []string // local ignores; specific to this dir
 	alias   string
@@ -34,14 +35,14 @@ func (pc pathComponent) name() string { return pc.alias }
 
 // cfg is the primary structure used to define a move/strike
 type cfg struct {
-	alias     string            // name, unique
-	sources   []pathComponent   // files or directories marked as origin points
-	targets   []pathComponent   // files or directories marked as destination points
-	ignorepat []string          // ignore patterns that apply to all sources
-	overrides map[string]string //map of settings that will be prioritized over global set
+	Alias     string            // name, unique
+	Sources   []pathComponent   // files or directories marked as origin points
+	Targets   []pathComponent   // files or directories marked as destination points
+	Ignorepat []string          // ignore patterns that apply to all sources
+	Overrides map[string]string //map of settings that will be prioritized over global set
 }
 
-func (cc cfg) name() string { return cc.alias }
+func (cc cfg) name() string { return cc.Alias }
 
 type FindType int
 

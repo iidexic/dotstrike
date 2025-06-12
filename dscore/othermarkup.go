@@ -1,5 +1,0 @@
-package dscore
-
-func goo() {
-
-}

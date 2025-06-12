@@ -32,7 +32,16 @@ func (gr globalsReadResult) string() string {
 	return "UNKNOWN-CASE-ERROR"
 }
 
-var GD = globals{}
+// primary var that data will be pulled into.
+// as is, it also serves as configuration defaults.
+var GD = globals{
+	status: noInit,
+	loaded: false,
+	data: globalData{
+		Prefs: prefs{keepRepo: true, keepHidden: true, globalTarget: true},
+		cfgs:  []cfg{}, CfgToml: []cfgMake{},
+	},
+}
 
 // GD fields
 /* status        globalsReadResult
@@ -47,15 +56,6 @@ GlobalMessage []string */
 // globalsFilename is the file that ds looks to pull settings and userdata from
 const globalsFilename = "dotstrikeData.toml"
 
-// global defaults for settings fields
-var defaults = globals{
-	status: noInit,
-	loaded: false,
-	data: globalData{prefs: prefs{
-		keepRepo: true, keepHidden: true, globalTarget: true},
-	},
-}
-
 // GetConfig (from file) to be loaded into G
 func (G *globals) GetConfig(dirpath string) bool {
 	fpath := path.Join(dirpath, globalsFilename)
@@ -65,7 +65,7 @@ func (G *globals) GetConfig(dirpath string) bool {
 	if fread.Fail == pops.None {
 		if !G.loaded {
 			G.rawContents = string(fread.Contents)
-			G.data.dsconfigPath = fpath
+			G.dsconfigPath = fpath
 			return true
 		} else {
 			G.checkedpaths = append(G.checkedpaths, dirpath)
@@ -88,6 +88,7 @@ func CoreConfig() {
 	gotConfig := GD.GetConfig(cfgdir)
 	if gotConfig {
 		GD.DecodeRawData()
+
 	} else {
 	}
 
