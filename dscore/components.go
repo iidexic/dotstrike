@@ -1,7 +1,5 @@
 package dscore
 
-import "slices"
-
 // Denote whether paths in pathObjects are path or dir
 type pathType int
 
@@ -13,89 +11,67 @@ const (
 	dirPath
 	sourceComponent componentType = iota
 	targetComponent
+	cfgComponent
 )
 
 // component interface for interop search
 type component interface {
-	name() string
+	getAlias() string
+	getCtype() componentType
 }
 
 // pathComponent is the core of a source or target;
 // contains path info
+// TODO: Identify if separate structs are needed for source and target;
+//   - there are a lot of conditional situations here already
 type pathComponent struct {
-	path    string
-	ptype   pathType
-	ctype   componentType
-	abspath string
-	ignores []string // local ignores; specific to this dir
-	alias   string
+	Path    string   `toml:"path"`
+	Ptype   pathType `toml:"ptype"` //if targetComponent: required to be dirPath
+	Ctype   componentType
+	Abspath string `toml:"abspath"`
+	// Ignores:
+	// - if sourceComponent+dirPath: patterns(exact paths?) to ignore
+	// - if targetComponent: patterns to avoid copying to this specific target
+	Ignores []string `toml:"ignores"`
+	Alias   string   `toml:"alias"`
 }
 
-func (pc pathComponent) name() string { return pc.alias }
+func (pc pathComponent) getAlias() string        { return pc.Alias }
+func (pc pathComponent) getCtype() componentType { return pc.Ctype }
 
 // cfg is the primary structure used to define a move/strike
 type cfg struct {
-	Alias     string            // name, unique
-	Sources   []pathComponent   // files or directories marked as origin points
-	Targets   []pathComponent   // files or directories marked as destination points
-	Ignorepat []string          // ignore patterns that apply to all sources
-	Overrides map[string]string //map of settings that will be prioritized over global set
+	Alias     string          `toml:"alias"`     // name, unique
+	Sources   []pathComponent `toml:"sources"`   // files or directories marked as origin points
+	Targets   []pathComponent `toml:"targets"`   // files or directories marked as destination points
+	Ignorepat []string        `toml:"ignores"`   // ignore patterns that apply to all sources
+	Overrides prefs           `toml:"overrides"` //map of settings that will be prioritized over global set
+	Ctype     componentType
 }
 
-func (cc cfg) name() string { return cc.Alias }
+func (cc cfg) getAlias() string        { return cc.Alias }
+func (cc cfg) getCtype() componentType { return cc.Ctype }
 
-type FindType int
+type findcfg interface {
+	cfg | bool
+}
 
-const (
-	FindAny FindType = iota
-	FindCfg
-	FindPathComp
-	FindSource
-	FindTarget
-	BoundPathComp
-	BoundSource
-	BoundTarget
-)
+// CfgData returns cfg with exact match alias
+func (g globalData) CfgData(alias string) cfg {
+	for _, c := range g.Cfgs {
+		if c.Alias == alias {
+			return c
+		}
+	}
+	/*TODO: Implement usable return:
+	- Take slice to add data to
+	- return empty cfg
+	- Some kind of SearchReturn struct with a member var or func to indicate failed search
+	- error return
+	*/
+
+}
 
 // lookup contains a list of options for a search.
 // When a search is run, FindType is transformed into a lookup var
 // used to determine what to search and return
-type lookup struct {
-	//configs, sources, targets, search bound to (selected config object??)
-	getCfg, getSrc, getTgt, boundOnly bool
-}
-
-// Getcomponent performs search for user data based on full/partial alias and FindType provided
-func (G *globals) Getcomponent(aliases []string, request FindType) {
-	look := lookup{
-		getCfg:    slices.Contains([]FindType{FindAny, FindCfg}, request),
-		getSrc:    slices.Contains([]FindType{FindAny, FindPathComp, FindSource, BoundPathComp, BoundSource}, request),
-		getTgt:    slices.Contains([]FindType{FindAny, FindPathComp, FindTarget, BoundPathComp, BoundTarget}, request),
-		boundOnly: slices.Contains([]FindType{BoundPathComp, BoundSource, BoundTarget}, request),
-	}
-	/*
-		Return Data:
-		this one returns components. Build out Interface a bit? Or another struct with just a bunch of slices to slap shit in
-		Or could do []ints that store index within Global
-
-	*/
-	if look.getCfg {
-
-	}
-	if look.getSrc {
-		if look.boundOnly {
-
-		} else {
-
-		}
-	}
-	if look.getTgt {
-		if look.boundOnly {
-
-		} else {
-
-		}
-
-	}
-
-}

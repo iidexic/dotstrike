@@ -38,8 +38,8 @@ var GD = globals{
 	status: noInit,
 	loaded: false,
 	data: globalData{
-		Prefs: prefs{keepRepo: true, keepHidden: true, globalTarget: true},
-		cfgs:  []cfg{}, CfgToml: []cfgMake{},
+		Prefs: prefs{KeepRepo: true, KeepHidden: true, GlobalTarget: true},
+		Cfgs:  []cfg{},
 	},
 }
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/BurntSushi/toml"
+	pops "iidexic.dotstrike/pathops"
 )
 
 func ifer(e error) {
@@ -12,14 +13,19 @@ func ifer(e error) {
 	}
 }
 
+// intended create writer; just using opened file
+// type stwriter struct { stringout string }
+// func (s stwriter) Write(b []byte) (n int, e error) { }
+
 // ╭─────────────────────────────────────────────────────────╮
 // │              Dotstrike Config+Data Structs              │
 // ╰─────────────────────────────────────────────────────────╯
 
 // globals holds configuration status and data
 // globals must be read from file in config step every time ds is run
+
 type globals struct {
-	data          globalData
+	data          globalData //May need pointer to make writeable (if needed). Pointer may cause toml decode issue
 	status        globalsReadResult
 	loaded        bool
 	checkedpaths  []string
@@ -30,35 +36,41 @@ type globals struct {
 }
 type globalData struct {
 	//check later if omitempty is needed
-	cfgs       []cfg
-	Prefs      prefs     `toml:"prefs, omitempty"`
-	TargetPath string    `toml:"storagePath"`
-	CfgToml    []cfgMake `toml:"cfgs, omitempty"`
+	Cfgs       []cfg  `toml:"cfgs, omitempty"`
+	Prefs      prefs  `toml:"prefs, omitempty"`
+	TargetPath string `toml:"storagePath"`
+	Selected   int    `toml:"SelectedCFG"`
 }
 
 type prefs struct {
-	keepRepo     bool
-	keepHidden   bool
-	globalTarget bool
-}
-type cfgMake struct {
-	Alias     string            `toml:"alias"`   // name, unique
-	Sources   []string          `toml:"sources"` // files or directories marked as origin points
-	Targets   []string          `toml:"targets"` // files or directories marked as destination points
-	Ignorepat []string          // ignore patterns that apply to all sources
-	Overrides map[string]string //map of settings that will be prioritized over global set
+	KeepRepo     bool `toml:"keepRepo, omitempty"`
+	KeepHidden   bool `toml:"keepHidden, omitempty"`
+	GlobalTarget bool `toml:"globalTarget, omitempty"`
 }
 
 // TempGlob exists to store new global data temporarily during runtime
 // this will then be checked/merged with GD, and written to globals file
 var TempGlob globals
 
-func (G globals) DecodeRawData() {
+func (G *globals) DecodeRawData() {
 	md, err := toml.Decode(G.rawContents, &G.data)
 	if err != nil {
 		panic(fmt.Errorf("Error in dscore DecodeRawData() from data toml\n%e", err))
 	}
 	CheckDataDecode(G.data, md)
+}
+
+func (G *globals) EncodeG() error {
+	testpath := ""
+	file := pops.MakeOpenFileF(testpath)
+	defer file.Close()
+	encode := toml.NewEncoder(file)
+	e := encode.Encode(G.data)
+	if e != nil {
+		return e
+	} else {
+		return nil
+	}
 }
 
 func (G *globals) loadFromRaw() {
