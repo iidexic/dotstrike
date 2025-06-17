@@ -1,13 +1,11 @@
 package pops
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"os"
 	"path"
 	"path/filepath"
-	"syscall"
 )
 
 // enum type for file op outcomes
@@ -43,6 +41,7 @@ const (
 	DirNotExist
 	FileNotExist
 	FileExist
+	PermissionDenied
 	FailedOpen
 	Error // if error is returned, an error will also be returend in PathActionResult.Err
 )
@@ -75,8 +74,12 @@ func (rr *ReadResult) opfail(t failureType, e error) {
 	rr.Err = e
 }
 */
+func WriteFile(data []byte) {
+
+}
 
 func (rr ReadResult) OpPath() string { return rr.readpath }
+func (rr ReadResult) Failed() bool   { return rr.Fail != None }
 
 /* func (rr *ReadResult) Explain() string {
 	return rr.Fail.Detail(rr.readpath, rr.Err)
@@ -92,28 +95,16 @@ func ce(e error, msg ...string) {
 	}
 }
 
-// OpenFile(fpath) opens a file; whether or not it or its parent directories exist
-// TODO: OPENFILE AND MAKEOPENFILE ARE SUPPOSEDLY THE SAME BASED OFF OF DOC COMMENT.
-//
-//	Check differences; Remove OpenFileF or MakeOpenFileF, OR rewrite OpenFileF to only open if exists
-func OpenFileF(fpath string) *os.File {
+var Open = os.Open
+
+// OpenExistingFile attempts to open an existing file
+// on success: returns open *os.File, nil. on fail: returns nil, error
+func OpenExistingFile(fpath string) (*os.File, error) {
 	file, err := os.Open(fpath)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) || errors.Is(err, syscall.ENOTDIR) {
-			// not exist
-			e := os.MkdirAll(filepath.Dir(fpath), os.ModeDir) // os.ModeDir right? check what is expected
-			if e != nil {
-				panic(e)
-			}
-			file, e = os.Create(fpath)
-			if e != nil {
-				panic(e)
-			}
-		} else {
-			panic(err)
-		}
+		return file, err
 	}
-	return file
+	return file, nil
 }
 func Result() {
 
@@ -147,7 +138,6 @@ func MakeOpenFileF(fpath string) *os.File {
 		}
 	}
 	return file
-
 }
 
 // ReadFile will read contents of file into a ReadResult object and return a ptr
@@ -161,6 +151,32 @@ func ReadFile(pathElements ...string) *ReadResult {
 		result.Err = e
 	} else if e != nil {
 		result.Fail = FailedOpen
+		result.Err = e
+	}
+	if e != nil {
+		result.Err = e
+
+		if os.IsNotExist(e) {
+			result.Fail = FileNotExist
+		} else if os.IsPermission(e) {
+			result.Fail = PermissionDenied
+		} else {
+			result.Fail = Error
+		}
+	}
+	result.Contents = file //? cause panic on failure to read?
+	return result
+}
+
+//TODO: migrate to ReadFileOrErr method; remove error wrapper
+
+// ReadFileOrErr will read contents of file into a ReadResult and return a ptr to it.
+// adds error to result.Err if not nil. Does not populate result.Fail
+func ReadFileOrErr(pathElements ...string) *ReadResult {
+	fpath := path.Join(pathElements...)
+	result := &ReadResult{Fail: None, readpath: fpath}
+	file, e := os.ReadFile(fpath)
+	if e != nil {
 		result.Err = e
 	}
 	result.Contents = file
