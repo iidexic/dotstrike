@@ -11,12 +11,15 @@ func (G *globals) Dump() []string {
 		"__GLOBALS__",
 		G.status.string(),
 		fmt.Sprintf("globals loaded: %t", G.loaded),
-		fmt.Sprintf("user cfgs: %v", G.data.cfgs),
 		fmt.Sprintf("preferences: %+v", G.data.Prefs),
 		fmt.Sprintf("globals file path: %s", G.dsconfigPath),
 		fmt.Sprintf("checked paths: %v", G.checkedpaths),
-		"__MESSAGES__",
+		"-- user cfgs --",
 	}
+	for i, c := range G.data.Cfgs {
+		dump = append(dump, fmt.Sprintf("[c%d] %s", i, c.status()))
+	}
+	dump = append(dump, "__MESSAGES__\n")
 	dump = append(dump, G.GlobalMessage...)
 	return dump
 }
@@ -30,17 +33,25 @@ func printTkeys(keys []toml.Key) {
 		fmt.Printf("[%d] %s (%+v)\n", i, k.String(), k)
 	}
 }
-func printcfgs(ptrcfg []cfgMake) {
+func printcfgs(ptrcfg []cfg) {
 	for i, cf := range ptrcfg {
 		fmt.Printf("[%d] %+v\n", i, cf)
 	}
 }
+
+/*
+	 func printcfgTemp(ptrcfg []cfgMake) {
+		for i, cf := range ptrcfg {
+			fmt.Printf("[%d] %+v\n", i, cf)
+		}
+	}
+*/
 func CheckDataDecode(decoded globalData, md toml.MetaData) {
 
 	keys := md.Keys()
 	und := md.Undecoded()
 	_ = md
-	fmt.Print("Decode Results:")
+	fmt.Println("Decode Results:")
 	print(`╭───────────────╮
 │ Metadata keys │
 ╰───────────────╯
@@ -56,5 +67,5 @@ func CheckDataDecode(decoded globalData, md toml.MetaData) {
 ╰────────╯
 targetPath:%s
 cfgs:`, decoded.TargetPath)
-	printcfgs(decoded.CfgToml)
+	printcfgs(decoded.Cfgs)
 }

@@ -52,15 +52,18 @@ type prefs struct {
 // this will then be checked/merged with GD, and written to globals file
 var TempGlob globals
 
-func (G *globals) DecodeRawData() {
+func (G *globals) decodeRawData() {
 	md, err := toml.Decode(G.rawContents, &G.data)
 	if err != nil {
 		panic(fmt.Errorf("Error in dscore DecodeRawData() from data toml\n%e", err))
 	}
-	CheckDataDecode(G.data, md)
+	G.md = md //? Is this used at all
+
+	//TODO: run CheckDataDecode on debug flag
+	//CheckDataDecode(G.data, md)
 }
 
-func (G *globals) EncodeG() error {
+func (G *globals) encodeG() error {
 	testpath := ""
 	file := pops.MakeOpenFileF(testpath)
 	defer file.Close()
@@ -77,9 +80,9 @@ func (G *globals) loadFromRaw() {
 	fromTomlString(G.rawContents)
 }
 
-func (G *globals) output(outStr string) {
+func (G *globals) logG(outStr string) {
 	G.GlobalMessage = append(G.GlobalMessage, outStr)
 }
-func (G *globals) outputf(outStr string, anyfmt ...any) {
+func (G *globals) logfG(outStr string, anyfmt ...any) {
 	G.GlobalMessage = append(G.GlobalMessage, fmt.Sprintf(outStr, anyfmt...))
 }

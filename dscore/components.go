@@ -1,5 +1,9 @@
 package dscore
 
+import (
+	"fmt"
+)
+
 // Denote whether paths in pathObjects are path or dir
 type pathType int
 
@@ -51,27 +55,7 @@ type cfg struct {
 
 func (cc cfg) getAlias() string        { return cc.Alias }
 func (cc cfg) getCtype() componentType { return cc.Ctype }
-
-type findcfg interface {
-	cfg | bool
+func (cc cfg) status() string {
+	expln := fmt.Sprintf("cfg:'%s' - Sources:\n%+v", cc.Alias, cc.Sources)
+	return expln
 }
-
-// CfgData returns cfg with exact match alias
-func (g globalData) CfgData(alias string) cfg {
-	for _, c := range g.Cfgs {
-		if c.Alias == alias {
-			return c
-		}
-	}
-	/*TODO: Implement usable return:
-	- Take slice to add data to
-	- return empty cfg
-	- Some kind of SearchReturn struct with a member var or func to indicate failed search
-	- error return
-	*/
-
-}
-
-// lookup contains a list of options for a search.
-// When a search is run, FindType is transformed into a lookup var
-// used to determine what to search and return
