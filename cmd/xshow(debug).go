@@ -17,26 +17,26 @@ var showCmd = &cobra.Command{
 	Short: "show details of running program",
 	Long:  `I'M LEARNING OVER HERE OKAY!!!`,
 	Run: func(cmd *cobra.Command, args []string) {
-		exec, e := os.Executable()
-		ce(e)
-		home, e := os.UserHomeDir()
+		/* home, e := os.UserHomeDir()
 		ce(e)
 		cachedir, e := os.UserCacheDir()
 		ce(e)
 		cfgdir, e := os.UserConfigDir()
 		ce(e)
-		wd, e := os.Getwd()
-		callfrom := pops.CalledFrom()
-
-		fmt.Print("-> show called\nExecutable:")
-		fmt.Println(exec)
 		fmt.Printf("~ = %s\n", home)
 		fmt.Printf("cache dir: %s\n", cachedir)
 		fmt.Println("config dir:", cfgdir)
-		fmt.Printf("workingDir: %s\n", wd)
-		fmt.Printf("dotstrike | VERSION %s", verstr)
-		fmt.Printf("args[0]- called from: %s", callfrom)
+		fmt.Printf("dotstrike | VERSION %s", verstr) */
 
+		fmt.Print("-> show called\nExecutable:")
+		exec, e := os.Executable()
+		ce(e)
+		fmt.Println(exec)
+		wd, e := os.Getwd()
+		ce(e)
+		fmt.Printf("workingDir: %s\n", wd)
+		callfrom := pops.CalledFrom()
+		fmt.Printf("args[0]- called from: %s\n", callfrom)
 	},
 }
 
