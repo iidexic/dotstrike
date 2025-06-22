@@ -46,6 +46,11 @@ and directories between the path where they are used and a storage/repo location
 		}
 	},
 }
+var postCmd = &cobra.Command{
+	Run: func(cmd *cobra.Command, args []string) {
+
+	},
+}
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
@@ -57,9 +62,16 @@ func Execute() {
 }
 
 type persistentData struct {
-	verbose, global, help *bool
-	debug                 *bool
-	src, tgt              *[]string // source and target currently set as Persistent Flags
+	verbose, global     *bool
+	debug               *bool
+	cfg, src, tgt       *[]string // source and target currently set as Persistent Flags
+	countFlagsComponent int
+
+	//TODO: finish or remove below and replace with encode if dscore.TempGlob!=nil
+	preExitEncode bool
+}
+
+func (p *persistentData) setup() {
 }
 
 // pf is the persistentData var that stores all persistent flag values
@@ -70,20 +82,27 @@ func init() {
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
-	initfunctions := []func(){dscore.CoreConfig}
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	cobra.OnInitialize(initfunctions...) // pass all initialization functions here
+	cobra.OnInitialize(dscore.CoreConfig) // pass all initialization functions here
+	cobra.OnFinalize(dscore.EndEncode)
 	pf = persistentData{
+		// TODO: determine whether verbose is a cobra built-in flag, or if there are other builtin besides help
 		verbose: rootCmd.PersistentFlags().BoolP("verbose", "v", false, "shows additional details on execution (debug)"),
 		global:  rootCmd.PersistentFlags().BoolP("global", "g", false, "target the global group"),
-		src:     rootCmd.PersistentFlags().StringSliceP("source", "s", []string{}, "src"),
-		tgt:     rootCmd.PersistentFlags().StringSliceP("target", "t", []string{}, "tgt"),
-		debug:   rootCmd.PersistentFlags().Bool("debug", false, "debug"),
-		// These seem to be defaults
+		//NOTE: StringArrayP REQUIRES at least one flag argument
+		// make sure this is acceptable for all use cases.
+		// I would prefer them to also function as bools
+		cfg: rootCmd.PersistentFlags().StringArrayP("cfg", "c", []string{}, "cfg"),
+		src: rootCmd.PersistentFlags().StringArrayP("source", "s", []string{}, "src"),
+		tgt: rootCmd.PersistentFlags().StringArrayP("target", "t", []string{}, "tgt"),
+		// dev use
+		debug: rootCmd.PersistentFlags().Bool("debug", false, "debug"),
+		// Help is default/built-in
 		//help: rootCmd.PersistentFlags().BoolP("help", "?", false, "prints long help for command"),
 	}
+	pf.setup()
 	// version is not default
 	version = rootCmd.Flags().Bool("version", false, "print application version")
 }

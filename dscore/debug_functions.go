@@ -39,13 +39,6 @@ func printcfgs(ptrcfg []cfg) {
 	}
 }
 
-/*
-	 func printcfgTemp(ptrcfg []cfgMake) {
-		for i, cf := range ptrcfg {
-			fmt.Printf("[%d] %+v\n", i, cf)
-		}
-	}
-*/
 func CheckDataDecode(decoded globalData, md toml.MetaData) {
 
 	keys := md.Keys()

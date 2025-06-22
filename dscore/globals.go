@@ -61,6 +61,13 @@ GlobalMessage []string */
 // globalsFilename is the file that ds looks to pull settings and userdata from
 const globalsFilename = "dotstrikeData.toml"
 
+func GetGlobals() (*globals, error) {
+	if GD.loaded {
+		return &GD, nil
+	}
+	return &globals{}, fmt.Errorf("Globals not loaded.\n Globals = %+v", GD)
+}
+
 // GetConfig reads dotstrikeData.toml in provided directory.
 // on success: populates G.dsconfigPath, reads file into G.rawContents
 func (G *globals) GetConfig(dirpath string) bool {
@@ -110,4 +117,7 @@ func CoreConfig() {
 
 	}
 
+}
+
+func EndEncode() {
 }

@@ -25,7 +25,7 @@ func ifer(e error) {
 // globals must be read from file in config step every time ds is run
 
 type globals struct {
-	data          globalData //May need pointer to make writeable (if needed). Pointer may cause toml decode issue
+	data          globalData
 	status        globalsReadResult
 	loaded        bool
 	checkedpaths  []string
@@ -35,22 +35,61 @@ type globals struct {
 	md            toml.MetaData
 }
 type globalData struct {
-	//check later if omitempty is needed
 	Cfgs       []cfg  `toml:"cfgs, omitempty"`
-	Prefs      prefs  `toml:"prefs, omitempty"`
-	TargetPath string `toml:"storagePath"`
+	Prefs      prefs  `toml:"prefs"`
+	TargetPath string `toml:"storagePath, omitempty"`
 	Selected   int    `toml:"SelectedCFG"`
 }
 
+/*
+	NOTE:FROM DOC:
+
+|If the "omitempty" option is present the following value will be skipped:
+|-> arrays, slices, maps, and string with len of 0
+|-> struct with all zero values
+|-> bool false
+|+ALSO If omitzero is given all int and float types with a value of 0 will be skipped.
+*/
 type prefs struct {
-	KeepRepo     bool `toml:"keepRepo, omitempty"`
-	KeepHidden   bool `toml:"keepHidden, omitempty"`
-	GlobalTarget bool `toml:"globalTarget, omitempty"`
+	KeepRepo     bool `toml:"keepRepo"`
+	KeepHidden   bool `toml:"keepHidden"`
+	GlobalTarget bool `toml:"globalTarget"`
+}
+type modifyData struct {
+	*globalData
+	modified bool
 }
 
 // TempGlob exists to store new global data temporarily during runtime
 // this will then be checked/merged with GD, and written to globals file
-var TempGlob globals
+var TempGlob *globals = nil
+var TempData *globalData = nil
+var DataModified bool = false
+
+func IsTempData() bool { return TempGlob != nil }
+
+func GetTempGlobals() *globals {
+	// dont leave this like this pleaze
+	if TempGlob == nil {
+		TempGlob = &globals{
+			data: globalData{},
+		}
+	}
+
+	return TempGlob
+}
+
+// NOTE: globalData is the only piece that requires modification when making changes
+func getTempData() *globalData {
+	// dont leave this like this pleaze
+	if TempData == nil {
+		TempData = &globalData{
+			Prefs: GD.data.Prefs,
+		}
+	}
+
+	return TempData
+}
 
 func (G *globals) decodeRawData() {
 	md, err := toml.Decode(G.rawContents, &G.data)
@@ -63,6 +102,13 @@ func (G *globals) decodeRawData() {
 	//CheckDataDecode(G.data, md)
 }
 
+func (G *globals) EncodeIfNeeded(tempg globals) {
+	if DataModified {
+
+	}
+}
+
+// encodeG is functional encode
 func (G *globals) encodeG() error {
 	testpath := ""
 	file := pops.MakeOpenFileF(testpath)
@@ -74,10 +120,6 @@ func (G *globals) encodeG() error {
 	} else {
 		return nil
 	}
-}
-
-func (G *globals) loadFromRaw() {
-	fromTomlString(G.rawContents)
 }
 
 func (G *globals) logG(outStr string) {
