@@ -46,17 +46,6 @@ const (
 	Error // if error is returned, an error will also be returend in PathActionResult.Err
 )
 
-type PathEvent interface {
-	// opfail(failureType, error)
-	Explain() string // returns result printable to user
-	OpPath() string  // returns read path/path used
-}
-type MakeOpenResult struct {
-	PathsMade []string
-	Fail      failureType
-	Err       error
-}
-
 type ReadResult struct {
 	Contents []byte
 	readpath string
@@ -65,21 +54,8 @@ type ReadResult struct {
 	Err      error
 }
 
-// I don't actually know if these are needed
-/* type OpResult interface{ MakeOpenResult | ReadResult }
-
-func IsResErr[R OpResult](e error, result R) {}
-func (rr *ReadResult) opfail(t failureType, e error) {
-	rr.Fail = t
-	rr.Err = e
-}
-*/
-func WriteFile(data []byte) {
-
-}
-
 func (rr ReadResult) OpPath() string { return rr.readpath }
-func (rr ReadResult) Failed() bool   { return rr.Fail != None }
+func (rr ReadResult) Failed() bool   { return rr.Fail != None } //in use
 
 /* func (rr *ReadResult) Explain() string {
 	return rr.Fail.Detail(rr.readpath, rr.Err)
@@ -117,7 +93,7 @@ func makeabs(inpath string) string {
 		var e error
 		inpath, e = filepath.Abs(inpath)
 		if e != nil {
-			panic(e)
+			log.Panic(e)
 		}
 	}
 	return inpath
@@ -134,7 +110,7 @@ func MakeOpenFileF(fpath string) *os.File {
 	if os.IsExist(e) {
 		file, e = os.Open(fpath)
 		if e != nil {
-			panic(fmt.Errorf("error: %w \ndatafile: %s exists but failed to open file", e, fpath))
+			log.Panic(fmt.Errorf("error: %w \ndatafile: %s exists but failed to open file", e, fpath))
 		}
 	}
 	return file
@@ -190,4 +166,60 @@ func CalledFrom() string {
 		//what
 	}
 	return dir
+}
+
+// TODO: symlink testing (next 2 functions related)
+func IsBasicPath(p string) bool {
+	return filepath.IsAbs(p) || filepath.IsLocal(p) //No symlink check/condition right now.
+
+}
+func IsSymlink(p string) bool {
+	symP, e := filepath.EvalSymlinks(p)
+	ce(e)
+	//TODO: symlink testing
+	return symP == p
+}
+
+// CheckPath for debug. TODO:remove when done
+func CheckPath(p string) string {
+	abs, e := filepath.Abs(p)
+	ce(e)
+	isabs := filepath.IsAbs(p)
+	// abs: `//` or `\\`
+	// loc:  (letters-only)||(starts with .)||(non-legal shit like '&', '^')
+	// NEITHER: - `` (backticks - empty str)||(starts with single backslash or forward slash)||:(colon)
+
+	/* NOTE:
+	1. what needs to be handled?
+		- forward slash/back slash
+	*/
+	isloc := filepath.IsLocal(p)
+	var ptypestr string
+	if isabs {
+		ptypestr = ptypestr + "[absolute]"
+	}
+	//why not check for both
+	if isloc {
+		ptypestr = ptypestr + "[local]"
+	}
+	if !isabs && !isloc {
+		ptypestr = ptypestr + "[UNKNOWN]"
+	}
+	path.Clean(p)
+
+	locpls := filepath.Clean(p)
+	base := filepath.Base(p)
+	dir := filepath.Dir(p)
+	return fmt.Sprintf(`
+---| Check Path: '%s'
+---------
+abs:%t | local:%t
+
+make abs path: 
+	%s
+clean/shorten path:
+	%s
+base = %s, dir = %s
+`, p, isabs, isloc, abs, locpls, base, dir)
+
 }
