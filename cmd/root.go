@@ -37,7 +37,7 @@ and directories between the path where they are used and a storage/repo location
 		if *version {
 			cmd.Print("version: ", verstr)
 		}
-		if *pf.debug {
+		if *pData.debug {
 			cmd.Printf("DEBUG")
 			gdump := dscore.GD.Dump()
 			for _, l := range gdump {
@@ -62,20 +62,24 @@ func Execute() {
 }
 
 type persistentData struct {
-	verbose, global     *bool
-	debug               *bool
-	cfg, src, tgt       *[]string // source and target currently set as Persistent Flags
-	countFlagsComponent int
-
-	//TODO: finish or remove below and replace with encode if dscore.TempGlob!=nil
-	preExitEncode bool
+	verbose, global *bool
+	debug           *bool
+	cfg, src, tgt   *[]string // source and target currently set as Persistent Flags
+	countFlags      int
 }
 
 func (p *persistentData) setup() {
+	for _, b := range []bool{*p.verbose, *p.debug, *p.global,
+		len(*p.cfg) > 1, len(*p.src) > 1, len(*p.tgt) > 1} {
+		if b {
+			p.countFlags++
+		}
+	}
+
 }
 
-// pf is the persistentData var that stores all persistent flag values
-var pf persistentData
+// pData is the persistentData var that stores all persistent flag values
+var pData persistentData
 var version *bool
 
 func init() {
@@ -87,22 +91,22 @@ func init() {
 	// when this action is called directly.
 	cobra.OnInitialize(dscore.CoreConfig) // pass all initialization functions here
 	cobra.OnFinalize(dscore.EndEncode)
-	pf = persistentData{
+	pData = persistentData{
 		// TODO: determine whether verbose is a cobra built-in flag, or if there are other builtin besides help
 		verbose: rootCmd.PersistentFlags().BoolP("verbose", "v", false, "shows additional details on execution (debug)"),
 		global:  rootCmd.PersistentFlags().BoolP("global", "g", false, "target the global group"),
 		//NOTE: StringArrayP REQUIRES at least one flag argument
 		// make sure this is acceptable for all use cases.
 		// I would prefer them to also function as bools
-		cfg: rootCmd.PersistentFlags().StringArrayP("cfg", "c", []string{}, "cfg"),
-		src: rootCmd.PersistentFlags().StringArrayP("source", "s", []string{}, "src"),
+		cfg: rootCmd.PersistentFlags().StringArrayP("cfg", "c", nil, "cfg"),
+		src: rootCmd.PersistentFlags().StringArrayP("source", "s", nil, "src"),
 		tgt: rootCmd.PersistentFlags().StringArrayP("target", "t", []string{}, "tgt"),
 		// dev use
 		debug: rootCmd.PersistentFlags().Bool("debug", false, "debug"),
 		// Help is default/built-in
 		//help: rootCmd.PersistentFlags().BoolP("help", "?", false, "prints long help for command"),
 	}
-	pf.setup()
+	pData.setup()
 	// version is not default
 	version = rootCmd.Flags().Bool("version", false, "print application version")
 }

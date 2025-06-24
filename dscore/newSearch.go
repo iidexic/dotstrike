@@ -48,8 +48,8 @@ func SelectCfg(aliasP string) bool {
 	for i, c := range GD.data.Cfgs {
 		if aliasP == c.Alias {
 
-			TempGlob.data.Selected = i
-			GD.EncodeIfNeeded(*TempGlob)
+			TempData.Selected = i
+			GD.EncodeIfNeeded(TempData)
 			return true
 		}
 	}

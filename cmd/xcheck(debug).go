@@ -21,6 +21,7 @@ and usage of using your command. For example:
 Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
+	// verbose "v", globals "g", cfg, src, tgt "c","s","t"
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("check called")
 		if len(args) > 0 {
@@ -31,11 +32,14 @@ to quickly create a Cobra application.`,
 			}
 
 		}
+		if pData.countFlags > 0 {
+
+		}
 		//NOTE: this setup might cause some weirdness.
 		// -- GetTempGlobals is only supposed to be used when an edit is occurring
 		// -- probably best to initialize TempGlobals in a different way
-		if *showtempg && dscore.IsTempData() {
-			cmd.Printf("%+v", dscore.GetTempGlobals())
+		if *showtempg && dscore.TempData.Modified {
+			cmd.Printf("%+v", dscore.TempData)
 		} else if *showtempg {
 			cmd.Println("no pending changes (temp is empty)")
 		}

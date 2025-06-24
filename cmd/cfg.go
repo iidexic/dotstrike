@@ -18,25 +18,17 @@ var cfgCmd = &cobra.Command{
 	Long:  `long descr`,
 	Run: func(cmd *cobra.Command, args []string) {
 		/* ╭───────────────────────── CFG command logic ─────────────────────────╮
-		Subcommands:
-		- src
-		- tgt
-		*/
-		//Persistent Flags Short: v, g(?), c, s, t
-		//1+configs: if mix of non/existent, fail if context can't be determined
-
-		/* find := dscore.Operation{
-			Get: dscore.Lookup{
-				GetCfg: len(*pf.cfg) > 0,
-				GetSrc: len(*pf.src) > 0,
-				GetTgt: len(*pf.tgt) > 0},
-		find.ProcessFind()
+		Subcommands: - src - tgt
+		//Persistent Flags Short: v,  c, s, t, g(remove),
 		} */
 		if len(args) > 0 {
 			found := dscore.SelectCfg(args[0])
 			if !found {
 				cmd.Printf("cfg %s not found", args[0])
+			} else {
+
 			}
+
 		}
 	},
 }
