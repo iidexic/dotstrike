@@ -2,6 +2,7 @@ package dscore
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/BurntSushi/toml"
 	pops "iidexic.dotstrike/pathops"
@@ -41,55 +42,40 @@ type globalData struct {
 	Selected   int    `toml:"SelectedCFG"`
 }
 
+func (g *globalData) equal(g2 *globalData) bool {
+	return g.Prefs.Equal(g2.Prefs) &&
+		g.TargetPath == g2.TargetPath &&
+		g.Selected == g2.Selected &&
+		slices.EqualFunc(g.Cfgs, g2.Cfgs, cfgEqual)
+
+}
+func (p prefs) Equal(p2 prefs) bool {
+	return p.KeepHidden == p2.KeepHidden && p.KeepRepo == p2.KeepRepo &&
+		p.GlobalTarget == p2.GlobalTarget
+}
+
 /*
-	NOTE:FROM DOC:
+	NOTE:FROM DOCS:
 
 |If the "omitempty" option is present the following value will be skipped:
-|-> arrays, slices, maps, and string with len of 0
-|-> struct with all zero values
-|-> bool false
+| -> arrays, slices, maps, and string with len of 0, struct with all zero values, bool false
 |+ALSO If omitzero is given all int and float types with a value of 0 will be skipped.
+| ( start iota at 1 with _ = iota to get past this)
 */
 type prefs struct {
 	KeepRepo     bool `toml:"keepRepo"`
 	KeepHidden   bool `toml:"keepHidden"`
 	GlobalTarget bool `toml:"globalTarget"`
 }
-type modifyData struct {
+
+type globalModify struct {
 	*globalData
-	modified bool
+	initialized, Modified bool
 }
 
 // TempGlob exists to store new global data temporarily during runtime
 // this will then be checked/merged with GD, and written to globals file
-var TempGlob *globals = nil
-var TempData *globalData = nil
-var DataModified bool = false
-
-func IsTempData() bool { return TempGlob != nil }
-
-func GetTempGlobals() *globals {
-	// dont leave this like this pleaze
-	if TempGlob == nil {
-		TempGlob = &globals{
-			data: globalData{},
-		}
-	}
-
-	return TempGlob
-}
-
-// NOTE: globalData is the only piece that requires modification when making changes
-func getTempData() *globalData {
-	// dont leave this like this pleaze
-	if TempData == nil {
-		TempData = &globalData{
-			Prefs: GD.data.Prefs,
-		}
-	}
-
-	return TempData
-}
+var TempData globalModify
 
 func (G *globals) decodeRawData() {
 	md, err := toml.Decode(G.rawContents, &G.data)
@@ -102,8 +88,24 @@ func (G *globals) decodeRawData() {
 	//CheckDataDecode(G.data, md)
 }
 
-func (G *globals) EncodeIfNeeded(tempg globals) {
-	if DataModified {
+func InitTempData() {
+	if !TempData.initialized {
+		TempData = globalModify{
+			globalData:  &globalData{},
+			initialized: true,
+			Modified:    false,
+		}
+		TempData.Prefs.GlobalTarget = GD.data.Prefs.GlobalTarget
+		TempData.Prefs.KeepHidden = GD.data.Prefs.KeepHidden
+		TempData.Prefs.KeepRepo = GD.data.Prefs.KeepRepo
+		TempData.TargetPath = GD.data.TargetPath
+		TempData.Selected = GD.data.Selected
+	}
+}
+
+// TODO: replace
+func (G *globals) EncodeIfNeeded(tg globalModify) {
+	if TempData.Modified {
 
 	}
 }

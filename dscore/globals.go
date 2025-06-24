@@ -67,6 +67,14 @@ func GetGlobals() (*globals, error) {
 	}
 	return &globals{}, fmt.Errorf("Globals not loaded.\n Globals = %+v", GD)
 }
+func (g *globalData) GetCfg(alias string) *cfg {
+	for _, cc := range g.Cfgs {
+		if cc.Alias == alias {
+			return &cc
+		}
+	}
+	return nil
+}
 
 // GetConfig reads dotstrikeData.toml in provided directory.
 // on success: populates G.dsconfigPath, reads file into G.rawContents
@@ -105,6 +113,10 @@ func CoreConfig() {
 		GD.status = badToml //pre-emptive
 		GD.decodeRawData()
 		GD.loaded = true
+		// better way to do this?
+		for _, c := range GD.data.Cfgs {
+			c.initializeInherent()
+		}
 		undecoded := GD.md.Undecoded()
 		if len(undecoded) > 0 {
 			GD.logfG("undecoded values from .toml:\n%+v", undecoded)
