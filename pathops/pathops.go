@@ -2,36 +2,32 @@ package pops
 
 import (
 	"fmt"
-	"log"
 	"os"
-	"path"
 	"path/filepath"
 )
 
-// enum type for file op outcomes
-type failureType int
+// enum for path format
+type pathType int
 
-func (f failureType) Detail() string {
-	var rstr string
-	switch f {
-	case None:
-		rstr = fmt.Sprintf("Path Operation successful")
-	case BadPattern:
-		rstr = "bad pattern provided"
-	case DirNotExist:
-		rstr = "directory does not exist"
-	case FileNotExist:
-		rstr = fmt.Sprintf("file does not exist")
-	case FileExist:
-		rstr = fmt.Sprintf("file already exists")
-	case FailedOpen:
-		rstr = fmt.Sprintf("file seems to exist, but failed to open")
-	case Error:
-		rstr = fmt.Sprintf("General Error")
+const (
+	notPath pathType = iota
+	localPath
+	absPath
+)
+
+var Open = os.Open
+var Join = filepath.Join
+
+func ce(e error, msg ...string) {
+	if e != nil {
+		if len(msg) > 0 {
+			panic(e)
+		}
 	}
-	return rstr
-
 }
+
+// enum type for file op outcomes
+type failureType int //TODO: replace system with errors; as is basically converting errors to enum
 
 // Possible outcomes for attempting filesystem operations
 // Different operations have the potential to trigger different subsets of these outcomes
@@ -58,68 +54,84 @@ func (rr ReadResult) OpPath() string { return rr.readpath }
 func (rr ReadResult) Failed() bool   { return rr.Fail != None } //in use
 
 /* func (rr *ReadResult) Explain() string {
-	return rr.Fail.Detail(rr.readpath, rr.Err)
-} */
+return rr.Fail.Detail(rr.readpath, rr.Err) } */
+
+func (f failureType) Detail() string {
+	var rstr string
+	switch f {
+	case None:
+		rstr = fmt.Sprintf("Path Operation successful")
+	case BadPattern:
+		rstr = "bad pattern provided"
+	case DirNotExist:
+		rstr = "directory does not exist"
+	case FileNotExist:
+		rstr = fmt.Sprintf("file does not exist")
+	case FileExist:
+		rstr = fmt.Sprintf("file already exists")
+	case FailedOpen:
+		rstr = fmt.Sprintf("file seems to exist, but failed to open")
+	case Error:
+		rstr = fmt.Sprintf("General Error")
+	}
+	return rstr
+
+}
 
 //var errDie []error = []error{filepath.ErrBadPattern, path.ErrBadPattern, os.ErrExist, os.ErrNotExist,os.ErrPermission}
 
-func ce(e error, msg ...string) {
-	if e != nil {
-		if len(msg) > 0 {
-			log.Panic(e)
-		}
-	}
-}
-
-var Open = os.Open
-
 // OpenExistingFile attempts to open an existing file
 // on success: returns open *os.File, nil. on fail: returns nil, error
-func OpenExistingFile(fpath string) (*os.File, error) {
-	file, err := os.Open(fpath)
+func OpenExistingFile(ospath string) (*os.File, error) {
+	file, err := os.Open(ospath)
 	if err != nil {
 		return file, err
 	}
 	return file, nil
 }
-func Result() {
 
+// HomeJoin retrieves abs homedir path, adds suffix to the end, and returns.
+// Directly returns error from os.UserHomeDir()
+func HomeJoin(suffix string) (string, error) {
+	home, e := os.UserHomeDir()
+	if len(suffix) > 1 {
+	}
+	return filepath.Join(home), e
 }
 
 // makeabs returns absolute path of inpath
 // inpath may or may not be relative from home dir/cwd
-func makeabs(inpath string) string {
-	if !path.IsAbs(inpath) {
+func MakeAbs(inpath string) string {
+	if !filepath.IsAbs(inpath) {
 		var e error
 		inpath, e = filepath.Abs(inpath)
 		if e != nil {
-			log.Panic(e)
+			panic(e)
 		}
 	}
 	return inpath
 }
 
 // MakeOpenFileF will open the given fpath as a file. It will make the file if it does not exist,
-//
-//	and it will make any missing directories necessary.
-func MakeOpenFileF(fpath string) *os.File {
-	// Check 3 locationsthat
+// and it will make any missing directories necessary.
+func MakeOpenFileF(fpath string) (*os.File, error) {
+	// makedir->create+open|if exists->open
 	e := os.MkdirAll(filepath.Dir(fpath), os.ModeDir)
 	ce(e)
 	file, e := os.OpenFile(fpath, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
 	if os.IsExist(e) {
 		file, e = os.Open(fpath)
 		if e != nil {
-			log.Panic(fmt.Errorf("error: %w \ndatafile: %s exists but failed to open file", e, fpath))
+			return file, e
 		}
 	}
-	return file
+	return file, nil
 }
 
 // ReadFile will read contents of file into a ReadResult object and return a ptr
 // result contains file and/or operation outcome/error if e!=nil
 func ReadFile(pathElements ...string) *ReadResult {
-	fpath := path.Join(pathElements...)
+	fpath := filepath.Join(pathElements...)
 	result := &ReadResult{Fail: None, readpath: fpath}
 	file, e := os.ReadFile(fpath)
 	if e != nil && os.IsNotExist(e) {
@@ -149,7 +161,7 @@ func ReadFile(pathElements ...string) *ReadResult {
 // ReadFileOrErr will read contents of file into a ReadResult and return a ptr to it.
 // adds error to result.Err if not nil. Does not populate result.Fail
 func ReadFileOrErr(pathElements ...string) *ReadResult {
-	fpath := path.Join(pathElements...)
+	fpath := filepath.Join(pathElements...)
 	result := &ReadResult{Fail: None, readpath: fpath}
 	file, e := os.ReadFile(fpath)
 	if e != nil {
@@ -162,11 +174,13 @@ func ReadFileOrErr(pathElements ...string) *ReadResult {
 func CalledFrom() string {
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 		//what
 	}
 	return dir
 }
+
+var CleanPath = filepath.Clean
 
 // TODO: symlink testing (next 2 functions related)
 func IsBasicPath(p string) bool {
@@ -180,8 +194,8 @@ func IsSymlink(p string) bool {
 	return symP == p
 }
 
-// CheckPath for debug. TODO:remove when done
-func CheckPath(p string) string {
+// CheckPathDebug for debug. TODO:remove when done
+func CheckPathDebug(p string) string {
 	abs, e := filepath.Abs(p)
 	ce(e)
 	isabs := filepath.IsAbs(p)
@@ -205,7 +219,7 @@ func CheckPath(p string) string {
 	if !isabs && !isloc {
 		ptypestr = ptypestr + "[UNKNOWN]"
 	}
-	path.Clean(p)
+	filepath.Clean(p)
 
 	locpls := filepath.Clean(p)
 	base := filepath.Base(p)
