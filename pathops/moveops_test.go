@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"testing"
 )
 
@@ -15,8 +16,7 @@ func testhome(suffix string, t *testing.T) string {
 	}
 	return path.Join(h, suffix)
 }
-
-func testLilCopy(fpath string, dest string, t *testing.T) {
+func checkbasicpath(fpath string, dest string, t *testing.T) {
 	if !IsBasicPath(fpath) {
 		t.Logf("not basic path: '%s'", fpath)
 		t.Fail()
@@ -25,13 +25,17 @@ func testLilCopy(fpath string, dest string, t *testing.T) {
 		t.Logf("not basic path: '%s'", dest)
 		t.Fail()
 	}
-	fpdat, efrom := os.Stat(fpath)
-	ce(efrom)
-	ddat, efrom := os.Stat(dest)
+	fpdetail := DetailStatPath(fpath)
+	ddetail := DetailStatPath(dest)
 
-	t.Logf("fp '%s' stat: %+v", fpath, fpdat)
-	t.Logf("dest '%s' stat: %+v", dest, ddat)
+	t.Log(fpdetail)
+	t.Log(ddetail)
 
+}
+
+func testLilCopy(fpath string, dest string, t *testing.T) {
+
+	checkbasicpath(fpath, dest, t)
 	filefrom, efrom := OpenExistingFile(fpath)
 	if efrom != nil {
 		t.Log(efrom)
@@ -40,7 +44,11 @@ func testLilCopy(fpath string, dest string, t *testing.T) {
 		t.Error("filefrom: no file data")
 	}
 	defer filefrom.Close()
-	fileto, eto := MakeOpenFileF(dest)
+	dpath, e := filepath.Abs(dest)
+	if e != nil {
+		t.Error(e)
+	}
+	fileto, eto := MakeOpenFileF(dpath)
 	if eto != nil {
 		t.Error(eto)
 	}
@@ -102,9 +110,13 @@ func TestStatPaths(t *testing.T) {
 		}
 	}
 }
+func TestPrintDebug(t *testing.T) {
+	t.Log()
+}
 
 func TestLilCopyGetToml(t *testing.T) {
-	testLilCopy("~/.config/dotstrike/dotstrikeData.toml", "./_xtra/dotstrikeData.toml", t)
+	configtoml := HomeDirtyJoin(".config/dotstrike/dotstrikeData.toml")
+	testLilCopy(configtoml, "./_xtra/dotstrikeData.toml", t)
 }
 
 func TestLilCopyPushToml(t *testing.T) {

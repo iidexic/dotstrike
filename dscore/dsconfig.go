@@ -169,10 +169,9 @@ func (G *globals) encodeG() error {
 	}
 }
 
-// encodeModified is a functional encode of gm data to dotstrikeData.toml
+// encodeModified gm data to main toml
 func (gm *globalModify) encodeModified() error {
-	testpath := ""
-	file, e := pops.OpenExistingFile(testpath)
+	file, e := pops.OpenExistingFile(globalsFilepath())
 	if e != nil || file == nil {
 		return e
 	}
