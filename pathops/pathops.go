@@ -96,7 +96,15 @@ func HomeJoin(suffix string) (string, error) {
 	home, e := os.UserHomeDir()
 	if len(suffix) > 1 {
 	}
-	return filepath.Join(home), e
+	return filepath.Join(home, suffix), e
+}
+
+// HomeJoin retrieves abs homedir path, adds suffix to the end, and returns.
+// Directly returns error from os.UserHomeDir()
+func HomeDirtyJoin(suffix string) string {
+	home, e := os.UserHomeDir()
+	ce(e)
+	return filepath.Join(home, suffix)
 }
 
 // makeabs returns absolute path of inpath

@@ -27,7 +27,7 @@ to quickly create a Cobra application.`,
 		if len(args) > 0 {
 			for i, arg := range args {
 				cmd.Print("[", i, "] ")
-				print(pops.CheckPath(arg))
+				print(pops.CheckPathDebug(arg))
 
 			}
 
@@ -35,11 +35,8 @@ to quickly create a Cobra application.`,
 		if pData.countFlags > 0 {
 
 		}
-		//NOTE: this setup might cause some weirdness.
-		// -- GetTempGlobals is only supposed to be used when an edit is occurring
-		// -- probably best to initialize TempGlobals in a different way
-		if *showtempg && dscore.TempData.Modified {
-			cmd.Printf("%+v", dscore.TempData)
+		if td := dscore.GetTempData(); td != nil && *showtempg && td.Modified {
+			cmd.Printf("%+v", td)
 		} else if *showtempg {
 			cmd.Println("no pending changes (temp is empty)")
 		}

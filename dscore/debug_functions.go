@@ -6,21 +6,21 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-func (G *globals) Dump() []string {
+func DumpGlobals() []string {
 	dump := []string{
 		"__GLOBALS__",
-		G.status.string(),
-		fmt.Sprintf("globals loaded: %t", G.loaded),
-		fmt.Sprintf("preferences: %+v", G.data.Prefs),
-		fmt.Sprintf("globals file path: %s", G.dsconfigPath),
-		fmt.Sprintf("checked paths: %v", G.checkedpaths),
+		gd.status.string(),
+		fmt.Sprintf("globals loaded: %t", gd.loaded),
+		fmt.Sprintf("preferences: %+v", gd.data.Prefs),
+		fmt.Sprintf("globals file path: %s", gd.dsconfigPath),
+		fmt.Sprintf("checked paths: %v", gd.checkedpaths),
 		"-- user cfgs --",
 	}
-	for i, c := range G.data.Cfgs {
+	for i, c := range gd.data.Cfgs {
 		dump = append(dump, fmt.Sprintf("[c%d] %s", i, c.status()))
 	}
 	dump = append(dump, "__MESSAGES__\n")
-	dump = append(dump, G.GlobalMessage...)
+	dump = append(dump, gd.GlobalMessage...)
 	return dump
 }
 

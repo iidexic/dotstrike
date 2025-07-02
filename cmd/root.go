@@ -4,10 +4,12 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"log/slog"
 	"os"
 
 	"github.com/spf13/cobra"
 	"iidexic.dotstrike/dscore"
+	pops "iidexic.dotstrike/pathops"
 )
 
 const verstr string = "0.0.1"
@@ -18,12 +20,18 @@ func ce(e error) {
 	}
 }
 
+// TODO: SET UP LOGGING
+func initLogging() {
+	logger := slog.NewTextHandler(pops.MakeOpenFileF("dslog.txt"), nil)
+	_ = logger
+}
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "dotget",
 	Short: "make groups of config files/dotfiles to copy to one central location",
 	Long: `
-Dotstrike is an application with the intent to make managing config files easier.
+Dotstrike is a tool to set up and trigger file copy actions.
 The current use is backing up config files from various locations into a single path/repo, and syncing in both directions.
 It was primarly intended for Windows systems, where there is no designated common path 
 or standard practice for storing these files. 
@@ -39,16 +47,11 @@ and directories between the path where they are used and a storage/repo location
 		}
 		if *pData.debug {
 			cmd.Printf("DEBUG")
-			gdump := dscore.GD.Dump()
+			gdump := dscore.DumpGlobals()
 			for _, l := range gdump {
 				cmd.Println(l)
 			}
 		}
-	},
-}
-var postCmd = &cobra.Command{
-	Run: func(cmd *cobra.Command, args []string) {
-
 	},
 }
 
@@ -78,9 +81,17 @@ func (p *persistentData) setup() {
 
 }
 
+type pfid int
+
+//func (p *persistentData) checkAddData() { }
+
 // pData is the persistentData var that stores all persistent flag values
 var pData persistentData
 var version *bool
+
+func (p *persistentData) componentFlags() {
+
+}
 
 func init() {
 	// Here you will define your flags and configuration settings.

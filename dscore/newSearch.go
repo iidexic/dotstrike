@@ -34,7 +34,7 @@ package dscore
 // FindCfgExact returns a pointer to the cfg object where alias = aliasP
 // If aliasP not found, returns nil
 func FindCfgExact(aliasP string) *cfg {
-	for _, c := range GD.data.Cfgs {
+	for _, c := range gd.data.Cfgs {
 		if aliasP == c.Alias {
 			return &c
 		}
@@ -43,13 +43,19 @@ func FindCfgExact(aliasP string) *cfg {
 
 }
 
-// SelectCfg and write to temp so it can be encoded
-func SelectCfg(aliasP string) bool {
-	for i, c := range GD.data.Cfgs {
-		if aliasP == c.Alias {
+// SelectCfg and write selection (index i where gd.Cfgs[i].Alias == alias)
+func SelectCfg(alias string) bool {
+	for i, c := range gd.data.Cfgs {
+		if alias == c.Alias {
+			if !tempData.initialized {
+				InitTempData()
+			}
+			tempData.Selected = i
+			e := gd.EncodeIfNeeded(&tempData)
+			if e != nil { //TODO: send up for cmd to log?
+				panic(e)
+			}
 
-			TempData.Selected = i
-			GD.EncodeIfNeeded(TempData)
 			return true
 		}
 	}
@@ -64,7 +70,7 @@ func FindCfgAlias(aliasP string) (int, string) {
 	var closest string
 	// I don't know for sure
 	_, _ = close, closest
-	Global := GD
+	Global := gd
 	for _, c := range Global.data.Cfgs {
 		lc := len(c.Alias)
 		if aliasP == c.Alias {
