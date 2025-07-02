@@ -26,8 +26,6 @@ func (G *globals) AddCfg(data cfg) {
 	G.data.Cfgs = append(G.data.Cfgs, data)
 }
 
-// SetAlias is not following methodology of other functions, remove
-/* func (cc *cfg) SetAlias(alias string) error { if gd.data.GetCfg(alias) != nil { return errorNotUnique } cc.Alias = alias return nil } */
 func (cc *cfg) GetIgnores() *[]string { return &cc.Ignorepat }
 func (cc *cfg) GetLocalPrefs() *prefs { return &cc.Overrides }
 

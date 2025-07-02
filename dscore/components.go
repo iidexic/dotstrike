@@ -3,6 +3,8 @@ package dscore
 import (
 	"fmt"
 	"slices"
+
+	pops "iidexic.dotstrike/pathops"
 )
 
 // Denote whether paths in pathObjects are path or dir
@@ -17,6 +19,7 @@ const (
 	targetComponent
 	filePath pathType = iota
 	dirPath
+	dnePath
 )
 
 // component interface for interop search
@@ -36,7 +39,7 @@ type pathComponent struct {
 	Ignores []string      `toml:"ignores"` // remove if not using target ignore copy
 	Ptype   pathType      `toml:"ptype"`   //targetComponent requires dirPath
 	Ctype   componentType `toml:"ctype"`   //NOTE: not  implemented
-	Parent  string
+	Parent  string        //NOTE: INITIALIZE INHERENT
 }
 
 // cfg is the primary structure used to define a move/strike
@@ -68,7 +71,6 @@ func (pc pathComponent) getCtype() componentType { return pc.Ctype }
 func (cc cfg) getAlias() string                  { return cc.Alias }
 func (cc cfg) getCtype() componentType           { return cc.Ctype }
 
-func (cc *cfg) SetAlias(alias string) { cc.Alias = alias }
 func (cc *cfg) getSource(alias string) *pathComponent {
 	for _, src := range cc.Sources {
 		if alias == src.Alias {
@@ -90,6 +92,12 @@ func (cc cfg) status() string {
 	expln := fmt.Sprintf("cfg:'%s' - Sources:\n%+v", cc.Alias, cc.Sources)
 	return expln
 }
+func newPathComponent(ospath string, ctype componentType) *pathComponent {
+	// do this here or at the end of modify?
+	goodpath := pops.CleanPath(ospath)
+	return &pathComponent{Path: goodpath, Ctype: ctype}
+
+}
 
 func (pc pathComponent) ID() string {
 	return pc.Parent + "~>" + string(pc.Ctype) + "~>" + pc.Alias
@@ -99,6 +107,8 @@ func pathComponentEqual(pc, pc2 pathComponent) bool {
 		pc.Ptype == pc2.Ptype && pc.Ctype == pc2.Ctype && slices.Equal(pc.Ignores, pc2.Ignores)
 }
 
+// cfgEqual compares two cfg params for equality.
+// standalone function to ensure compatible with slices.EqualFunc
 func cfgEqual(cc, cc2 cfg) bool {
 	return cc.Alias == cc2.Alias && cc.Overrides == cc2.Overrides && cc.Ctype == cc2.Ctype &&
 		slices.EqualFunc(cc.Sources, cc2.Sources, pathComponentEqual) &&

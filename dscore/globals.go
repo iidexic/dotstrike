@@ -11,6 +11,7 @@ import (
 // enum type
 type globalsReadResult int
 
+// TODO: Just turn these into errors. Basically are, just called it .string() instead of .Error()
 // potential outcomes of attempting to read and load global config/user data into usable components
 const (
 	preInit = iota
@@ -39,7 +40,7 @@ func (gr globalsReadResult) string() string {
 
 // primary var that data will be pulled into.
 // as is, it also serves as configuration defaults.
-var GD = globals{
+var gd = globals{
 	status: noInit,
 	loaded: false,
 	data: globalData{
@@ -60,12 +61,21 @@ GlobalMessage []string */
 
 // globalsFilename is the file that ds looks to pull settings and userdata from
 const globalsFilename = "dotstrikeData.toml"
+const globalPathHomeRelative = ".config/dotstrike/dotstrikeData.toml"
+
+func globalsFilepath() string {
+	gpath, e := pops.HomeJoin(globalPathHomeRelative)
+	if e != nil {
+		panic(e)
+	}
+	return gpath
+}
 
 func GetGlobals() (*globals, error) {
-	if GD.loaded {
-		return &GD, nil
+	if gd.loaded {
+		return &gd, nil
 	}
-	return &globals{}, fmt.Errorf("Globals not loaded.\n Globals = %+v", GD)
+	return &globals{}, fmt.Errorf("Globals not loaded.\n Globals = %+v", gd)
 }
 func (g *globalData) GetCfg(alias string) *cfg {
 	for _, cc := range g.Cfgs {
@@ -108,21 +118,21 @@ func CoreConfig() {
 	homedir, errcfg := os.UserHomeDir()
 	ifer(errcfg) // for now just panic
 	cfgdir := path.Join(homedir, ".config/dotstrike")
-	gotConfig := GD.GetConfig(cfgdir)
+	gotConfig := gd.GetConfig(cfgdir)
 	if gotConfig {
-		GD.status = badToml //pre-emptive
-		GD.decodeRawData()
-		GD.loaded = true
+		gd.status = badToml //pre-emptive
+		gd.decodeRawData()
+		gd.loaded = true
 		// better way to do this?
-		for _, c := range GD.data.Cfgs {
+		for _, c := range gd.data.Cfgs {
 			c.initializeInherent()
 		}
-		undecoded := GD.md.Undecoded()
+		undecoded := gd.md.Undecoded()
 		if len(undecoded) > 0 {
-			GD.logfG("undecoded values from .toml:\n%+v", undecoded)
+			gd.logfG("undecoded values from .toml:\n%+v", undecoded)
 		}
-		if len(undecoded) < len(GD.md.Keys()) {
-			GD.status = success
+		if len(undecoded) < len(gd.md.Keys()) {
+			gd.status = success
 		}
 
 	} else {
