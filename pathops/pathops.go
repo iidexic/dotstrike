@@ -2,6 +2,7 @@ package pops
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 )
@@ -59,6 +60,7 @@ return rr.Fail.Detail(rr.readpath, rr.Err) } */
 func (f failureType) Detail() string {
 	var rstr string
 	switch f {
+	//TODO: check later to see if I actually ever use the fmt.Sprintf
 	case None:
 		rstr = fmt.Sprintf("Path Operation successful")
 	case BadPattern:
@@ -126,14 +128,64 @@ func MakeOpenFileF(fpath string) (*os.File, error) {
 	// makedir->create+open|if exists->open
 	e := os.MkdirAll(filepath.Dir(fpath), os.ModeDir)
 	ce(e)
-	file, e := os.OpenFile(fpath, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
+	file, e := os.OpenFile(fpath, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o666)
 	if os.IsExist(e) {
-		file, e = os.Open(fpath)
+		file, e = os.OpenFile(fpath, os.O_RDWR, 0)
+		return file, e
+	}
+	return file, e
+}
+
+func NoError(errors []error) bool {
+	for _, e := range errors {
 		if e != nil {
-			return file, e
+			return false
 		}
 	}
-	return file, nil
+	return true
+}
+func CopyFileME(toPath, fromPath string) []error {
+	var e error
+	//TODO: deal with these errors in a better way
+	ers := make([]error, 7)
+	//e0- getabs(to)
+	//e1-getabs(from)
+	//e2-OpenExisting(from)
+	//e3-stat(from)
+	//e4-MakeOpen(to)
+	//e5-Copy(to/from)
+	//e6-writtenBytes vs size(from) custom error
+	if !filepath.IsAbs(fromPath) {
+		fromPath, e = filepath.Abs(toPath)
+		ers[0] = e
+	}
+	if !filepath.IsAbs(toPath) {
+		toPath, e = filepath.Abs(toPath)
+		ers[1] = e
+	}
+	// 2. open fromPath
+	fromFile, e := OpenExistingFile(fromPath)
+	ers[2] = e
+	defer fromFile.Close()
+	fromStat, e := fromFile.Stat()
+	ers[3] = e
+	fromSize := fromStat.Size()
+
+	toFile, e := MakeOpenFileF(toPath)
+	ers[4] = e
+	defer toFile.Close()
+
+	writtenBytes, e := io.CopyBuffer(toFile, fromFile, nil)
+	ers[5] = e
+	if fromSize != writtenBytes {
+		if writtenBytes > fromSize {
+			ers[6] = fmt.Errorf("wrote more bytes (%d) than original filesize(%d)",
+				writtenBytes, fromSize)
+		} else {
+			ers[6] = fmt.Errorf("Did not write enire file: size %d, written %d", fromSize, writtenBytes)
+		}
+	}
+	return ers
 }
 
 // ReadFile will read contents of file into a ReadResult object and return a ptr

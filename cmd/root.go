@@ -22,7 +22,11 @@ func ce(e error) {
 
 // TODO: SET UP LOGGING
 func initLogging() {
-	logger := slog.NewTextHandler(pops.MakeOpenFileF("dslog.txt"), nil)
+	lf, e := pops.MakeOpenFileF("dslog.txt")
+	if e != nil {
+		panic(e)
+	}
+	logger := slog.NewTextHandler(lf, nil)
 	_ = logger
 }
 

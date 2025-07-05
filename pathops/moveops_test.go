@@ -4,18 +4,10 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"testing"
 )
 
-func testhome(suffix string, t *testing.T) string {
-	h, e := HomeJoin(suffix)
-	if e != nil {
-		t.Log("HomeDir Error:", e)
-	}
-	return path.Join(h, suffix)
-}
 func checkbasicpath(fpath string, dest string, t *testing.T) {
 	if !IsBasicPath(fpath) {
 		t.Logf("not basic path: '%s'", fpath)
@@ -33,12 +25,33 @@ func checkbasicpath(fpath string, dest string, t *testing.T) {
 
 }
 
+func findProjdir(upath, projname string, t *testing.T) string {
+	if !filepath.IsAbs(upath) {
+		if filepath.Ext(upath) == "" {
+			//prob dir
+		}
+
+		e := os.Chdir("..")
+		if e != nil {
+			t.Logf("Chdir error: %e", e)
+			e = nil
+		}
+		uabs, e := filepath.Abs(upath)
+		if e != nil {
+			t.Logf("Get abspath from '%s' failed: %e", upath, e)
+		} else {
+			upath = uabs
+		}
+	}
+	return upath
+}
+
 func testLilCopy(fpath string, dest string, t *testing.T) {
 
-	checkbasicpath(fpath, dest, t)
+	//checkbasicpath(fpath, dest, t)
 	filefrom, efrom := OpenExistingFile(fpath)
 	if efrom != nil {
-		t.Log(efrom)
+		t.Logf("error opening filefrom: %e", efrom)
 	}
 	if filefrom == nil {
 		t.Error("filefrom: no file data")
@@ -48,18 +61,32 @@ func testLilCopy(fpath string, dest string, t *testing.T) {
 	if e != nil {
 		t.Error(e)
 	}
+
 	fileto, eto := MakeOpenFileF(dpath)
+	t.Logf("file-to Fd: %v", fileto.Fd())
+	t.Log(eto)
 	if eto != nil {
+		t.Log("Error MakeOpenFile: ")
 		t.Error(eto)
 	}
 	defer fileto.Close()
-	written, ecpy := io.Copy(filefrom, fileto)
+	written, ecpy := io.Copy(fileto, filefrom)
 	if ecpy != nil {
 		t.Log("(first) Error Copying")
 		t.Error(ecpy)
 	}
 	t.Log(fmt.Sprintf("bytes copied: %d", written))
 
+}
+
+func TestLilCopyGetToml(t *testing.T) {
+	configtoml := HomeDirtyJoin(".config/dotstrike/dotstrikeData.toml")
+	loctoml := findProjdir("./_xtra/dotstrikeData.toml", "dotstrike", t)
+	testLilCopy(configtoml, loctoml, t)
+}
+
+func TestLilCopyPushToml(t *testing.T) {
+	testLilCopy("./_xtra/dotstrikeData.toml", "~/.config/dotstrike/dotstrikeData.toml", t)
 }
 
 func TestStatHomePath(t *testing.T) {
@@ -112,13 +139,4 @@ func TestStatPaths(t *testing.T) {
 }
 func TestPrintDebug(t *testing.T) {
 	t.Log()
-}
-
-func TestLilCopyGetToml(t *testing.T) {
-	configtoml := HomeDirtyJoin(".config/dotstrike/dotstrikeData.toml")
-	testLilCopy(configtoml, "./_xtra/dotstrikeData.toml", t)
-}
-
-func TestLilCopyPushToml(t *testing.T) {
-	testLilCopy("./_xtra/dotstrikeData.toml", "~/.config/dotstrike/dotstrikeData.toml", t)
 }
