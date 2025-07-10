@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/fs"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -27,7 +28,7 @@ type copierMaschine struct {
 }
 
 // primary-instance use
-var cmachine copierMaschine
+var cmachine copierMaschine = copierMaschine{JobQueue: make(map[string]*CopyJob)}
 
 func GetCopierMaschine() *copierMaschine { return &cmachine }
 
@@ -72,16 +73,9 @@ func (CM *copierMaschine) RunJob(jobName string) *CopyJob {
 }
 
 // CopyJob prepares and executes the copy of all contents of PathIn to PathOut
-// Pre-Run:
-// PathIn & PathOut are root dir of original files and copy location, respectively
-// ignore contains list of files to ignore; must be populated before running
-// JobSettings contains job-specific settings that will affect how copy job runs
-// Post-Run:
-// fstack will be populated when the job is run, providing a record of what is copied
-// OpErrors contains encountered errors, using fs.PathError format.
 type CopyJob struct {
-	PathIn, PathOut string
-	originalPathOut string // will be populated if makeRootSubdir = true
+	PathIn, PathOut string // Root of copy source and destination (*or destination parent)
+	originalPathOut string // unused. populated on run if JobSettings.makeRootSubdir = true
 	fstack          []filecopy
 	ignore          IgnoreSet
 	OpErrors        []fs.PathError
@@ -89,24 +83,32 @@ type CopyJob struct {
 }
 
 type copyConfig struct {
-	makeRootSubdir bool
+	makeRootSubdir bool // if true, appends base(PathIn) to PathOut
 	//DRY_RUN bool
 }
 
 // SetOptionMakeSubdir - sets CopyJob.JobSettings.makeRootSubdir
 // this appends the PathIn dir name to PathOut
-// if true: given PathIn == (base-pathIn...\DirName), set PathOut = (PathOut\DirName)
-// if false: Copy directly to provided PathOut
+// if true: set PathOut= filepath.Join(PathOut, filepath.Base(PathIn)), store original
+// if false: Copy directly into provided PathOut
 func (J *CopyJob) SetOptionMakeSubdir(makeSubdir bool) {
 	J.JobSettings.makeRootSubdir = makeSubdir
 }
 
 // filecopy acts as a record of a single file's copy operation
 type filecopy struct {
-	name, relpath   string
-	id              int //?
-	inPath, outPath string
+	relpath         string
 	inSize, outSize int64
+}
+
+// joinpath wraps filepath.Join, but fixes os path inconsistency before returning
+func joinpath(elem ...string) string {
+	p := filepath.Join(elem...)
+	//NOTE: Commenting out for testing
+	/* if runtime.GOOS == "windows" {
+		p = strings.Replace(p, "/", `\`, -1)
+	} */
+	return p
 }
 
 // Removed for now.
@@ -116,17 +118,44 @@ type filecopy struct {
 // 	esrc    esource
 // }
 
-func (J *CopyJob) Load(absPathIn, absPathOut string) {
-	J.fstack = append(J.fstack, filecopy{
-		inPath: absPathIn, outPath: absPathOut,
-	})
+func (J *CopyJob) logError(abspath, opname string, e error) {
+	J.OpErrors = append(J.OpErrors, fs.PathError{Path: abspath, Op: opname, Err: e})
 }
-func (J *CopyJob) Run( /* params */ ) error {
-	if J.JobSettings.makeRootSubdir {
-		J.originalPathOut = J.PathOut
-		J.PathOut = filepath.Join(J.PathOut, filepath.Base(J.PathIn))
+
+// checkAndLogError checks the error, and logs non-nil errors to CopyJob.logError.
+// returns true if error!=nil, else false
+func (J *CopyJob) checkAndLogError(abspath, opname string, e error) bool {
+	if e != nil {
+		J.logError(abspath, opname, e)
+		return true
 	}
-	e := filepath.WalkDir(J.PathIn, J.Walk)
+	return false
+}
+
+func (J *CopyJob) addFile(relpath string, inSize, outSize int64) {
+	J.fstack = append(J.fstack, filecopy{relpath: relpath, inSize: inSize, outSize: outSize})
+}
+
+func (J *CopyJob) Run( /* params */ ) error {
+	// condition paths
+	var e error
+	//NOTE: Commenting out for testing
+	/* J.PathIn, e = conditionPath(J.PathIn)
+	if J.checkAndLogError(J.PathIn, "conditionPath", e) {
+		return fmt.Errorf("error abs(PathIn): %w", e) }
+	J.PathOut, e = conditionPath(J.PathOut)
+	if J.checkAndLogError(J.PathOut, "conditionPath", e) {
+		return fmt.Errorf("error abs(PathOut): %w", e)
+	} */
+
+	// Add folder name to PathOut if needed. *Run this after clean
+	// checking for blank originalPathOut just to avoid potential future issue
+	if J.JobSettings.makeRootSubdir && J.originalPathOut == "" {
+		J.originalPathOut = J.PathOut
+		J.PathOut = joinpath(J.PathOut, filepath.Base(J.PathIn))
+		// Join uses "OS specific Separator"
+	}
+	e = filepath.WalkDir(J.PathIn, J.Walk)
 	if e != nil {
 		J.OpErrors = append(J.OpErrors, fs.PathError{Path: J.PathIn, Err: e, Op: ""})
 		return e
@@ -134,44 +163,21 @@ func (J *CopyJob) Run( /* params */ ) error {
 	return nil
 }
 
-func (J *CopyJob) logError(abspath, opname string, e error) {
-	J.OpErrors = append(J.OpErrors, fs.PathError{Path: abspath, Op: opname, Err: e})
-}
-
-func (J *CopyJob) checkAndLogError(abspath, opname string, e error) {
-	if e != nil {
-		J.logError(abspath, opname, e)
-	}
-}
-
-// NOTE: Removed. Amount of detail unnecessary
-func (J *CopyJob) newFilecopy(inInfo *fs.FileInfo, inPath, outPath string, outSize int64) *filecopy {
-	J.fstack = append(J.fstack, filecopy{name: (*inInfo).Name(),
-		inPath: inPath, outPath: outPath, outSize: outSize})
-	return &J.fstack[len(J.fstack)-1]
-}
-
-func (J *CopyJob) addFile(relpath string, inSize, outSize int64) {
-	J.fstack = append(J.fstack, filecopy{relpath: relpath, inSize: inSize, outSize: outSize})
-}
-
 func (J *CopyJob) Walk(p string, d DirEntry, e error) error {
+	// removed filepath.clean(p)
+
 	// DIRECTORIES:
 	if d.IsDir() {
-		if J.ignore.isIgnored(p) {
+		// check ignore + prevent recursion (if PathOut is a subdir of PathIn)
+		if J.ignore.isIgnored(p) || strings.HasPrefix(p, J.PathOut) {
 			return fs.SkipDir
 		}
 		return nil
 	}
 	// FILES:
 	// ── 0. make filepath out ─────────────────────────────────
-	prel := J.stripRoot(p) //	!INFO: panics on error; error is unexpected(expand)
-	prr := prel
-	// add folder name if option enabled
-	if J.JobSettings.makeRootSubdir {
-		prr = filepath.Join(filepath.Base(J.PathIn), prr)
-	}
-	pto := filepath.Join(J.PathOut, prr)
+	prr := J.stripRoot(p) //	!INFO: panics on error; error is unexpected(expand)
+	pto := joinpath(J.PathOut, prr)
 	if !filepath.IsAbs(pto) {
 		pto = absNoE(pto) //	!INFO: panics on error; error is unexpected(expand)
 	}
@@ -193,8 +199,20 @@ func (J *CopyJob) Walk(p string, d DirEntry, e error) error {
 	// check size original matches new copied
 	inDE, e := d.Info()
 	J.checkAndLogError(p, "GetFileInfo_In", e)
-	J.addFile(prel, inDE.Size(), wb)
+	J.addFile(prr, inDE.Size(), wb)
 	return nil
+}
+
+// stripRoot removes CopyJob.PathIn from path provided for construction of destination path
+// structure/intent of CopyJob requires J.PathIn to be a prefix in rpath.
+// As such, if an error is encountered, stripRoot panics
+func (J *CopyJob) stripRoot(p string) string {
+	relp, e := filepath.Rel(J.PathIn, p)
+	if e != nil {
+		panic(fmt.Errorf("stripRoot(%s) error: %v", p, e))
+	}
+	return relp
+
 }
 
 // absNoE runs abs and returns the resulting string; panics on error
@@ -206,16 +224,16 @@ func absNoE(p string) string {
 	return po
 }
 
-// stripRoot removes CopyJob.PathIn from arg path `rpath` for construction of destination path
-// structure/intent of CopyJob requires J.PathIn to be a prefix in rpath.
-// As such, if an error is encountered, stripRoot panics
-func (J *CopyJob) stripRoot(rpath string) string {
-	p, e := filepath.Rel(rpath, J.PathIn)
-	if e != nil {
-		panic(fmt.Errorf("stripRoot(%s) error: %v", rpath, e))
+// conditionPath cleans path, gets abs path, and fixes windows path separators
+// returns error direct from filepath.Abs
+func conditionPath(p string) (string, error) {
+	var e error
+	p = filepath.Clean(p)
+	p, e = filepath.Abs(p)
+	if runtime.GOOS == "windows" {
+		p = strings.Replace(p, "/", `\`, -1)
 	}
-	return p
-
+	return p, e
 }
 
 // ── Ignore Functionality ────────────────────────────────────────────
