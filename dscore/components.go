@@ -14,12 +14,17 @@ type pathType = byte
 type componentType = byte
 
 const (
-	cfgComponent componentType = iota
-	sourceComponent
-	targetComponent
-	filePath pathType = iota
+	_ pathType = iota
+	filePath
 	dirPath
 	dnePath
+)
+
+const (
+	_ componentType = iota
+	cfgComponent
+	sourceComponent
+	targetComponent
 )
 
 // component interface for interop search
@@ -65,6 +70,19 @@ func (cc *cfg) initializeInherent() {
 	}
 }
 
+func (cc cfg) allInitialized() bool {
+	all := cc.Ctype > 0
+	for _, src := range cc.Sources {
+		all = all && src.Ctype > 0 && src.Parent != ""
+	}
+	for _, tgt := range cc.Sources {
+		all = all && tgt.Ctype > 0 && tgt.Parent != ""
+	}
+	return all
+}
+
+func (pc pathComponent) isInitialized() bool { return pc.Parent != "" && pc.Ctype > 0 }
+
 // interface methods
 func (pc pathComponent) getAlias() string        { return pc.Alias }
 func (pc pathComponent) getCtype() componentType { return pc.Ctype }
@@ -99,12 +117,26 @@ func newPathComponent(ospath string, ctype componentType) *pathComponent {
 
 }
 
-func (pc pathComponent) ID() string {
-	return pc.Parent + "~>" + string(pc.Ctype) + "~>" + pc.Alias
+// id makes pathComponent Alias based on parent, ctype, path
+func (pc pathComponent) id() string {
+	return pc.Parent + "" + string(pc.Ctype) + "" + pc.Alias
 }
 func pathComponentEqual(pc, pc2 pathComponent) bool {
 	return pc.Alias == pc2.Alias && pc.Abspath == pc2.Abspath && pc.Path == pc2.Path &&
 		pc.Ptype == pc2.Ptype && pc.Ctype == pc2.Ctype && slices.Equal(pc.Ignores, pc2.Ignores)
+}
+
+func (cc cfg) runCopy() error {
+	if !cc.allInitialized() {
+		return fmt.Errorf("cfg not initialized: %s", cc.Alias)
+	}
+	copymachine := pops.GetCopierMaschine()
+	for _, tgt := range cc.Targets {
+		for _, src := range cc.Sources {
+			_, _, _ = src, tgt, copymachine
+		}
+	}
+	return nil
 }
 
 // cfgEqual compares two cfg params for equality.

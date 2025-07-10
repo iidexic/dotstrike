@@ -6,10 +6,10 @@ import (
 	pops "iidexic.dotstrike/pathops"
 )
 
-func testcfg() *cfg {
-	c := cfg{}
-
-	return &c
+var tcfg = cfg{
+	Alias:   "testfiles",
+	Sources: []pathComponent{{Path: "C:/dev/github/testfiles-in", Ctype: sourceComponent}},
+	Targets: []pathComponent{{Path: "C:/dev/github/testfiles-out"}},
 }
 
 var cftest cfg = cfg{
@@ -24,5 +24,14 @@ var cftest cfg = cfg{
 }
 
 func TestInherent(t *testing.T) {
-
+	t.Logf(`component defaults:
+---CFG---
+Alias: %s, Ctype: %v
+overrides: %+v`, tcfg.Alias, tcfg.Ctype, tcfg.Overrides)
+	s := tcfg.Sources[0]
+	t.Logf(`---Source---
+Alias: %s, Abspath: %s, Path: %s
+Ignores: %v
+Ptype: %v,Ctype: %v`, s.Alias, s.Abspath, s.Path, s.Ignores, s.Ptype, s.Ctype)
+	tcfg.initializeInherent()
 }
