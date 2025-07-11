@@ -122,6 +122,8 @@ func MakeAbs(inpath string) string {
 	return inpath
 }
 
+//TODO: Replace ALL os.IsExist/os.IsNotExist with errors.Is()
+
 // MakeOpenFileF will open the given fpath as a file. It will make the file if it does not exist,
 // and it will make any missing directories necessary.
 func MakeOpenFileF(fpath string) (*os.File, error) {
@@ -241,6 +243,31 @@ func CalledFrom() string {
 }
 
 var CleanPath = filepath.Clean
+
+// dirContents returns a map describing contents of dirpath and subdirectories
+// although not in very clear detail and it probably should not be used
+// map keys are paths of existing filesystem objects
+// value bool indicates whether or not that object is a directory
+// it returns nil if - dir doesn't exist, path is not a dir, any os.Stat error, any WalkDir error
+func dirContents(dirpath string) *map[string]bool {
+	dirstat, e := os.Stat(dirpath)
+	if e != nil || !dirstat.IsDir() {
+		// no reason to check IsNotExists; we can only return nil
+		return nil
+	}
+	contentsIsDir := make(map[string]bool)
+	e = filepath.WalkDir(dirpath, func(p string, d DirEntry, e error) error {
+		if d.IsDir() {
+			contentsIsDir[p] = true
+		}
+		contentsIsDir[p] = false
+		return nil
+	})
+	if e != nil {
+		return nil
+	}
+	return &contentsIsDir
+}
 
 // TODO: symlink testing (next 2 functions related)
 func IsBasicPath(p string) bool {

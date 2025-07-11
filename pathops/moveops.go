@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -32,14 +33,14 @@ var cmachine copierMaschine = copierMaschine{JobQueue: make(map[string]*CopyJob)
 
 func GetCopierMaschine() *copierMaschine { return &cmachine }
 
-// NewJob creates a new job and adds to the JobQueue; returns true if successful
+// NewJob creates a new job and adds to the JobQueue; returns a ptr to created job if successful
 // jobName must be unique within the JobQueue; if NewJob is passed an existing jobName,
-// it will not add the job to the queue, and will return false
+// it will not add the job to the queue, and will return nil
 func (CM *copierMaschine) NewJob(jobName, pathIn, pathOut string) *CopyJob {
 	if CM.jobExists(jobName) {
 		return nil
 	}
-	CM.JobQueue[jobName] = &CopyJob{PathIn: pathIn, PathOut: pathOut}
+	CM.JobQueue[jobName] = &CopyJob{PathIn: pathIn, PathOut: pathOut, newDirs: make(map[string]bool)}
 	return CM.JobQueue[jobName]
 }
 
@@ -74,23 +75,25 @@ func (CM *copierMaschine) RunJob(jobName string) *CopyJob {
 
 // CopyJob prepares and executes the copy of all contents of PathIn to PathOut
 type CopyJob struct {
-	PathIn, PathOut string // Root of copy source and destination (*or destination parent)
-	originalPathOut string // unused. populated on run if JobSettings.makeRootSubdir = true
-	fstack          []filecopy
+	PathIn, PathOut string     // Root of copy source and destination (*or destination parent)
+	parentPathOut   string     // unused. populated on run if JobSettings.makeRootSubdir = true
+	fstack          []filecopy // record of files copied
+	newDirs         map[string]bool
 	ignore          IgnoreSet
 	OpErrors        []fs.PathError
 	JobSettings     copyConfig
 }
 
+// NOTE: unless explicitly stated, copyConfig values do not override ignores
 type copyConfig struct {
-	makeRootSubdir bool // if true, appends base(PathIn) to PathOut
+	makeRootSubdir     bool // if true, appends base(PathIn) to PathOut
+	copyAllDirectories bool // copies directories regardless of whether files will be copied  TODO: implement
+	noFiles            bool // does not copy files. Use for dry run, or enable copyAllDirectories to only copy directory structure
 	//DRY_RUN bool
 }
 
 // SetOptionMakeSubdir - sets CopyJob.JobSettings.makeRootSubdir
-// this appends the PathIn dir name to PathOut
-// if true: set PathOut= filepath.Join(PathOut, filepath.Base(PathIn)), store original
-// if false: Copy directly into provided PathOut
+// if true: set PathOut = filepath.Join(PathOut, filepath.Base(PathIn)), store original
 func (J *CopyJob) SetOptionMakeSubdir(makeSubdir bool) {
 	J.JobSettings.makeRootSubdir = makeSubdir
 }
@@ -101,15 +104,8 @@ type filecopy struct {
 	inSize, outSize int64
 }
 
-// joinpath wraps filepath.Join, but fixes os path inconsistency before returning
-func joinpath(elem ...string) string {
-	p := filepath.Join(elem...)
-	//NOTE: Commenting out for testing
-	/* if runtime.GOOS == "windows" {
-		p = strings.Replace(p, "/", `\`, -1)
-	} */
-	return p
-}
+// joinpath aliases filepath.Join (no longer necessary)
+var joinpath = filepath.Join
 
 // Removed for now.
 // type elog struct {
@@ -139,47 +135,73 @@ func (J *CopyJob) addFile(relpath string, inSize, outSize int64) {
 func (J *CopyJob) Run( /* params */ ) error {
 	// condition paths
 	var e error
-	//NOTE: Commenting out for testing
-	/* J.PathIn, e = conditionPath(J.PathIn)
-	if J.checkAndLogError(J.PathIn, "conditionPath", e) {
-		return fmt.Errorf("error abs(PathIn): %w", e) }
-	J.PathOut, e = conditionPath(J.PathOut)
-	if J.checkAndLogError(J.PathOut, "conditionPath", e) {
-		return fmt.Errorf("error abs(PathOut): %w", e)
-	} */
 
-	// Add folder name to PathOut if needed. *Run this after clean
-	// checking for blank originalPathOut just to avoid potential future issue
-	if J.JobSettings.makeRootSubdir && J.originalPathOut == "" {
-		J.originalPathOut = J.PathOut
+	if J.JobSettings.makeRootSubdir && J.parentPathOut == "" { // parentpath check to be safe
+		J.parentPathOut = J.PathOut
 		J.PathOut = joinpath(J.PathOut, filepath.Base(J.PathIn))
-		// Join uses "OS specific Separator"
 	}
+
+	// ── Walk ────────────────────────────────────────────────────────────
 	e = filepath.WalkDir(J.PathIn, J.Walk)
+
 	if e != nil {
 		J.OpErrors = append(J.OpErrors, fs.PathError{Path: J.PathIn, Err: e, Op: ""})
 		return e
 	}
+
+	//WARNING: WITH THIS STRUCTURE, A WALKDIR ERROR WILL PREVENT MAKING ADDITIONAL DIRS
+	if J.JobSettings.copyAllDirectories {
+		for dir := range J.newDirs {
+			e := os.MkdirAll(joinpath(J.PathOut, dir), 0)
+			J.checkAndLogError(dir, "MakeDirectory", e)
+		}
+	}
 	return nil
 }
 
+// logDir adds directories to j.newDirs if they are not already present
+// NOTE: Walk sends relative paths to logDir (J.newDirs keys will be relative)
+func (J *CopyJob) logDir(dir string, copied bool) {
+	exists := false
+	for keydir := range J.newDirs {
+		exists = exists || keydir == dir
+	}
+	if !exists {
+		J.newDirs[dir] = copied
+	}
+
+}
+
 func (J *CopyJob) Walk(p string, d DirEntry, e error) error {
-	// removed filepath.clean(p)
+	// make relative path first; used for dirs & files
+	prr := J.stripRoot(p) //	!INFO: panics on error; error is unexpected
 
 	// DIRECTORIES:
 	if d.IsDir() {
 		// check ignore + prevent recursion (if PathOut is a subdir of PathIn)
 		if J.ignore.isIgnored(p) || strings.HasPrefix(p, J.PathOut) {
+			J.logDir(prr, false)
 			return fs.SkipDir
 		}
+		J.logDir(prr, true)
 		return nil
 	}
+
 	// FILES:
-	// ── 0. make filepath out ─────────────────────────────────
-	prr := J.stripRoot(p) //	!INFO: panics on error; error is unexpected(expand)
+	// ── 0.1 make filepath out ─────────────────────────────────
 	pto := joinpath(J.PathOut, prr)
 	if !filepath.IsAbs(pto) {
-		pto = absNoE(pto) //	!INFO: panics on error; error is unexpected(expand)
+		pto = absNoE(pto) //	!INFO: panics on error; error is unexpected
+	}
+
+	// 0.2 Get infile Info()
+	inDE, e := d.Info()
+	J.checkAndLogError(p, "GetFileInfo_In", e)
+
+	// 0.3 Return before copy if config requires.
+	if J.JobSettings.noFiles {
+		J.addFile(prr, inDE.Size(), 0) // for dry runs
+		return nil
 	}
 	// ── 1. open in file ──────────────────────────────────────
 	inF, e := OpenExistingFile(p)
@@ -197,8 +219,6 @@ func (J *CopyJob) Walk(p string, d DirEntry, e error) error {
 	J.checkAndLogError(pto, "CopyError_Out", e)
 
 	// check size original matches new copied
-	inDE, e := d.Info()
-	J.checkAndLogError(p, "GetFileInfo_In", e)
 	J.addFile(prr, inDE.Size(), wb)
 	return nil
 }

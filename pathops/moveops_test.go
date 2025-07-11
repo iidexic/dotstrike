@@ -133,11 +133,12 @@ func testCopyDir(t *testing.T, srcDir, outDir string) {
 	for i, e := range tcopy.OpErrors {
 		t.Errorf("E%d: ERROR:%s", i, e.Error())
 	}
-
 	//CLEANUP
+	//TODO: Clean up the dirs too
 	for _, f := range tcopy.fstack {
 		rmfile := filepath.Join(tcopy.PathOut, f.relpath)
 		err = os.Remove(rmfile)
+
 		if err != nil {
 			t.Logf("Cleanup PathError -> `%s`", err.Error())
 		}
@@ -152,4 +153,60 @@ func TestCopyDirDifferentDrive(t *testing.T) {
 }
 func TestCopyDirToInternal(t *testing.T) {
 	testCopyDir(t, "D:/coding/exampleFiles", "D:/coding/exampleFiles/OUTPUT_INNER/")
+}
+
+func TestCopyOnlyDirSimple(t *testing.T) {
+	testCopyOnlyDirs(t, "D:/coding/exampleFiles/INPUT", "D:/coding/exampleFiles/OUTPUT")
+}
+
+func testCopyOnlyDirs(t *testing.T, srcDir, outDir string) {
+	cm := GetCopierMaschine()
+	job1 := cm.NewJob("test_examplefiles", srcDir, outDir)
+	tcopy := cm.NewJob("test_examplefiles", "", "")
+	if tcopy != nil {
+		t.Errorf("Failure: NewJob should return nil ptr when passed existing job name")
+	} else {
+		tcopy = job1 //
+	}
+	tcopy = cm.GetJob("test_examplefiles")
+	tcopy.JobSettings.copyAllDirectories = true
+	tcopy.JobSettings.noFiles = true
+	t.Logf("CopyJob PathIn:%s, PathOut:%s", tcopy.PathIn, tcopy.PathOut)
+	t.Logf("Job Settings:\n%+v", tcopy.JobSettings)
+	err := tcopy.Run()
+	if err != nil {
+		t.Errorf("COPY ERROR: %v", err)
+		t.Logf("[COPYJOB: %+v]", tcopy)
+	} else {
+		t.Log("COPY DONE\n")
+	}
+	t.Log("NOTE: fstack should still be written I think. this is for use as a dry run")
+	t.Logf("fstack: len = %d, # errors: %d\n--Contents:--\n", len(tcopy.fstack), len(tcopy.OpErrors))
+	var input_size, output_size int64 = 0, 0
+	for _, f := range tcopy.fstack {
+		input_size += f.inSize
+		output_size += f.outSize
+	}
+	if output_size > 0 {
+		t.Error("FAIL - OUTPUT SIZE SHOULD BE 0")
+	}
+	t.Logf("Size sum: In = %d, Out = %d", input_size, output_size)
+	t.Logf("Dirs:\n")
+	for path, wroteDir := range tcopy.newDirs {
+		t.Logf("(%s) added = %t", path, wroteDir)
+
+	}
+	for i, e := range tcopy.OpErrors {
+		t.Errorf("E%d: ERROR:%s", i, e.Error())
+	}
+	//CLEANUP
+	//currently get errors because can't delete dir while it contains another dir
+	for kpath := range tcopy.newDirs {
+		rmdir := filepath.Join(tcopy.PathOut, kpath) //kpath is relative dir path
+		err = os.Remove(rmdir)
+
+		if err != nil {
+			t.Logf("Cleanup PathError -> `%s`", err.Error())
+		}
+	}
 }
