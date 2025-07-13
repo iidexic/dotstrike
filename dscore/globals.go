@@ -11,9 +11,9 @@ import (
 // enum type
 type globalsReadResult int
 
-// TODO: Just turn these into errors. Basically are, just called it .string() instead of .Error()
 // potential outcomes of attempting to read and load global config/user data into usable components
-const (
+const ( // TODO: Just turn these into errors.
+
 	preInit = iota
 	noInit
 	badToml
@@ -22,7 +22,7 @@ const (
 	success
 )
 
-func (gr globalsReadResult) string() string {
+func (gr globalsReadResult) Error() string {
 	switch gr {
 	case preInit:
 		return "PRE-INIT: globals file read not triggered"

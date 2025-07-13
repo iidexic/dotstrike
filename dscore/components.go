@@ -97,6 +97,7 @@ func (cc *cfg) getSource(alias string) *pathComponent {
 	}
 	return nil
 }
+
 func (cc *cfg) getTarget(alias string) *pathComponent {
 	for _, tgt := range cc.Targets {
 		if alias == tgt.Alias {
@@ -110,17 +111,17 @@ func (cc cfg) status() string {
 	expln := fmt.Sprintf("cfg:'%s' - Sources:\n%+v", cc.Alias, cc.Sources)
 	return expln
 }
-func newPathComponent(ospath string, ctype componentType) *pathComponent {
-	// do this here or at the end of modify?
-	goodpath := pops.CleanPath(ospath)
-	return &pathComponent{Path: goodpath, Ctype: ctype}
 
+func newPathComponent(ospath string, ctype componentType) *pathComponent {
+	apath := pops.MakeAbs(ospath)
+	return &pathComponent{Path: apath, Ctype: ctype}
 }
 
 // id makes pathComponent Alias based on parent, ctype, path
 func (pc pathComponent) id() string {
 	return pc.Parent + "" + string(pc.Ctype) + "" + pc.Alias
 }
+
 func pathComponentEqual(pc, pc2 pathComponent) bool {
 	return pc.Alias == pc2.Alias && pc.Abspath == pc2.Abspath && pc.Path == pc2.Path &&
 		pc.Ptype == pc2.Ptype && pc.Ctype == pc2.Ctype && slices.Equal(pc.Ignores, pc2.Ignores)

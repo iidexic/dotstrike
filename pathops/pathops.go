@@ -118,9 +118,13 @@ func MakeAbs(inpath string) string {
 		if e != nil {
 			panic(e)
 		}
+	} else {
+		inpath = filepath.Clean(inpath)
 	}
 	return inpath
 }
+
+var Abs = filepath.Abs
 
 //TODO: Replace ALL os.IsExist/os.IsNotExist with errors.Is()
 

@@ -9,7 +9,7 @@ import (
 func DumpGlobals() []string {
 	dump := []string{
 		"__GLOBALS__",
-		gd.status.string(),
+		gd.status.Error(),
 		fmt.Sprintf("globals loaded: %t", gd.loaded),
 		fmt.Sprintf("preferences: %+v", gd.data.Prefs),
 		fmt.Sprintf("globals file path: %s", gd.dsconfigPath),

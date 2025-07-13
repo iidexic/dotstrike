@@ -63,11 +63,6 @@ type globalModify struct {
 	initialized, Modified bool
 }
 
-func (p prefs) equal(p2 prefs) bool {
-	return p.KeepHidden == p2.KeepHidden && p.KeepRepo == p2.KeepRepo &&
-		p.GlobalTarget == p2.GlobalTarget
-}
-
 /*
 	NOTE:FROM DOCS:
 
@@ -87,6 +82,11 @@ type prefs struct {
 	//SymlinkAs string `toml:"symlinkAs"`
 }
 
+func (p prefs) equal(p2 prefs) bool {
+	return p.KeepHidden == p2.KeepHidden && p.KeepRepo == p2.KeepRepo &&
+		p.GlobalTarget == p2.GlobalTarget
+}
+
 // TempGlob exists to store new global data temporarily during runtime
 // this will then be checked/merged with GD, and written to globals file
 var tempData globalModify
@@ -101,6 +101,7 @@ func (G *globals) decodeRawData() {
 	//TODO: run CheckDataDecode on debug flag
 	//CheckDataDecode(G.data, md)
 }
+
 func GetTempData() *globalModify {
 	if tempData.initialized {
 		return &tempData

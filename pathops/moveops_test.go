@@ -1,6 +1,7 @@
 package pops
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -108,14 +109,29 @@ FILEPATH.JOIN CLEAN: %s
 `, inpath, inpathC, outpath, outpathC, inbaseraw, inbaseC, outpathC, inbaseC, pathjoin, filepath.Clean(pathjoin),
 		filepath.Join(outpath, inbaseraw), filepath.Join(outpathC, inbaseC))
 }
+func (J *CopyJob) logCopyConfigTest(t *testing.T) {
+	t.Log("Copyjob Config:")
+	if J.JobSettings.noFiles && J.JobSettings.copyAllDirectories {
+		t.Log("Structure Copy")
+	} else if J.JobSettings.noFiles {
+		t.Log("Dry Run")
+	} else if J.JobSettings.copyAllDirectories {
+		t.Log("Include Empty Dirs")
+	}
+	if J.JobSettings.makeRootSubdir {
+		t.Log("copy to subdirectory")
+	}
+}
 
-func testCopyDir(t *testing.T, srcDir, outDir string) {
+func testCopyDir(t *testing.T, srcDir, outDir string, options copyConfig) {
 	//NOTE: Testing makeRootSubdir Code; normally just write it out. Path doesn't need to exist
 	cm := GetCopierMaschine()
 	cm.NewJob("test_examplefiles", srcDir, outDir)
 	tcopy := cm.GetJob("test_examplefiles")
 	t.Logf("CopyJob PathIn:%s, PathOut:%s", tcopy.PathIn, tcopy.PathOut)
 	t.Logf("CopyJob pre-copy:\n%+v", tcopy)
+	tcopy.JobSettings = options
+	tcopy.logCopyConfigTest(t)
 	err := tcopy.Run()
 	if err != nil {
 		t.Errorf("COPY ERROR: %v", err)
@@ -123,40 +139,79 @@ func testCopyDir(t *testing.T, srcDir, outDir string) {
 	} else {
 		t.Log("COPY DONE\n")
 	}
-	t.Logf("fstack: len = %d, # errors: %d\n--Contents:--\n", len(tcopy.fstack), len(tcopy.OpErrors))
-	for i, f := range tcopy.fstack {
-		if f.inSize > f.outSize {
-			t.Errorf("incomplete copy error: %s", f.relpath)
+	t.Logf("(# files: %d, # errors: %d)\n--Contents:--\n", len(tcopy.fstack), len(tcopy.OpErrors))
+	if tcopy.JobSettings.noFiles {
+		for _, f := range tcopy.fstack {
+			if f.outSize > 0 {
+				t.Errorf("options.noFiles but data present in output (in %d, out %d)", f.inSize, f.outSize)
+			}
 		}
-		t.Logf("%d. rel:%s (original=%d, new=%d)", i, f.relpath, f.inSize, f.outSize)
+	} else {
+
+		for i, f := range tcopy.fstack {
+			if f.inSize > f.outSize {
+				t.Errorf("incomplete copy error: %s", f.relpath)
+			}
+			t.Logf("%d. rel:%s (original=%d, new=%d)", i, f.relpath, f.inSize, f.outSize)
+		}
 	}
 	for i, e := range tcopy.OpErrors {
 		t.Errorf("E%d: ERROR:%s", i, e.Error())
 	}
+	t.Log("[ Dirs Logged: ]")
+	for k, v := range tcopy.newDirs {
+		var sv string
+		if v {
+			sv = "copied"
+		} else {
+			sv = "not copied"
+		}
+		t.Logf("%s (%s)", k, sv)
+	}
 	//CLEANUP
 	//TODO: Clean up the dirs too
-	for _, f := range tcopy.fstack {
-		rmfile := filepath.Join(tcopy.PathOut, f.relpath)
-		err = os.Remove(rmfile)
+	if !tcopy.JobSettings.noFiles {
+		for _, f := range tcopy.fstack {
+			rmfile := filepath.Join(tcopy.PathOut, f.relpath)
+			err = os.Remove(rmfile)
 
-		if err != nil {
+			if err != nil {
+				t.Logf("Cleanup PathError -> `%s`", err.Error())
+			}
+		}
+	}
+
+	for kpath := range tcopy.newDirs {
+		rmdir := filepath.Join(tcopy.PathOut, kpath) //kpath is relative dir path
+
+		err = os.Remove(rmdir)
+
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			t.Logf("Cleanup PathError -> `%s`", err.Error())
 		}
 	}
 }
+
+var (
+	optionsDefault      = copyConfig{copyAllDirectories: false, noFiles: false, makeRootSubdir: false}
+	optionsDryRun       = copyConfig{copyAllDirectories: false, noFiles: true, makeRootSubdir: false}
+	optionsDirStructure = copyConfig{copyAllDirectories: true, noFiles: true, makeRootSubdir: false}
+	optionsSubdir       = copyConfig{copyAllDirectories: false, noFiles: true, makeRootSubdir: true}
+)
+
 func TestCopyDirSimple(t *testing.T) {
-	testCopyDir(t, "D:/coding/exampleFiles/INPUT", "D:/coding/exampleFiles/OUTPUT")
+	testCopyDir(t, "D:/coding/exampleFiles/INPUT", "D:/coding/exampleFiles/OUTPUT", optionsDefault)
 }
 
 func TestCopyDirDifferentDrive(t *testing.T) {
-	testCopyDir(t, "D:/coding/examplefiles", "C:/dev/.test_data/file_operations")
+	testCopyDir(t, "D:/coding/examplefiles", "C:/dev/.test_data/file_operations", optionsSubdir)
 }
 func TestCopyDirToInternal(t *testing.T) {
-	testCopyDir(t, "D:/coding/exampleFiles", "D:/coding/exampleFiles/OUTPUT_INNER/")
+	testCopyDir(t, "D:/coding/exampleFiles", "D:/coding/exampleFiles/OUTPUT_INNER/", optionsSubdir)
 }
 
-func TestCopyOnlyDirSimple(t *testing.T) {
-	testCopyOnlyDirs(t, "D:/coding/exampleFiles/INPUT", "D:/coding/exampleFiles/OUTPUT")
+func TestCopySimpleDirOnly(t *testing.T) {
+	testCopyDir(t, "D:/coding/exampleFiles/INPUT", "D:/coding/exampleFiles/OUTPUT", optionsDirStructure)
 }
 
 func testCopyOnlyDirs(t *testing.T, srcDir, outDir string) {
