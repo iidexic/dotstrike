@@ -45,7 +45,7 @@ type globals struct {
 	md            toml.MetaData
 }
 type globalData struct {
-	Cfgs       []cfg  `toml:"cfgs, omitempty"`
+	Specs      []spec `toml:"cfgs, omitempty"`
 	Prefs      prefs  `toml:"prefs"`
 	TargetPath string `toml:"storagePath, omitempty"`
 	Selected   int    `toml:"SelectedCFG"`
@@ -55,7 +55,7 @@ func (g *globalData) equal(g2 *globalData) bool {
 	return g.Prefs.equal(g2.Prefs) &&
 		g.TargetPath == g2.TargetPath &&
 		g.Selected == g2.Selected &&
-		slices.EqualFunc(g.Cfgs, g2.Cfgs, cfgEqual)
+		slices.EqualFunc(g.Specs, g2.Specs, cfgEqual)
 }
 
 type globalModify struct {

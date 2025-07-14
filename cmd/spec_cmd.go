@@ -36,7 +36,7 @@ var cfgCmd = &cobra.Command{
 			// base args always interpreted as cfg alias
 			// will be created if do no exist
 			for _, astr := range args {
-				found := dscore.SelectCfg(astr)
+				found := dscore.SelectSpec(astr)
 				// if not found and -y flag or user confirmation, make new cfg
 				if !found && (*flagDataCfg.yconfirm || askConfirmf("Create new cfg: %s", astr)) {
 					dscore.InitTempData()

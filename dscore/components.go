@@ -1,7 +1,7 @@
 package dscore
 
 import (
-	"fmt"
+	"errors"
 	"slices"
 
 	pops "iidexic.dotstrike/pathops"
@@ -25,7 +25,12 @@ const (
 	cfgComponent
 	sourceComponent
 	targetComponent
+	//linkedSource
+	//linkedTarget
+	//GlobalTarget
 )
+
+var ErrComponentNotInitialized error = errors.New("Component not initialized")
 
 // component interface for interop search
 type component interface {
@@ -47,70 +52,11 @@ type pathComponent struct {
 	Parent  string        //NOTE: INITIALIZE INHERENT
 }
 
-// cfg is the primary structure used to define a move/strike
-type cfg struct {
-	Alias     string          `toml:"alias"`     // name, unique
-	Sources   []pathComponent `toml:"sources"`   // paths marked as origin points
-	Targets   []pathComponent `toml:"targets"`   // paths  marked as destination points
-	Ignorepat []string        `toml:"ignores"`   // ignorepat that apply to all sources
-	Overrides prefs           `toml:"overrides"` // override global prefs
-	Ctype     componentType
-}
-
-// initializeInherent attributes of cfg and child pathComponents
-func (cc *cfg) initializeInherent() {
-	cc.Ctype = cfgComponent
-	for _, src := range cc.Sources {
-		src.Parent = cc.Alias
-		src.Ptype = sourceComponent
-	}
-	for _, tgt := range cc.Targets {
-		tgt.Parent = cc.Alias
-		tgt.Ptype = targetComponent
-	}
-}
-
-func (cc cfg) allInitialized() bool {
-	all := cc.Ctype > 0
-	for _, src := range cc.Sources {
-		all = all && src.Ctype > 0 && src.Parent != ""
-	}
-	for _, tgt := range cc.Sources {
-		all = all && tgt.Ctype > 0 && tgt.Parent != ""
-	}
-	return all
-}
-
 func (pc pathComponent) isInitialized() bool { return pc.Parent != "" && pc.Ctype > 0 }
 
 // interface methods
 func (pc pathComponent) getAlias() string        { return pc.Alias }
 func (pc pathComponent) getCtype() componentType { return pc.Ctype }
-func (cc cfg) getAlias() string                  { return cc.Alias }
-func (cc cfg) getCtype() componentType           { return cc.Ctype }
-
-func (cc *cfg) getSource(alias string) *pathComponent {
-	for _, src := range cc.Sources {
-		if alias == src.Alias {
-			return &src
-		}
-	}
-	return nil
-}
-
-func (cc *cfg) getTarget(alias string) *pathComponent {
-	for _, tgt := range cc.Targets {
-		if alias == tgt.Alias {
-			return &tgt
-		}
-	}
-	return nil
-}
-
-func (cc cfg) status() string {
-	expln := fmt.Sprintf("cfg:'%s' - Sources:\n%+v", cc.Alias, cc.Sources)
-	return expln
-}
 
 func newPathComponent(ospath string, ctype componentType) *pathComponent {
 	apath := pops.MakeAbs(ospath)
@@ -127,24 +73,11 @@ func pathComponentEqual(pc, pc2 pathComponent) bool {
 		pc.Ptype == pc2.Ptype && pc.Ctype == pc2.Ctype && slices.Equal(pc.Ignores, pc2.Ignores)
 }
 
-func (cc cfg) runCopy() error {
-	if !cc.allInitialized() {
-		return fmt.Errorf("cfg not initialized: %s", cc.Alias)
-	}
-	copymachine := pops.GetCopierMaschine()
-	for _, tgt := range cc.Targets {
-		for _, src := range cc.Sources {
-			_, _, _ = src, tgt, copymachine
-		}
-	}
-	return nil
-}
-
 // cfgEqual compares two cfg params for equality.
 // standalone function to ensure compatible with slices.EqualFunc
-func cfgEqual(cc, cc2 cfg) bool {
-	return cc.Alias == cc2.Alias && cc.Overrides == cc2.Overrides && cc.Ctype == cc2.Ctype &&
-		slices.EqualFunc(cc.Sources, cc2.Sources, pathComponentEqual) &&
-		slices.EqualFunc(cc.Targets, cc2.Targets, pathComponentEqual) &&
-		slices.Equal(cc.Ignorepat, cc2.Ignorepat)
+func cfgEqual(S, S2 spec) bool {
+	return S.Alias == S2.Alias && S.Overrides == S2.Overrides && S.Ctype == S2.Ctype &&
+		slices.EqualFunc(S.Sources, S2.Sources, pathComponentEqual) &&
+		slices.EqualFunc(S.Targets, S2.Targets, pathComponentEqual) &&
+		slices.Equal(S.Ignorepat, S2.Ignorepat)
 }

@@ -5,8 +5,9 @@ import (
 	"strings"
 )
 
-var errorNotUnique error = errors.New("Attempted to set component alias to a non-unique value")
-var errorParentNotFound error = errors.New("Component.Parent did not match any existing alias.")
+var ErrNotUnique error = errors.New("Attempted to set component alias to a non-unique value")
+var ErrParentNotFound error = errors.New("Component.Parent did not match any existing alias.")
+var Err error = errors.New("Component.Parent did not match any existing alias.")
 
 // type component interface
 // 	getAlias() string
@@ -20,56 +21,17 @@ var errorParentNotFound error = errors.New("Component.Parent did not match any e
 // 	Sources, Targets  []pathComponent
 // 	Overrides prefs, Ctype componentType
 
-func (gm *globalModify) NewCfg(alias string) *cfg { return &cfg{Ctype: cfgComponent} }
-
-func (G *globals) AddCfg(data cfg) {
-	G.data.Cfgs = append(G.data.Cfgs, data)
+func (gm *globalModify) NewCfg(alias string) *spec {
+	s := spec{Ctype: cfgComponent}
+	gm.Specs = append(gm.Specs, s)
+	sr := &gm.Specs[len(gm.Specs)-1]
+	return sr
+}
+func (G *globals) AddCfg(data spec) {
+	G.data.Specs = append(G.data.Specs, data)
 }
 
-func (cc *cfg) GetIgnores() *[]string { return &cc.Ignorepat }
-func (cc *cfg) GetLocalPrefs() *prefs { return &cc.Overrides }
-
-// func (cc *cfg) getChildByPath(path string) *pathComponent { }
-func (cc cfg) IsPathChild(path string) bool {
-	for _, src := range cc.Sources {
-		_ = src
-	}
-	for _, tgt := range cc.Targets {
-		_ = tgt
-	}
-	return true //NOTE:PLACEHOLDER
-}
-func (cc *cfg) AddIgnores(ignores []string) {
-	cc.Ignorepat = append(cc.Ignorepat, ignores...)
-}
-func (cc *cfg) CheckAddPath(path string, isSource bool) bool {
-	var ctyp componentType
-	if isSource {
-		ctyp = sourceComponent
-	} else {
-		ctyp = targetComponent
-	}
-	if !cc.IsPathChild(path) {
-		cc.Sources = append(cc.Sources, *newPathComponent(path, ctyp))
-		return true
-	}
-	return false
-}
-
-// CheckAddMultiplePaths adds paths to cfg.Sources if isSource, cfg.Targets if !isSource
-func (cc *cfg) CheckAddMultiplePaths(paths []string, isSource bool) {
-	var ctyp componentType
-	if isSource {
-		ctyp = sourceComponent
-	} else {
-		ctyp = targetComponent
-	}
-	_ = ctyp
-	for _, p := range paths {
-		_ = p //if pc := cc.getChildByPath(p); pc == nil { } else { }
-	}
-}
-func (p *prefs) Set(mpref map[string]bool) {
+func (p *prefs) Set(mpref map[string]bool) error {
 	for k, b := range mpref {
 		switch strings.ToLower(k) {
 		case "keeprepo", "keep-repo":
@@ -80,13 +42,14 @@ func (p *prefs) Set(mpref map[string]bool) {
 			p.GlobalTarget = b
 		}
 	}
+	return nil
 }
 
 func (pc *pathComponent) SetAlias(alias string) error {
 	//TODO: Fix this
 	cfptr := gd.data.GetCfg(pc.Parent)
 	if cfptr == nil {
-		return errorParentNotFound
+		return ErrParentNotFound
 	}
 	var existingpc *pathComponent
 	if pc.Ptype == sourceComponent {
@@ -95,7 +58,7 @@ func (pc *pathComponent) SetAlias(alias string) error {
 		existingpc = cfptr.getTarget(alias)
 	}
 	if existingpc != nil {
-		return errorNotUnique
+		return ErrNotUnique
 	}
 	pc.Alias = alias
 	return nil

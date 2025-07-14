@@ -6,13 +6,13 @@ import (
 	pops "iidexic.dotstrike/pathops"
 )
 
-var tcfg = cfg{
+var tspec = spec{
 	Alias:   "testfiles",
 	Sources: []pathComponent{{Path: "C:/dev/github/testfiles-in", Ctype: sourceComponent}},
 	Targets: []pathComponent{{Path: "C:/dev/github/testfiles-out"}},
 }
 
-var cftest cfg = cfg{
+var sftest spec = spec{
 	Alias: "tilde_dotconfig",
 	Sources: []pathComponent{
 		{
@@ -25,13 +25,13 @@ var cftest cfg = cfg{
 
 func TestInherent(t *testing.T) {
 	t.Logf(`component defaults:
----CFG---
+---SPEC---
 Alias: %s, Ctype: %v
-overrides: %+v`, tcfg.Alias, tcfg.Ctype, tcfg.Overrides)
-	s := tcfg.Sources[0]
+overrides: %+v`, tspec.Alias, tspec.Ctype, tspec.Overrides)
+	s := tspec.Sources[0]
 	t.Logf(`---Source---
 Alias: %s, Abspath: %s, Path: %s
 Ignores: %v
 Ptype: %v,Ctype: %v`, s.Alias, s.Abspath, s.Path, s.Ignores, s.Ptype, s.Ctype)
-	tcfg.initializeInherent()
+	tspec.initializeInherent()
 }

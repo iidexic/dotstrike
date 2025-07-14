@@ -37,7 +37,7 @@ type Lookup struct {
 	GetCfg, GetSrc,
 	GetTgt, BoundOnly bool
 	findCfgs, findSources, findTargets []string
-	foundCfgs                          []cfg
+	foundCfgs                          []spec
 	foundSources, foundTargets         []pathComponent
 	// MatchFound returns true if rigid search returned result, and false otherwise
 	cfgMatchFound, srcMatchFound, tgtMatchFound bool
@@ -59,7 +59,7 @@ func (L Lookup) componentTypes() []componentType {
 }
 
 // GetBoundComponents finds pathComponents matching/containing aliasPattern within parent cfg
-func GetBoundComponents(parent *cfg, aliasPatterns []string, request FindType) {
+func GetBoundComponents(parent *spec, aliasPatterns []string, request FindType) {
 	// is anything being modified here?
 }
 
@@ -67,8 +67,8 @@ func GetBoundComponents(parent *cfg, aliasPatterns []string, request FindType) {
 func (G globals) CfgData(alias string) Lookup {
 	// NOTE: started as a globalData method. keep most/all
 	// methods under globals until a reason to separate comes up
-	l := Lookup{GetCfg: true, foundCfgs: make([]cfg, 1), cfgMatchFound: false}
-	for _, c := range G.data.Cfgs {
+	l := Lookup{GetCfg: true, foundCfgs: make([]spec, 1), cfgMatchFound: false}
+	for _, c := range G.data.Specs {
 		if c.Alias == alias {
 			l.foundCfgs[0] = c
 			l.cfgMatchFound = true
@@ -83,9 +83,9 @@ func (G globals) CfgData(alias string) Lookup {
 
 // NOTE: started as a globalData method. keep most/all
 // methods under globals until a reason to separate comes up
-func (G globals) SourceData(parent cfg, alias string) Lookup {
+func (G globals) SourceData(parent spec, alias string) Lookup {
 	l := Lookup{GetSrc: true, foundSources: make([]pathComponent, 1), srcMatchFound: false}
-	for _, c := range G.data.Cfgs {
+	for _, c := range G.data.Specs {
 		if c.Alias == alias {
 			l.foundCfgs[0] = c
 			l.cfgMatchFound = true
@@ -116,38 +116,38 @@ func (G globals) GetComponents(aliasPattern []string, request FindType) []compon
 
 // TODO: Finish Building Search!
 // find_cfg searches all existing cfg aliases for pattern:
-func (gd globalData) find_cfg(pattern string) (bool, []*cfg) {
+func (gd globalData) find_cfg(pattern string) (bool, []*spec) {
 
-	clist := make([]*cfg, 0, len(gd.Cfgs))
+	speclist := make([]*spec, 0, len(gd.Specs))
 	gotMatch := true
 
-	casesens := func(c cfg) string { return c.Alias }
+	casesens := func(S spec) string { return S.Alias }
 	if strings.ToLower(pattern) == pattern {
-		casesens = func(c cfg) string { return strings.ToLower(c.Alias) }
+		casesens = func(c spec) string { return strings.ToLower(c.Alias) }
 	}
-	for _, cf := range gd.Cfgs {
-		dcomp := strings.Contains(casesens(cf), pattern)
+	for _, sf := range gd.Specs {
+		dcomp := strings.Contains(casesens(sf), pattern)
 		if dcomp {
-			clist = append(clist, &cf)
+			speclist = append(speclist, &sf)
 		}
 	}
 
 	// if nothing was found, find if has any same chars
-	if len(clist) == 0 {
+	if len(speclist) == 0 {
 		gotMatch = false
-		for _, cf := range gd.Cfgs {
+		for _, sf := range gd.Specs {
 			rc := 0.0
-			findIn := casesens(cf)
+			findIn := casesens(sf)
 			for _, r := range pattern {
 				if strings.ContainsRune(findIn, r) {
 					rc += 1.0
 				}
 			}
 			// completely arbitrary condition
-			if rc >= 0.4*float64(len(findIn)) {
-				clist = append(clist, &cf)
+			if rc >= 0.6*float64(len(findIn)) {
+				speclist = append(speclist, &sf)
 			}
 		}
 	}
-	return gotMatch, clist
+	return gotMatch, speclist
 }

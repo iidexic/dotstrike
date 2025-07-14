@@ -16,7 +16,7 @@ func DumpGlobals() []string {
 		fmt.Sprintf("checked paths: %v", gd.checkedpaths),
 		"-- user cfgs --",
 	}
-	for i, c := range gd.data.Cfgs {
+	for i, c := range gd.data.Specs {
 		dump = append(dump, fmt.Sprintf("[c%d] %s", i, c.status()))
 	}
 	dump = append(dump, "__MESSAGES__\n")
@@ -33,7 +33,7 @@ func printTkeys(keys []toml.Key) {
 		fmt.Printf("[%d] %s (%+v)\n", i, k.String(), k)
 	}
 }
-func printcfgs(ptrcfg []cfg) {
+func printcfgs(ptrcfg []spec) {
 	for i, cf := range ptrcfg {
 		fmt.Printf("[%d] %+v\n", i, cf)
 	}
@@ -59,6 +59,6 @@ func CheckDataDecode(decoded globalData, md toml.MetaData) {
 │  Data  │
 ╰────────╯
 targetPath:%s
-cfgs:`, decoded.TargetPath)
-	printcfgs(decoded.Cfgs)
+Specs:`, decoded.TargetPath)
+	printcfgs(decoded.Specs)
 }

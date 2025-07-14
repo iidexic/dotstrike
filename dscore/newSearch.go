@@ -31,22 +31,22 @@ package dscore
 // SearchConfigs returns an int (tri-state) and string:
 //
 
-// FindCfgExact returns a pointer to the cfg object where alias = aliasP
+// FindSpecExact returns a pointer to the cfg object where alias = aliasP
 // If aliasP not found, returns nil
-func FindCfgExact(aliasP string) *cfg {
-	for _, c := range gd.data.Cfgs {
-		if aliasP == c.Alias {
-			return &c
+func FindSpecExact(aliasP string) *spec {
+	for _, s := range gd.data.Specs {
+		if aliasP == s.Alias {
+			return &s
 		}
 	}
 	return nil
 
 }
 
-// SelectCfg and write selection (index i where gd.Cfgs[i].Alias == alias)
-func SelectCfg(alias string) bool {
-	for i, c := range gd.data.Cfgs {
-		if alias == c.Alias {
+// SelectSpec and write selection (index i where gd.Cfgs[i].Alias == alias)
+func SelectSpec(alias string) bool {
+	for i, s := range gd.data.Specs {
+		if alias == s.Alias {
 			if !tempData.initialized {
 				InitTempData()
 			}
@@ -62,7 +62,7 @@ func SelectCfg(alias string) bool {
 	return false
 }
 
-func FindCfgAlias(aliasP string) (int, string) {
+func FindSpecAlias(aliasP string) (int, string) {
 	var matchCount int
 	var foundClose bool
 	// maybe just cut the fuzzy match and only run rigid match.
@@ -71,20 +71,20 @@ func FindCfgAlias(aliasP string) (int, string) {
 	// I don't know for sure
 	_, _ = close, closest
 	Global := gd
-	for _, c := range Global.data.Cfgs {
-		lc := len(c.Alias)
-		if aliasP == c.Alias {
+	for _, s := range Global.data.Specs {
+		ls := len(s.Alias)
+		if aliasP == s.Alias {
 			return 1, aliasP
 		}
 		// iron out minor spelling mistakes
-		for i := range lc - 1 { //TODO: make sure Go is inclusive start-exclusive end. I forget but 90% sure
-			if aliasP[i:i+1] == c.Alias[i:i+1] {
+		for i := range ls - 1 { //TODO: make sure Go is inclusive start-exclusive end. I forget but 90% sure
+			if aliasP[i:i+1] == s.Alias[i:i+1] {
 				matchCount++
 			}
 		}
 		// if aliasP matches 90% of c.alias and length has tolerance of +/- 1 char
-		if matchCount >= int(float32(lc)*0.9/float32(lc)) && lc-1 <= len(aliasP) && len(aliasP) <= lc+1 {
-			closest = c.Alias
+		if matchCount >= int(float32(ls)*0.9/float32(ls)) && ls-1 <= len(aliasP) && len(aliasP) <= ls+1 {
+			closest = s.Alias
 			foundClose = true
 		}
 	}

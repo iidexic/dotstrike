@@ -45,7 +45,7 @@ var gd = globals{
 	loaded: false,
 	data: globalData{
 		Prefs: prefs{KeepRepo: true, KeepHidden: true, GlobalTarget: true},
-		Cfgs:  []cfg{},
+		Specs: []spec{},
 	},
 }
 
@@ -77,10 +77,10 @@ func GetGlobals() (*globals, error) {
 	}
 	return &globals{}, fmt.Errorf("Globals not loaded.\n Globals = %+v", gd)
 }
-func (g *globalData) GetCfg(alias string) *cfg {
-	for _, cc := range g.Cfgs {
-		if cc.Alias == alias {
-			return &cc
+func (g *globalData) GetCfg(alias string) *spec {
+	for _, s := range g.Specs {
+		if s.Alias == alias {
+			return &s
 		}
 	}
 	return nil
@@ -124,7 +124,7 @@ func CoreConfig() {
 		gd.decodeRawData()
 		gd.loaded = true
 		// better way to do this?
-		for _, c := range gd.data.Cfgs {
+		for _, c := range gd.data.Specs {
 			c.initializeInherent()
 		}
 		undecoded := gd.md.Undecoded()
