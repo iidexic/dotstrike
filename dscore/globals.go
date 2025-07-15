@@ -86,6 +86,7 @@ func (g *globalData) GetCfg(alias string) *spec {
 	return nil
 }
 
+// TODO: move to (val, error) format so can directly diagnose os.ErrNotExist
 // GetConfig reads dotstrikeData.toml in provided directory.
 // on success: populates G.dsconfigPath, reads file into G.rawContents
 func (G *globals) GetConfig(dirpath string) bool {
@@ -114,6 +115,7 @@ func (G *globals) GetConfig(dirpath string) bool {
 
 // CoreConfig called to find ds data file in all possible locations
 // TODO: Establish better separation of functionality with GetConfig
+// TODO: Include auto-write and encode prefs if none exist
 func CoreConfig() {
 	homedir, errcfg := os.UserHomeDir()
 	ifer(errcfg) // for now just panic
@@ -136,6 +138,17 @@ func CoreConfig() {
 		}
 
 	} else {
+		// load modify and write defaults to file first thing
+		// Option 1: use the function I wrote literally for this
+		ee := gd.encodeG()
+		if ee != nil {
+			panic(fmt.Errorf(
+				`Failed writing default config to file (%w)
+User data file not found and could not be made.`, ee))
+		}
+		// option 2 (why) : Make globalModify to encode
+		// mod := globalModify{globalData: &gd.data, initialized: true, Modified: true}
+		// mod.encodeModified()
 
 	}
 
