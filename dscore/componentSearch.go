@@ -1,6 +1,7 @@
 package dscore
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 )
@@ -56,6 +57,22 @@ func (L Lookup) componentTypes() []componentType {
 	}
 	return c
 
+}
+
+func (G globals) GetAllUserData() []spec { return G.data.Specs }
+
+func (G globals) DescribeAllUserData() []string {
+	printslice := make([]string, 0, len(G.data.Specs)*10) //arbitrary magic number. fix later
+	for i, sp := range G.data.Specs {
+		printslice = append(printslice, "------------------------------------",
+			fmt.Sprintf("Spec %d: %s", i, sp.Alias),
+			fmt.Sprintf("sources: %v", sp.Sources),
+			fmt.Sprintf("targets: %v", sp.Targets),
+			fmt.Sprintf("ignores: %v", sp.Ignorepat),
+			fmt.Sprintf("local prefs: %v", sp.Overrides),
+		)
+	}
+	return printslice
 }
 
 // GetBoundComponents finds pathComponents matching/containing aliasPattern within parent cfg

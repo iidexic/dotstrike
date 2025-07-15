@@ -19,7 +19,7 @@ var flagDataCfg cfgFlags
 
 // cfgCmd represents the cfg command
 var cfgCmd = &cobra.Command{
-	Use:   "cfg",
+	Use:   "spec",
 	Short: "short descr",
 	Long:  `long descr`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -55,6 +55,7 @@ var cfgCmd = &cobra.Command{
 							if sabasic || confirmsrc {
 								added := ucfg.CheckAddPath(sa, true)
 								said := "src:" + sa
+
 								addSucceed[said] = added
 							}
 						}
