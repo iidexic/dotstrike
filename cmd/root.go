@@ -69,15 +69,19 @@ func Execute() {
 }
 
 type persistentData struct {
-	verbose, global *bool
-	debug           *bool
-	cfg, src, tgt   *[]string // source and target currently set as Persistent Flags
-	countFlags      int
+	verbose, global, all *bool
+	debug                *bool
+	spec, src, tgt       *[]string // source and target currently set as Persistent Flags
+	bspec, bsrc, btgt    bool      //lazy
+	countFlags           int
 }
 
 func (p *persistentData) setup() {
-	for _, b := range []bool{*p.verbose, *p.debug, *p.global,
-		len(*p.cfg) > 1, len(*p.src) > 1, len(*p.tgt) > 1} {
+	p.bsrc = len(*p.src) > 0
+	p.bspec = len(*p.spec) > 0
+	p.btgt = len(*p.tgt) > 0
+	p.countFlags = 0 //just to make sure
+	for _, b := range []bool{*p.verbose, *p.debug, *p.global, p.bspec, p.bsrc, p.btgt} {
 		if b {
 			p.countFlags++
 		}
@@ -104,18 +108,19 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	cobra.OnInitialize(dscore.CoreConfig, dscore.InitTempData) // pass all initialization functions here
+	cobra.OnInitialize(dscore.CoreConfig, dscore.InitTempData, dscore) // pass all initialization functions here
 	cobra.OnFinalize(dscore.EndEncode)
 	pData = persistentData{
 		// TODO: determine whether verbose is a cobra built-in flag, or if there are other builtin besides help
 		verbose: rootCmd.PersistentFlags().BoolP("verbose", "v", false, "shows additional details on execution (debug)"),
-		global:  rootCmd.PersistentFlags().BoolP("global", "g", false, "target the global group"),
+		all:     rootCmd.PersistentFlags().BoolP("all", "a", false, "applies command to 'all' applicable items (see command help for more detail)"),
+		global:  rootCmd.PersistentFlags().BoolP("global", "g", false, "target the global group"), //uncertain, overlap with all?
 		//NOTE: StringArrayP REQUIRES at least one flag argument
 		// make sure this is acceptable for all use cases.
 		// I would prefer them to also function as bools
-		cfg: rootCmd.PersistentFlags().StringArrayP("cfg", "c", nil, "cfg"),
-		src: rootCmd.PersistentFlags().StringArrayP("source", "s", nil, "src"),
-		tgt: rootCmd.PersistentFlags().StringArrayP("target", "t", []string{}, "tgt"),
+		spec: rootCmd.PersistentFlags().StringArrayP("cfg", "c", nil, "cfg"),
+		src:  rootCmd.PersistentFlags().StringArrayP("source", "s", nil, "src"),
+		tgt:  rootCmd.PersistentFlags().StringArrayP("target", "t", []string{}, "tgt"),
 		// dev use
 		debug: rootCmd.PersistentFlags().Bool("debug", false, "debug"),
 		// Help is default/built-in
