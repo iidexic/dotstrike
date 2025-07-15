@@ -11,11 +11,11 @@ import (
 	pops "iidexic.dotstrike/pathops"
 )
 
-type cfgFlags struct {
+type specFlags struct {
 	modify, yconfirm, all *bool
 }
 
-var flagDataCfg cfgFlags
+var flagDataSpec specFlags
 
 // specCmd represents the cfg command
 var specCmd = &cobra.Command{
@@ -29,8 +29,6 @@ var specCmd = &cobra.Command{
 		} */
 		srcarg := *pData.src
 		tgtarg := *pData.tgt
-		fsrc := len(srcarg) > 0
-		ftgt := len(tgtarg) > 0
 		var addSucceed = make(map[string]bool, len(args)+len(*pData.src)+len(srcarg)+len(tgtarg))
 		if len(args) > 0 {
 			// base args always interpreted as cfg alias
@@ -38,14 +36,14 @@ var specCmd = &cobra.Command{
 			for _, astr := range args {
 				found := dscore.SelectSpec(astr)
 				// if not found and -y flag or user confirmation, make new cfg
-				if !found && (*flagDataCfg.yconfirm || askConfirmf("Create new cfg: %s", astr)) {
+				if !found && (*flagDataSpec.yconfirm || askConfirmf("Create new cfg: %s", astr)) {
 					dscore.InitTempData()
 					td := dscore.GetTempData()
 					if td == nil {
 					}
 					ucfg := td.NewCfg(astr)
 
-					if fsrc {
+					if pData.bsrc {
 						var confirmsrc bool
 						for _, sa := range srcarg {
 							sabasic := pops.IsBasicPath(sa)
@@ -61,7 +59,7 @@ var specCmd = &cobra.Command{
 						}
 						//TODO: FINISH
 					}
-					if ftgt {
+					if pData.btgt {
 						var confirmtgt bool
 						for _, ta := range srcarg {
 							tabasic := pops.IsBasicPath(ta)
@@ -87,9 +85,19 @@ var specCmd = &cobra.Command{
 	},
 }
 
+type specOptype int
+
+const (
+	_ specOptype = iota
+)
+
+func (f specFlags) identify(pf persistentData) specOptype {
+	return 0
+}
+
 func init() {
 	rootCmd.AddCommand(specCmd)
-	flagDataCfg = cfgFlags{
+	flagDataSpec = specFlags{
 		modify:   specCmd.Flags().BoolP("modify component", "m", false, "modify"),
 		all:      specCmd.Flags().BoolP("apply to all found", "a", false, "all"),
 		yconfirm: specCmd.Flags().BoolP("autoconfirm user y/n prompts", "y", false, "yes"),

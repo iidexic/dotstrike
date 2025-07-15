@@ -46,6 +46,7 @@ and directories between the path where they are used and a storage/repo location
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
+		print("got this far")
 		if *version {
 			cmd.Print("version: ", verstr)
 		}
@@ -108,7 +109,7 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	cobra.OnInitialize(dscore.CoreConfig, dscore.InitTempData, dscore) // pass all initialization functions here
+	cobra.OnInitialize(dscore.CoreConfig, dscore.InitTempData) // pass all initialization functions here
 	cobra.OnFinalize(dscore.EndEncode)
 	pData = persistentData{
 		// TODO: determine whether verbose is a cobra built-in flag, or if there are other builtin besides help
