@@ -48,14 +48,14 @@ type globalData struct {
 	Specs      []spec `toml:"cfgs, omitempty"`
 	Prefs      prefs  `toml:"prefs"`
 	TargetPath string `toml:"storagePath, omitempty"`
-	Selected   int    `toml:"SelectedCFG"`
+	Selected   int    `toml:"SelectedSpec"`
 }
 
 func (g *globalData) equal(g2 *globalData) bool {
 	return g.Prefs.equal(g2.Prefs) &&
 		g.TargetPath == g2.TargetPath &&
 		g.Selected == g2.Selected &&
-		slices.EqualFunc(g.Specs, g2.Specs, cfgEqual)
+		slices.EqualFunc(g.Specs, g2.Specs, specEqual)
 }
 
 type globalModify struct {

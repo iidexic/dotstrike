@@ -7,7 +7,7 @@ import (
 
 var ErrNotUnique error = errors.New("Attempted to set component alias to a non-unique value")
 var ErrParentNotFound error = errors.New("Component.Parent did not match any existing alias.")
-var Err error = errors.New("Component.Parent did not match any existing alias.")
+var ErrAliasNotFound error = errors.New("Component.Parent did not match any existing alias.")
 
 // type component interface
 // 	getAlias() string
@@ -46,7 +46,7 @@ func (p *prefs) Set(mpref map[string]bool) error {
 }
 
 func (pc *pathComponent) SetAlias(alias string) error {
-	//TODO: Fix this
+	//TODO: Fix this. should be on cfg level as alias should be unique
 	cfptr := gd.data.GetCfg(pc.Parent)
 	if cfptr == nil {
 		return ErrParentNotFound

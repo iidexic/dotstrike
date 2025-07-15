@@ -17,8 +17,8 @@ type cfgFlags struct {
 
 var flagDataCfg cfgFlags
 
-// cfgCmd represents the cfg command
-var cfgCmd = &cobra.Command{
+// specCmd represents the cfg command
+var specCmd = &cobra.Command{
 	Use:   "spec",
 	Short: "short descr",
 	Long:  `long descr`,
@@ -88,11 +88,11 @@ var cfgCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(cfgCmd)
+	rootCmd.AddCommand(specCmd)
 	flagDataCfg = cfgFlags{
-		modify:   cfgCmd.Flags().BoolP("modify component", "m", false, "modify"),
-		all:      cfgCmd.Flags().BoolP("apply to all found", "a", false, "all"),
-		yconfirm: cfgCmd.Flags().BoolP("autoconfirm user y/n prompts", "y", false, "yes"),
+		modify:   specCmd.Flags().BoolP("modify component", "m", false, "modify"),
+		all:      specCmd.Flags().BoolP("apply to all found", "a", false, "all"),
+		yconfirm: specCmd.Flags().BoolP("autoconfirm user y/n prompts", "y", false, "yes"),
 	}
 
 	// PERSISTENT FLAGS:

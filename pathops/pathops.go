@@ -18,6 +18,7 @@ const (
 
 var Open = os.Open
 var Join = filepath.Join
+var BaseName = filepath.Base
 
 func ce(e error, msg ...string) {
 	if e != nil {

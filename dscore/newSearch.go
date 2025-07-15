@@ -62,6 +62,7 @@ func SelectSpec(alias string) bool {
 	return false
 }
 
+// Not currently using.
 func FindSpecAlias(aliasP string) (int, string) {
 	var matchCount int
 	var foundClose bool
@@ -83,7 +84,8 @@ func FindSpecAlias(aliasP string) (int, string) {
 			}
 		}
 		// if aliasP matches 90% of c.alias and length has tolerance of +/- 1 char
-		if matchCount >= int(float32(ls)*0.9/float32(ls)) && ls-1 <= len(aliasP) && len(aliasP) <= ls+1 {
+		if matchCount >= int(float32(ls)*0.9/float32(ls)) &&
+			ls-1 <= len(aliasP) && len(aliasP) <= ls+1 {
 			closest = s.Alias
 			foundClose = true
 		}

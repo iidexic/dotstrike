@@ -5,11 +5,16 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"iidexic.dotstrike/dscore"
 	pops "iidexic.dotstrike/pathops"
 )
+
+type checkCmdFlags struct {
+	show, temp, walk bool
+}
 
 // checkCmd represents the check command
 var checkCmd = &cobra.Command{
@@ -35,20 +40,29 @@ to quickly create a Cobra application.`,
 		if pData.countFlags > 0 {
 
 		}
-		if td := dscore.GetTempData(); td != nil && *showtempg && td.Modified {
+		if td := dscore.GetTempData(); td != nil && checkf.temp && td.Modified {
 			cmd.Printf("%+v", td)
-		} else if *showtempg {
+		} else if checkf.temp {
 			cmd.Println("no pending changes (temp is empty)")
+		}
+		if checkf.show {
+			exec, e := os.Executable()
+			ce(e)
+			fmt.Println(exec)
+			wd, e := os.Getwd()
+			ce(e)
+			fmt.Printf("workingDir: %s\n", wd)
+			callfrom := pops.CalledFrom()
+			fmt.Printf("args[0]- called from: %s\n", callfrom)
 		}
 	},
 }
 
-var (
-	walkb, showtempg *bool
-)
+var checkf = checkCmdFlags{}
 
 func init() {
 	rootCmd.AddCommand(checkCmd)
-	walkb = checkCmd.Flags().BoolP("walk", "w", false, "walk dir")
-	showtempg = checkCmd.Flags().Bool("temp", false, "show contents of temporary storage struct for changes to user data")
+	checkf.walk = *checkCmd.Flags().BoolP("walk", "w", false, "walk dir")
+	checkf.temp = *checkCmd.Flags().Bool("temp", false, "show contents of temporary storage struct for changes to user data")
+	checkf.show = *checkCmd.Flags().Bool("show", false, "show exe info")
 }
