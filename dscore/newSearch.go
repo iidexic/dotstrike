@@ -1,6 +1,17 @@
 package dscore
 
-// type pathComponent struct {
+type matchMode int
+
+const (
+	matchExact matchMode = iota
+	matchPattern
+	matchFuzzy
+	match90
+	match50
+	matchNone
+)
+
+//  pathComponent
 // Path    string   `toml:"path"`
 // Ptype   pathType `toml:"ptype"` //if targetComponent: required to be dirPath
 // Ctype   componentType

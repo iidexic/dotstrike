@@ -65,10 +65,10 @@ func newPathComponent(ospath string, ctype componentType) *pathComponent {
 	return &pathComponent{Path: apath, Ctype: ctype}
 }
 
-// id makes pathComponent Alias based on parent, ctype, path
-func (pc pathComponent) id() string {
-	return pc.Parent + "" + string(pc.Ctype) + "" + pc.Alias
-}
+// // id makes pathComponent Alias based on parent, ctype, path
+// func (pc pathComponent) id() string {
+// 	return pc.Parent + "" + string(pc.Ctype) + "" + pc.Alias
+// }
 
 func (pc pathComponent) MatchesID(checkid string) bool {
 	return checkid == pc.Abspath || checkid == pc.Path || checkid == pc.Alias || checkid == pops.BaseName(pc.Abspath)
