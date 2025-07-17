@@ -1,13 +1,21 @@
 package dscore
 
+import (
+	"regexp"
+	"strings"
+)
+
 type matchMode int
 
 const (
-	matchExact matchMode = iota
+	_ matchMode = iota
+	matchExact
+	matchExactNCS
 	matchPattern
+	matchSubstring
 	matchFuzzy
-	match90
-	match50
+	matchCharacters
+	matchPercentage
 	matchNone
 )
 
@@ -74,7 +82,7 @@ func SelectSpec(alias string) bool {
 }
 
 // Not currently using.
-func FindSpecAlias(aliasP string) (int, string) {
+func FindSpec(aliasP string) (int, string) {
 	var matchCount int
 	var foundClose bool
 	// maybe just cut the fuzzy match and only run rigid match.
@@ -92,19 +100,71 @@ func FindSpecAlias(aliasP string) (int, string) {
 		for i := range ls - 1 { //TODO: make sure Go is inclusive start-exclusive end. I forget but 90% sure
 			if aliasP[i:i+1] == s.Alias[i:i+1] {
 				matchCount++
+
+			}
+			// if aliasP matches 90% of c.alias and length has tolerance of +/- 1 char
+			if matchCount >= int(float32(ls)*0.9/float32(ls)) &&
+				ls-1 <= len(aliasP) && len(aliasP) <= ls+1 {
+				closest = s.Alias
+				foundClose = true
 			}
 		}
-		// if aliasP matches 90% of c.alias and length has tolerance of +/- 1 char
-		if matchCount >= int(float32(ls)*0.9/float32(ls)) &&
-			ls-1 <= len(aliasP) && len(aliasP) <= ls+1 {
-			closest = s.Alias
-			foundClose = true
+		//calculate closest
+		if foundClose {
+			return -1, closest
 		}
 	}
-	//calculate closest
-	if foundClose {
-		return -1, closest
-	}
 	return 0, ""
+
+}
+func quickclean(s string) string { return strings.TrimSpace(strings.ToLower(s)) }
+func checkmatch(lookup string, record string, mode matchMode) int {
+	switch mode {
+	case matchExact:
+		if lookup == record {
+			return 1
+		}
+	case matchExactNCS:
+		if quickclean(lookup) == quickclean(record) {
+			return 1
+		}
+	case matchPattern:
+		b := make([]byte, len(record))
+		copy(b, record)
+		m, err := regexp.Match(lookup, b)
+		if err != nil {
+			return 0
+		}
+		if m {
+			return 1
+		}
+	case matchSubstring:
+		if strings.Contains(quickclean(record), quickclean(lookup)) {
+			return 1
+		}
+	case matchFuzzy:
+		lsl := []rune(lookup)
+		for i, r := range lsl {
+			_, _ = i, r
+		}
+	case matchPercentage:
+
+	}
+	return 0
+}
+
+func (g *globalData) FFindSpec(aliasP string) (string, matchMode) {
+	for _, s := range g.Specs {
+		ls := len(s.Alias)
+		if quickclean(aliasP) == quickclean(s.Alias) {
+			return aliasP, matchExact
+		}
+		// iron out minor spelling mistakes
+		for i := range ls - 1 { //TODO: make sure Go is inclusive start-exclusive end. I forget but 90% sure
+			if aliasP[i:i+1] == s.Alias[i:i+1] {
+			}
+		}
+	}
+	return "", 0
 
 }
