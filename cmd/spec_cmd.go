@@ -12,7 +12,7 @@ import (
 )
 
 type specFlags struct {
-	modify, yconfirm, all *bool
+	modify, yconfirm *bool
 }
 
 var flagDataSpec specFlags
@@ -107,7 +107,6 @@ func init() {
 	rootCmd.AddCommand(specCmd)
 	flagDataSpec = specFlags{
 		modify:   specCmd.Flags().BoolP("modify component", "m", false, "modify"),
-		all:      specCmd.Flags().BoolP("apply to all found", "a", false, "all"),
 		yconfirm: specCmd.Flags().BoolP("autoconfirm user y/n prompts", "y", false, "yes"),
 	}
 
