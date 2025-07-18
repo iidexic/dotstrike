@@ -8,8 +8,11 @@ import (
 )
 
 type srcFlags struct {
-	alias, ignore bool
+	alias  *string
+	ignore *[]string
 }
+
+var srcF = srcFlags{}
 
 // srcCmd represents the src command
 var srcCmd = &cobra.Command{
@@ -36,8 +39,16 @@ to quickly create a Cobra application.`,
 }
 
 func init() {
-	specCmd.AddCommand(srcCmd)
+	//NOTE: does it make sense to have this attached to spec?
+	// how tf
 
+	//OK:
+	// don't make a subcommand of spec; canot have a main cmd arg if running a subcmd
+	// could make like poleless flags but sounds messy
+
+	rootCmd.AddCommand(srcCmd)
+	srcF.ignore = srcCmd.Flags().StringArray("ignore patterns", nil, "ignore")
+	srcF.alias = srcCmd.Flags().String("Set Alias", "", "alias")
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command

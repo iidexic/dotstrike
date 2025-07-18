@@ -85,19 +85,19 @@ var specCmd = &cobra.Command{
 	},
 }
 
-// type specOptype int
-//
-// const (
-// 	_ specOptype = iota
-// 	newSpec
-// 	findSpec
-// 	deleteSpec
-// 	addSrc
-// 	addTgt
-// 	rmvSrc
-// 	rmvTgt
-// 	modOverrides
-// )
+type specOptype int
+
+const (
+	_ specOptype = iota
+	newSpec
+	findSpec
+	deleteSpec
+	addSrc
+	addTgt
+	rmvSrc
+	rmvTgt
+	modOverrides
+)
 
 func (f specFlags) identify(pf persistentData) specOptype {
 	return 0
