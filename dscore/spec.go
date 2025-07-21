@@ -27,23 +27,23 @@ type spec struct {
 // initializeInherent attributes of spec and child pathComponents
 func (S *spec) initializeInherent() {
 	S.Ctype = cfgComponent
-	for _, src := range S.Sources {
-		src.Parent = S.Alias
-		src.Ptype = sourceComponent
+	for i := range S.Sources {
+		S.Sources[i].Parent = S.Alias
+		S.Sources[i].Ctype = sourceComponent
 	}
-	for _, tgt := range S.Targets {
-		tgt.Parent = S.Alias
-		tgt.Ptype = targetComponent
+	for i := range S.Targets {
+		S.Targets[i].Parent = S.Alias
+		S.Targets[i].Ctype = targetComponent
 	}
 }
 
 func (S spec) allInitialized() bool {
 	all := S.Ctype > 0
 	for _, src := range S.Sources {
-		all = all && src.Ctype > 0 && src.Parent != ""
+		all = all && src.isInitialized()
 	}
 	for _, tgt := range S.Sources {
-		all = all && tgt.Ctype > 0 && tgt.Parent != ""
+		all = all && tgt.isInitialized()
 	}
 	return all
 }
