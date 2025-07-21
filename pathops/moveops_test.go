@@ -88,7 +88,7 @@ func TestPathFixes(t *testing.T) {
 	//2. joinpath
 	inbaseraw := filepath.Base(inpath)
 	inbaseC := filepath.Base(inpathC)
-	pathjoin := joinpath(outpathC, inbaseC)
+	pathjoin := Joinpath(outpathC, inbaseC)
 	t.Logf(`------------
      INPATH: [%s]
 CONDITIONED: [%s]

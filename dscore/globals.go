@@ -117,9 +117,9 @@ func (G *globals) GetConfig(dirpath string) bool {
 // TODO: Establish better separation of functionality with GetConfig
 // TODO: Include auto-write and encode prefs if none exist
 func CoreConfig() {
-	homedir, errcfg := os.UserHomeDir()
-	ifer(errcfg) // for now just panic
-	cfgdir := path.Join(homedir, ".config/dotstrike")
+
+	cfgdir := pops.Joinpath(*pops.HomePath, globalDirHomeRelative)
+	// TODO: ADD HOMEDIR ONTO PREFS.GLOBALTARGETPATH
 	gotConfig := gd.GetConfig(cfgdir)
 	if gotConfig {
 		gd.status = badToml //pre-emptive

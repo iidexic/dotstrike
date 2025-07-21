@@ -16,9 +16,27 @@ const (
 	absPath
 )
 
+var HomePath *string = nil
+
+type errCtr struct {
+	etext string
+	err   error
+}
+
+func (e *errCtr) Error() string {
+	if e.err != nil {
+		return fmt.Sprintf("%s: [%s]", e.etext, e.err.Error())
+	}
+	return e.etext
+}
+
+var ErrGetHome = errCtr{etext: "Failed to retrieve user homedir"}
+
 var Open = os.Open
-var Join = filepath.Join
 var BaseName = filepath.Base
+
+// Joinpath aliases filepath.Join (no longer necessary)
+var Joinpath = filepath.Join
 
 func ce(e error, msg ...string) {
 	if e != nil {
@@ -28,8 +46,12 @@ func ce(e error, msg ...string) {
 	}
 }
 
+//TODO: Replace ALL os.IsExist/os.IsNotExist with errors.Is()
+//TODO: Clean up Home functions - here and where used
+//TODO: Replace current config path system with more robust system with fallbacks
+
 // enum type for file op outcomes
-type failureType int //TODO: replace system with errors; as is basically converting errors to enum
+type failureType int //TODO: replace system with errors; currently basically converting errors to enum
 
 // Possible outcomes for attempting filesystem operations
 // Different operations have the potential to trigger different subsets of these outcomes
@@ -42,6 +64,12 @@ const (
 	PermissionDenied
 	FailedOpen
 	Error // if error is returned, an error will also be returend in PathActionResult.Err
+)
+const (
+	tilde     = byte('~')
+	backslash = byte('\\') //unused
+	amp       = byte('&')  //unused
+	atsign    = byte('@')  //unused
 )
 
 type ReadResult struct {
@@ -81,10 +109,9 @@ func (f failureType) Detail() string {
 
 }
 
-//var errDie []error = []error{filepath.ErrBadPattern, path.ErrBadPattern, os.ErrExist, os.ErrNotExist,os.ErrPermission}
-
 // OpenExistingFile attempts to open an existing file
 // on success: returns open *os.File, nil. on fail: returns nil, error
+// NOTE: Read-Only
 func OpenExistingFile(ospath string) (*os.File, error) {
 	file, err := os.Open(ospath)
 	if err != nil {
@@ -93,21 +120,69 @@ func OpenExistingFile(ospath string) (*os.File, error) {
 	return file, nil
 }
 
+// OpenFileRW wraps os.OpenFile(ospath, os.O_RDWR,0)
+func OpenFileRW(ospath string) (*os.File, error) {
+	return os.OpenFile(ospath, os.O_RDWR, 0)
+	//Q: need check error before?
+}
+
+// ── HOME PATH FUNCTIONS ─────────────────────────────────────────────
+
 // HomeJoin retrieves abs homedir path, adds suffix to the end, and returns.
-// Directly returns error from os.UserHomeDir()
+// Directly returns error from os.UserHomeDir().
 func HomeJoin(suffix string) (string, error) {
+	if HaveHome() {
+		return *HomePath, nil
+	}
 	home, e := os.UserHomeDir()
 	if len(suffix) > 1 {
 	}
 	return filepath.Join(home, suffix), e
 }
 
-// HomeJoin retrieves abs homedir path, adds suffix to the end, and returns.
-// Directly returns error from os.UserHomeDir()
+// HomeJoinC uses HomePath var (populated on init) to prepend homedir to suffix
+func HomeJoinC(suffix string) string { return Joinpath(*HomePath, suffix) }
+
+// HomeDirtyJoin retrieves abs homedir path, adds suffix to the end, and returns.
+// errors will panic
 func HomeDirtyJoin(suffix string) string {
 	home, e := os.UserHomeDir()
 	ce(e)
 	return filepath.Join(home, suffix)
+}
+func GetHomeDir() {
+	home, e := os.UserHomeDir()
+	if e != nil {
+		ErrGetHome.err = e
+	}
+	if home != "" {
+		HomePath = &home
+	}
+}
+
+func HaveHome() bool {
+	if HomePath != nil && filepath.IsAbs(*HomePath) {
+		return true
+	}
+	return false
+}
+
+// TildeDirty replaces a leading ~ with home path using HomeDirtyJoin
+// errors will panic.
+func TildeDirty(ospath string) string {
+	// tilde code: 126
+	if ospath[0] == tilde {
+		return HomeDirtyJoin(ospath[0:])
+	}
+	return ospath
+}
+
+func TildeFix(ospath string) (string, error) {
+	// tilde code: 126
+	if ospath[0] == tilde {
+		return HomeJoin(ospath[0:])
+	}
+	return ospath, nil
 }
 
 // makeabs returns absolute path of inpath
@@ -126,8 +201,6 @@ func MakeAbs(inpath string) string {
 }
 
 var Abs = filepath.Abs
-
-//TODO: Replace ALL os.IsExist/os.IsNotExist with errors.Is()
 
 // MakeOpenFileF will open the given fpath as a file. It will make the file if it does not exist,
 // and it will make any missing directories necessary.
@@ -247,6 +320,7 @@ func CalledFrom() string {
 	return dir
 }
 
+// CleanPath = filepath.Clean
 var CleanPath = filepath.Clean
 
 // dirContents returns a map describing contents of dirpath and subdirectories
@@ -274,8 +348,9 @@ func dirContents(dirpath string) *map[string]bool {
 	return &contentsIsDir
 }
 
-// TODO: symlink testing (next 2 functions related)
-func IsBasicPath(p string) bool {
+// MaybePasicPath just checks if p IsAbs or IsLocal
+// So it probably should not be used
+func MaybeBasicPath(p string) bool {
 	return filepath.IsAbs(p) || filepath.IsLocal(p) //No symlink check/condition right now.
 
 }
