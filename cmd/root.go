@@ -109,7 +109,7 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	cobra.OnInitialize(dscore.CoreConfig, dscore.InitTempData) // pass all initialization functions here
+	cobra.OnInitialize(dscore.CoreConfig, dscore.InitTempData, pops.GetHomeDir) // pass all initialization functions here
 	cobra.OnFinalize(dscore.EndEncode)
 	pData = persistentData{
 		// TODO: determine whether verbose is a cobra built-in flag, or if there are other builtin besides help

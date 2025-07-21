@@ -104,9 +104,6 @@ type filecopy struct {
 	inSize, outSize int64
 }
 
-// joinpath aliases filepath.Join (no longer necessary)
-var joinpath = filepath.Join
-
 // Removed for now.
 // type elog struct {
 // 	fs.PathError
@@ -138,7 +135,7 @@ func (J *CopyJob) Run( /* params */ ) error {
 
 	if J.JobSettings.makeRootSubdir && J.parentPathOut == "" { // parentpath check to be safe
 		J.parentPathOut = J.PathOut
-		J.PathOut = joinpath(J.PathOut, filepath.Base(J.PathIn))
+		J.PathOut = Joinpath(J.PathOut, filepath.Base(J.PathIn))
 	}
 
 	// ── Walk ────────────────────────────────────────────────────────────
@@ -152,7 +149,7 @@ func (J *CopyJob) Run( /* params */ ) error {
 	//WARNING: WITH THIS STRUCTURE, A WALKDIR ERROR WILL PREVENT MAKING ADDITIONAL DIRS
 	if J.JobSettings.copyAllDirectories {
 		for dir := range J.newDirs {
-			e := os.MkdirAll(joinpath(J.PathOut, dir), 0)
+			e := os.MkdirAll(Joinpath(J.PathOut, dir), 0)
 			J.checkAndLogError(dir, "MakeDirectory", e)
 		}
 	}
@@ -189,7 +186,7 @@ func (J *CopyJob) Walk(p string, d DirEntry, e error) error {
 
 	// FILES:
 	// ── 0.1 make filepath out ─────────────────────────────────
-	pto := joinpath(J.PathOut, prr)
+	pto := Joinpath(J.PathOut, prr)
 	if !filepath.IsAbs(pto) {
 		pto = absNoE(pto) //	!INFO: panics on error; error is unexpected
 	}

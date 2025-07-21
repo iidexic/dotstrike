@@ -45,15 +45,15 @@ type globals struct {
 	md            toml.MetaData
 }
 type globalData struct {
-	Specs      []spec `toml:"cfgs, omitempty"`
-	Prefs      prefs  `toml:"prefs"`
-	TargetPath string `toml:"storagePath, omitempty"`
-	Selected   int    `toml:"SelectedSpec"`
+	// moved TargetPath to Prefs
+	//TargetPath string `toml:"storagePath, omitempty"`
+	Selected int    `toml:"SelectedSpec"`
+	Prefs    prefs  `toml:"prefs"`
+	Specs    []spec `toml:"specs, omitempty"`
 }
 
 func (g *globalData) equal(g2 *globalData) bool {
 	return g.Prefs.equal(g2.Prefs) &&
-		g.TargetPath == g2.TargetPath &&
 		g.Selected == g2.Selected &&
 		slices.EqualFunc(g.Specs, g2.Specs, specEqual)
 }
@@ -75,16 +75,16 @@ type globalModify struct {
 // prefs holds preferences for component-based operations
 // used scoped globally or to individual components/parents
 type prefs struct {
-	KeepRepo     bool `toml:"keepRepo"`
-	KeepHidden   bool `toml:"keepHidden"`
-	GlobalTarget bool `toml:"globalTarget"`
-	//for now symlink will be copied as (whatever easier)
-	//SymlinkAs string `toml:"symlinkAs"`
+	KeepRepo         bool   `toml:"keepRepo"`
+	KeepHidden       bool   `toml:"keepHidden"`
+	GlobalTarget     bool   `toml:"globalTarget.enabled"`
+	GlobalTargetPath string `toml:"globalTarget.path"`
+	//TODO: symlink handling + symlink preference
 }
 
 func (p prefs) equal(p2 prefs) bool {
 	return p.KeepHidden == p2.KeepHidden && p.KeepRepo == p2.KeepRepo &&
-		p.GlobalTarget == p2.GlobalTarget
+		p.GlobalTarget == p2.GlobalTarget && p.GlobalTargetPath == p2.GlobalTargetPath
 }
 
 // TempGlob exists to store new global data temporarily during runtime
@@ -133,10 +133,10 @@ func InitTempData() {
 			initialized: true,
 			Modified:    false,
 		}
+		tempData.Prefs.GlobalTargetPath = gd.data.Prefs.GlobalTargetPath
 		tempData.Prefs.GlobalTarget = gd.data.Prefs.GlobalTarget
 		tempData.Prefs.KeepHidden = gd.data.Prefs.KeepHidden
 		tempData.Prefs.KeepRepo = gd.data.Prefs.KeepRepo
-		tempData.TargetPath = gd.data.TargetPath
 		tempData.Selected = gd.data.Selected
 	}
 }
@@ -155,7 +155,7 @@ func (G *globals) EncodeIfNeeded(tg *globalModify) error {
 }
 
 // should only be used when very first writing a non-existent dotstrikeData.toml
-func (G *globals) encodeG() error {
+func (G *globals) encodeDefaults() error {
 	file, e := pops.MakeOpenFileF(globalsFilepath())
 	if e != nil {
 		return e
@@ -170,15 +170,15 @@ func (G *globals) encodeG() error {
 	}
 }
 
-// encodeModified gm data to main toml
+// encodeModified gm data exclusively to main toml
 func (gm *globalModify) encodeModified() error {
-	file, e := pops.OpenExistingFile(globalsFilepath())
+	file, e := pops.OpenFileRW(globalsFilepath())
 	if e != nil || file == nil {
 		return e
 	}
 	defer file.Close()
 	encode := toml.NewEncoder(file)
-	e = encode.Encode(gd)
+	e = encode.Encode(gm.globalData)
 	if e != nil {
 		return e
 	} else {

@@ -2,7 +2,6 @@ package dscore
 
 import (
 	"fmt"
-	"os"
 	"path"
 
 	pops "iidexic.dotstrike/pathops"
@@ -12,7 +11,7 @@ import (
 type globalsReadResult int
 
 // potential outcomes of attempting to read and load global config/user data into usable components
-const ( // TODO: Just turn these into errors.
+const ( // TODO: Change globalsReadResult into an error struct. Make these vars
 
 	preInit = iota
 	noInit
@@ -44,7 +43,12 @@ var gd = globals{
 	status: noInit,
 	loaded: false,
 	data: globalData{
-		Prefs: prefs{KeepRepo: true, KeepHidden: true, GlobalTarget: true},
+		Prefs: prefs{
+			KeepRepo:         true,
+			KeepHidden:       true,
+			GlobalTarget:     true,
+			GlobalTargetPath: "~\\dotstrike\\globalTarget\\", // this doesnt work until transformed in CoreConfig.
+		},
 		Specs: []spec{},
 	},
 }
@@ -62,6 +66,7 @@ GlobalMessage []string */
 // globalsFilename is the file that ds looks to pull settings and userdata from
 const globalsFilename = "dotstrikeData.toml"
 const globalPathHomeRelative = ".config/dotstrike/dotstrikeData.toml"
+const globalDirHomeRelative = ".config/dotstrike"
 
 func globalsFilepath() string {
 	gpath, e := pops.HomeJoin(globalPathHomeRelative)
@@ -77,7 +82,8 @@ func GetGlobals() (*globals, error) {
 	}
 	return &globals{}, fmt.Errorf("Globals not loaded.\n Globals = %+v", gd)
 }
-func (g *globalData) GetCfg(alias string) *spec {
+
+func (g *globalData) GetSpec(alias string) *spec {
 	for _, s := range g.Specs {
 		if s.Alias == alias {
 			return &s
@@ -113,13 +119,16 @@ func (G *globals) GetConfig(dirpath string) bool {
 	return false
 }
 
+// TODO: Establish better separation of functionality between CoreConfig and GetConfig
+
 // CoreConfig called to find ds data file in all possible locations
-// TODO: Establish better separation of functionality with GetConfig
-// TODO: Include auto-write and encode prefs if none exist
+// ?TODO: If no config file exists, create one and encode gd defaults
+// TODO: require vars be passed (globalDir)?
 func CoreConfig() {
-	homedir, errcfg := os.UserHomeDir()
-	ifer(errcfg) // for now just panic
-	cfgdir := path.Join(homedir, ".config/dotstrike")
+
+	//TODO: clean up this homepath/GlobalTargetPath solution
+	cfgdir := pops.Joinpath(*pops.HomePath, globalDirHomeRelative)
+	gd.data.Prefs.GlobalTargetPath = pops.TildeDirty(gd.data.Prefs.GlobalTargetPath)
 	gotConfig := gd.GetConfig(cfgdir)
 	if gotConfig {
 		gd.status = badToml //pre-emptive
@@ -133,6 +142,7 @@ func CoreConfig() {
 		if len(undecoded) > 0 {
 			gd.logfG("undecoded values from .toml:\n%+v", undecoded)
 		}
+		//TODO: better way of determining success
 		if len(undecoded) < len(gd.md.Keys()) {
 			gd.status = success
 		}
@@ -140,15 +150,12 @@ func CoreConfig() {
 	} else {
 		// load modify and write defaults to file first thing
 		// Option 1: use the function I wrote literally for this
-		ee := gd.encodeG()
+		ee := gd.encodeDefaults()
 		if ee != nil {
 			panic(fmt.Errorf(
 				`Failed writing default config to file (%w)
 User data file not found and could not be made.`, ee))
 		}
-		// option 2 (why) : Make globalModify to encode
-		// mod := globalModify{globalData: &gd.data, initialized: true, Modified: true}
-		// mod.encodeModified()
 
 	}
 
