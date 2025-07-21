@@ -36,17 +36,17 @@ var specCmd = &cobra.Command{
 			for _, astr := range args {
 				found := dscore.SelectSpec(astr)
 				// if not found and -y flag or user confirmation, make new cfg
-				if !found && (*flagDataSpec.yconfirm || askConfirmf("Create new cfg: %s", astr)) {
-					dscore.InitTempData()
+				if !found && (*flagDataSpec.yconfirm || askConfirmf("Create new Spec: %s", astr)) {
 					td := dscore.GetTempData()
 					if td == nil {
+						panic(fmt.Errorf("TempData nil"))
 					}
-					ucfg := td.NewCfg(astr)
+					ucfg := td.NewSpec(astr)
 
 					if pData.bsrc {
 						var confirmsrc bool
 						for _, sa := range srcarg {
-							sabasic := pops.IsBasicPath(sa)
+							sabasic := pops.MaybeBasicPath(sa) //TODO: Eliminate/Replace
 							if !sabasic {
 								confirmsrc = askConfirmf(fmt.Sprintf("add non-basic path '%s' to sources?", sa))
 							}
@@ -62,7 +62,7 @@ var specCmd = &cobra.Command{
 					if pData.btgt {
 						var confirmtgt bool
 						for _, ta := range srcarg {
-							tabasic := pops.IsBasicPath(ta)
+							tabasic := pops.MaybeBasicPath(ta)
 							if !tabasic {
 								confirmtgt = askConfirmf(fmt.Sprintf("add non-basic path '%s' to targets?", ta))
 							}

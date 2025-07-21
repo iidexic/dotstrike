@@ -171,7 +171,9 @@ func HaveHome() bool {
 // errors will panic.
 func TildeDirty(ospath string) string {
 	// tilde code: 126
-	if ospath[0] == tilde {
+	if c1 := ospath[0]; c1 == tilde && *HomePath != "" {
+		return HomeJoinC(ospath[0:])
+	} else if c1 == tilde {
 		return HomeDirtyJoin(ospath[0:])
 	}
 	return ospath
@@ -179,7 +181,9 @@ func TildeDirty(ospath string) string {
 
 func TildeFix(ospath string) (string, error) {
 	// tilde code: 126
-	if ospath[0] == tilde {
+	if c1 := ospath[0]; c1 == tilde && *HomePath != "" {
+		return HomeJoinC(ospath[0:]), nil
+	} else if c1 == tilde {
 		return HomeJoin(ospath[0:])
 	}
 	return ospath, nil

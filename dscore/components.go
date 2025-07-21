@@ -8,10 +8,10 @@ import (
 )
 
 // Denote whether paths in pathObjects are path or dir
-type pathType = byte
+type pathType byte
 
 // Denote whether component is source or target. Uncertain of implementation
-type componentType = byte
+type componentType byte
 
 const (
 	_ pathType = iota
@@ -48,7 +48,7 @@ type pathComponent struct {
 	Abspath string        `toml:"abspath"`
 	Path    string        `toml:"path"`
 	Ignores []string      `toml:"ignores"` // remove if not using target ignore copy
-	Ptype   pathType      `toml:"ptype"`   //targetComponent requires dirPath
+	Ptype   pathType      `toml:"ptype"`   //targetComponent requires dirPath //TODO: init Ptype or remove if not useful
 	Ctype   componentType `toml:"ctype"`   //NOTE: not  implemented. Inherent??
 	Parent  string        //NOTE: INITIALIZE INHERENT
 }
