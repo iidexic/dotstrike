@@ -37,6 +37,12 @@ func TestErrorReturn(t *testing.T) {
 	}
 	t.Logf("echek = no file? %t\nenochek = no file? %t", os.IsNotExist(echek), os.IsNotExist(enochek))
 }
+func TestStringIndexing(t *testing.T) {
+	str := "~\\what/$&$#^"
+	for i := range len(str) {
+		t.Logf("%d) %d %s", i, str[i], string(str[i]))
+	}
+}
 
 func TestPathChanges(t *testing.T) {
 	cwd := getcwd(t)

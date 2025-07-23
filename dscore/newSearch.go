@@ -117,6 +117,19 @@ func FindSpec(aliasP string) (int, string) {
 	return 0, ""
 
 }
+
+// hardclean exists. idk
+/*
+func hardclean(s string) string {
+	rmv := []rune(`
+!@#$%^&*()_+{}/\|:"'.,;:[]<>?-=~`)
+	rmv = append(rmv, '`')
+	for _, v := range rmv {
+		s = strings.ReplaceAll(s, string(v), "")
+	}
+	return quickclean(s)
+}
+*/
 func quickclean(s string) string { return strings.TrimSpace(strings.ToLower(s)) }
 func checkmatch(lookup string, record string, mode matchMode) int {
 	switch mode {

@@ -26,7 +26,7 @@ var listCmd = &cobra.Command{
 			cmd.Print("USER DATA ---------\n")
 			printsl := g.DescribeAllUserData()
 			for _, p := range printsl {
-				cmd.Print(p, "\n\r")
+				cmd.Print(p, "\n")
 			}
 		} else {
 			for i, a := range args {
