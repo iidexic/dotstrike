@@ -2,7 +2,9 @@ package dscore
 
 import (
 	"errors"
+	"fmt"
 	"slices"
+	"strings"
 
 	pops "iidexic.dotstrike/pathops"
 )
@@ -88,6 +90,27 @@ func newPathComponent(ospath string, ctype componentType) *pathComponent {
 	return &pathComponent{Path: apath, Ctype: ctype}
 }
 
+func (pc pathComponent) Detail() string {
+	lines := make([]string, 0, 16)
+	ctype := pc.Ctype.string()
+	header := fmt.Sprintf("Component: %s", ctype)
+	path := fmt.Sprintf("Path: %s (path type: %s)", pc.Path, pc.Ptype.string())
+	parent := "Parent Alias = " + pc.Parent
+	lines = append(lines, header, path, parent)
+	if pc.Alias != "" {
+		lines = append(lines, fmt.Sprintf("Alias: '%s'", pc.Alias))
+	}
+	if iqty := len(pc.Ignores); iqty > 0 {
+		ig := make([]string, 0, iqty)
+		ig = append(ig, "List ignore patterns:")
+		for i, pat := range pc.Ignores {
+			ig = append(ig, fmt.Sprintf("	[%d]: '%s'", i, pat))
+		}
+		lines = append(lines, ig...)
+	}
+	return strings.Join(lines, "\n")
+}
+
 // // id makes pathComponent Alias based on parent, ctype, path
 // func (pc pathComponent) id() string {
 // 	return pc.Parent + "" + string(pc.Ctype) + "" + pc.Alias
@@ -106,7 +129,7 @@ func pathComponentEqual(pc, pc2 pathComponent) bool {
 
 // specEqual compares two cfg params for equality.
 // standalone function to ensure compatible with slices.EqualFunc
-func specEqual(S, S2 spec) bool {
+func specEqual(S, S2 Spec) bool {
 	return S.Alias == S2.Alias && S.Overrides == S2.Overrides && S.Ctype == S2.Ctype &&
 		slices.EqualFunc(S.Sources, S2.Sources, pathComponentEqual) &&
 		slices.EqualFunc(S.Targets, S2.Targets, pathComponentEqual) &&

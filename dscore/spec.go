@@ -2,10 +2,12 @@ package dscore
 
 import (
 	"fmt"
+	"strings"
 
 	pops "iidexic.dotstrike/pathops"
 )
 
+// TODO: What is this. Make this an error or get rid of it
 func recoverReturn(explainer string) bool {
 	if r := recover(); r != nil {
 		fmt.Printf("FAILED [%s]. ERROR", explainer)
@@ -15,13 +17,15 @@ func recoverReturn(explainer string) bool {
 	return false
 }
 
-type spec struct {
-	Alias     string          `toml:"alias"`     // name, unique
-	Sources   []pathComponent `toml:"sources"`   // paths marked as origin points
-	Targets   []pathComponent `toml:"targets"`   // paths  marked as destination points
-	Ignorepat []string        `toml:"ignores"`   // ignorepat that apply to all sources
-	Overrides prefs           `toml:"overrides"` // override global prefs
-	Ctype     componentType
+// Primary user data structure; contains info required to perform a dircopy operation
+type Spec struct {
+	Alias      string          `toml:"alias"`      // name, unique
+	Sources    []pathComponent `toml:"sources"`    // paths marked as origin points
+	Targets    []pathComponent `toml:"targets"`    // paths  marked as destination points
+	Ignorepat  []string        `toml:"ignores"`    // ignorepat that apply to all sources
+	OverrideOn bool            `toml:"overrideOn"` // enable overrides, prevent Overrides being over-written
+	Overrides  prefs           `toml:"overrides"`  // override global prefs
+	Ctype      componentType
 }
 
 // initializeInherent attributes of spec and child pathComponents
@@ -37,7 +41,8 @@ func (S *Spec) initializeInherent() {
 	}
 }
 
-func (S spec) allInitialized() bool {
+// allInitialized check all source/target components to ensure all are initialized
+func (S Spec) allInitialized() bool {
 	all := S.Ctype > 0
 	for _, src := range S.Sources {
 		all = all && src.isInitialized()
@@ -49,10 +54,11 @@ func (S spec) allInitialized() bool {
 }
 
 // ── Find/Get Spec Info ──────────────────────────────────────────────
-func (S spec) getAlias() string        { return S.Alias }
-func (S spec) getCtype() componentType { return S.Ctype }
 
-func (S *spec) getSource(alias string) *pathComponent {
+func (S Spec) getAlias() string        { return S.Alias }
+func (S Spec) getCtype() componentType { return S.Ctype }
+
+func (S *Spec) getSource(alias string) *pathComponent {
 	for _, src := range S.Sources {
 		if alias == src.Alias {
 			return &src
@@ -60,7 +66,39 @@ func (S *spec) getSource(alias string) *pathComponent {
 	}
 	return nil
 }
-func (S *spec) getTarget(alias string) *pathComponent {
+func (S *Spec) Detail() string {
+	lines := make([]string, 0, 32)
+	lines = append(lines, "Spec: "+S.Alias, "-------------------")
+
+	// ── Sources ──────────────────────────────
+	for _, src := range S.Sources {
+		lines = append(lines, src.Detail())
+	}
+
+	// ── Targets ──────────────────────────────
+	for _, tgt := range S.Targets {
+		lines = append(lines, tgt.Detail())
+	}
+
+	// ── overrides ────────────────────────────
+	overrideOn := fmt.Sprintf("Overrides Enabled: %t", S.OverrideOn)
+	if !S.Overrides.equal(gd.data.Prefs) {
+		lines = append(lines, fmt.Sprintf(`%s
+Overrides:
+	Keep Repo: %t
+	Keep Hidden Files: %t
+	Use Global Target: %t`, overrideOn, S.Overrides.KeepRepo, S.Overrides.KeepHidden, S.Overrides.GlobalTarget))
+	}
+
+	// ── Ignores ──────────────────────────────
+	lines = append(lines, "Ignore Patterns:")
+	for _, pat := range S.Ignorepat {
+		lines = append(lines, "	- "+pat)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (S *Spec) getTarget(alias string) *pathComponent {
 	for _, tgt := range S.Targets {
 		if alias == tgt.Alias {
 			return &tgt
@@ -68,11 +106,14 @@ func (S *spec) getTarget(alias string) *pathComponent {
 	}
 	return nil
 }
-func (S *spec) GetIgnores() *[]string { return &S.Ignorepat }
-func (S *spec) GetLocalPrefs() *prefs { return &S.Overrides }
+func (S *Spec) GetIgnores() *[]string { return &S.Ignorepat }
+
+func (S *Spec) GetLocalPrefs() *prefs { return &S.Overrides }
 
 // TODO: implement (in globalModify.go)
-func (S spec) IsPathChild(path string) bool {
+
+// IsPathChild looks for the path within the Spec's pathComponent slices
+func (S Spec) IsPathChild(path string) bool {
 	for _, src := range S.Sources {
 		if src.Alias == path || src.Path == pops.MakeAbs(path) {
 			return true
@@ -87,7 +128,7 @@ func (S spec) IsPathChild(path string) bool {
 }
 
 // GetIfChild returns a pointer to the child source or target with the path or alias passed. Returns nil if none found
-func (S spec) GetIfChild(identifier string) *pathComponent {
+func (S Spec) GetIfChild(identifier string) *pathComponent {
 	for _, src := range S.Sources {
 		if src.Alias == identifier || src.Path == pops.MakeAbs(identifier) {
 			return &src
@@ -99,11 +140,6 @@ func (S spec) GetIfChild(identifier string) *pathComponent {
 		}
 	}
 	return nil
-}
-
-func (S spec) status() string {
-	expln := fmt.Sprintf("spec:'%s' - Sources:\n%+v", S.Alias, S.Sources)
-	return expln
 }
 
 // ── Modifying Spec Data ─────────────────────────────────────────────
@@ -124,7 +160,7 @@ func (S *Spec) CheckAddPath(path string, isSource bool) bool {
 }
 
 // CheckAddMultiplePaths adds paths to spec.Sources if isSource, spec.Targets if !isSource
-func (S *spec) CheckAddMultiplePaths(paths []string, isSource bool) {
+func (S *Spec) CheckAddMultiplePaths(paths []string, isSource bool) {
 	for _, p := range paths {
 		S.CheckAddPath(p, isSource)
 	}
@@ -132,7 +168,7 @@ func (S *spec) CheckAddMultiplePaths(paths []string, isSource bool) {
 }
 
 // ── Running spec copy jobs ──────────────────────────────────────────
-func (S spec) RunCopy() error {
+func (S Spec) RunCopy() error {
 	if !S.allInitialized() {
 		return fmt.Errorf("spec not initialized: %s", S.Alias)
 	}
