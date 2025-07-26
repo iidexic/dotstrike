@@ -17,7 +17,7 @@ func DumpGlobals() []string {
 		"-- user cfgs --",
 	}
 	for i, c := range gd.data.Specs {
-		dump = append(dump, fmt.Sprintf("[c%d] %s", i, c.status()))
+		dump = append(dump, fmt.Sprintf("[c%d] %+v", i, c))
 	}
 	dump = append(dump, "__MESSAGES__\n")
 	dump = append(dump, gd.GlobalMessage...)
@@ -33,7 +33,7 @@ func printTkeys(keys []toml.Key) {
 		fmt.Printf("[%d] %s (%+v)\n", i, k.String(), k)
 	}
 }
-func printcfgs(ptrcfg []spec) {
+func printcfgs(ptrcfg []Spec) {
 	for i, cf := range ptrcfg {
 		fmt.Printf("[%d] %+v\n", i, cf)
 	}

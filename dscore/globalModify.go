@@ -65,7 +65,7 @@ func (s *Spec) addSources(paths ...string) []bool {
 // GetModifiableSpec returns a pointer to a spec that will be encoded when the program exits
 // If spec exists but has not yet been modified, this adds that spec to gm.Specs
 // WARN: sets gm.Modified true
-func (gm *globalModify) GetModifiableSpec(alias string) (*spec, error) {
+func (gm *globalModify) GetModifiableSpec(alias string) (*Spec, error) {
 	ermsg := make([]string, 1, len(gm.Specs)+len(gd.data.Specs))
 	ermsg[0] = "[MODIFY_SPECS]"
 	for i, s := range gm.Specs {
@@ -122,8 +122,7 @@ func (p *prefs) OverwriteRaw(newp prefs) error {
 // SetAlias sets the PathComponent alias.
 // If PathComponent is not unique, alias is not set, and ErrNotUnique is returned
 func (pc *pathComponent) SetAlias(alias string) error {
-	//TODO: Fix this. should be on cfg level as alias should be unique
-	cfptr := gd.data.GetSpec(pc.Parent)
+	cfptr := gd.data.getSpec(pc.Parent)
 	if cfptr == nil {
 		return ErrParentNotFound
 	}

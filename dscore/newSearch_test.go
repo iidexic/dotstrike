@@ -3,7 +3,7 @@ package dscore
 import "testing"
 
 var testGD = globalData{
-	Specs: []spec{
+	Specs: []Spec{
 		{Alias: "vi"}, {Alias: "nvim"}, {Alias: "neovide"}, {Alias: "vim"}, {Alias: "test"}, {Alias: "Wezterm"},
 	},
 }

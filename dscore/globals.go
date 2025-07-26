@@ -49,9 +49,10 @@ var gd = globals{
 			GlobalTarget:     true,
 			GlobalTargetPath: "~\\dotstrike\\globalTarget\\", // this doesnt work until transformed in CoreConfig.
 		},
-		Specs: []spec{},
+		Specs: []Spec{},
 	},
 }
+var GetSpec = gd.data.getSpec
 
 // GD fields
 /* status        globalsReadResult
@@ -83,7 +84,7 @@ func GetGlobals() (*globals, error) {
 	return &globals{}, fmt.Errorf("Globals not loaded.\n Globals = %+v", gd)
 }
 
-func (g *globalData) GetSpec(alias string) *spec {
+func (g *globalData) getSpec(alias string) *Spec {
 	for _, s := range g.Specs {
 		if s.Alias == alias {
 			return &s

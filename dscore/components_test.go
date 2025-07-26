@@ -6,13 +6,13 @@ import (
 	pops "iidexic.dotstrike/pathops"
 )
 
-var tspec = spec{
+var tspec = Spec{
 	Alias:   "testfiles",
 	Sources: []pathComponent{{Path: "C:/dev/github/testfiles-in", Ctype: sourceComponent}},
 	Targets: []pathComponent{{Path: "C:/dev/github/testfiles-out"}},
 }
 
-var sftest spec = spec{
+var sftest Spec = Spec{
 	Alias: "tilde_dotconfig",
 	Sources: []pathComponent{
 		{

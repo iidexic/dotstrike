@@ -49,7 +49,7 @@ type globalData struct {
 	//TargetPath string `toml:"storagePath, omitempty"`
 	Selected int    `toml:"SelectedSpec"`
 	Prefs    prefs  `toml:"prefs"`
-	Specs    []spec `toml:"specs, omitempty"`
+	Specs    []Spec `toml:"specs, omitempty"`
 }
 
 func (g *globalData) equal(g2 *globalData) bool {

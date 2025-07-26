@@ -89,7 +89,7 @@ func TestEncodePersonalDefault(t *testing.T) {
 	t.Log("specs empty, selected = 0")
 	t.Logf("prefs:\n%+v", p)
 	InitTempData()
-	specNvim := spec{
+	specNvim := Spec{
 		Alias: "nvim", Sources: []pathComponent{{Path: "C:\\users\\derek\\appdata\\local\\nvim"}},
 		Targets: []pathComponent{{Path: "@GLOBAL@"}}}
 	specNvim.initializeInherent()
@@ -98,7 +98,7 @@ func TestEncodePersonalDefault(t *testing.T) {
 		t.Errorf("Spec '%s' not initialized:\n%+v", specNvim.Alias, specNvim)
 	}
 
-	specWezterm := spec{
+	specWezterm := Spec{
 		Alias: "wezterm", Sources: []pathComponent{{Path: "~\\.config\\wezterm"}},
 		Targets: []pathComponent{{Path: "@GLOBAL@"}}}
 
