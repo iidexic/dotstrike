@@ -47,7 +47,7 @@ type Lookup struct {
 func (L Lookup) componentTypes() []componentType {
 	c := []componentType{}
 	if L.GetCfg {
-		c = append(c, cfgComponent)
+		c = append(c, specComponent)
 	}
 	if L.GetSrc {
 		c = append(c, sourceComponent)

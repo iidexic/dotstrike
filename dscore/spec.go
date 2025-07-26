@@ -25,8 +25,8 @@ type spec struct {
 }
 
 // initializeInherent attributes of spec and child pathComponents
-func (S *spec) initializeInherent() {
-	S.Ctype = cfgComponent
+func (S *Spec) initializeInherent() {
+	S.Ctype = specComponent
 	for i := range S.Sources {
 		S.Sources[i].Parent = S.Alias
 		S.Sources[i].Ctype = sourceComponent
@@ -108,10 +108,11 @@ func (S spec) status() string {
 
 // ── Modifying Spec Data ─────────────────────────────────────────────
 
-func (S *spec) AddIgnores(ignores []string) {
+func (S *Spec) AddIgnores(ignores []string) {
 	S.Ignorepat = append(S.Ignorepat, ignores...)
 }
-func (S *spec) CheckAddPath(path string, isSource bool) bool {
+
+func (S *Spec) CheckAddPath(path string, isSource bool) bool {
 	if !S.IsPathChild(path) {
 		if isSource {
 			S.Sources = append(S.Sources, *newPathComponent(path, sourceComponent))

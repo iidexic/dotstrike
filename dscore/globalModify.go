@@ -25,12 +25,41 @@ var ErrAliasNotFound error = errors.New("Component.Parent did not match any exis
 // 	Sources, Targets  []pathComponent
 // 	Overrides prefs, Ctype componentType
 
-func (gm *globalModify) NewSpec(alias string) *spec {
-	s := spec{Alias: alias, Ctype: cfgComponent}
+// NewSpec creates and adds a spec to globalModify/temp data.
+//
+// If paths are passed, they are added to the spec as sources and targets,
+// depending on the length of the paths slice and the index of each path:
+//
+//   - If paths has exactly 1 item, it is added as a source to the new spec.
+//   - If paths has multiple items, the last path is added as a target,
+//     and every other item in paths is added as a source.
+//
+// # Example:
+//
+//	spec := NewSpec("documents", "C:\foo1", "C:\foo2", "C:\foo3")
+//	len(spec.Sources) == 2 , len(spec.Targets) == 1
+//	spec.Sources[0].Path == "C:\foo1"
+//	spec.Sources[1].Path == "C:\foo2"
+//	spec.Targets[0].Path == "C:\foo3"
+func (gm *globalModify) NewSpec(alias string, paths ...string) *Spec {
+	s := Spec{Alias: alias, Ctype: specComponent}
+
+	if np := len(paths); np > 1 {
+		s.CheckAddPath(paths[len(paths)-1], false)
+	}
+	s.addSources(paths...)
+
 	gm.Specs = append(gm.Specs, s)
 	sr := &gm.Specs[len(gm.Specs)-1] //works
 	gm.Modified = true
 	return sr
+}
+func (s *Spec) addSources(paths ...string) []bool {
+	added := make([]bool, len(paths))
+	for i, src := range paths {
+		added[i] = s.CheckAddPath(src, true)
+	}
+	return added
 }
 
 // GetModifiableSpec returns a pointer to a spec that will be encoded when the program exits

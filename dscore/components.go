@@ -22,13 +22,36 @@ const (
 
 const (
 	_ componentType = iota
-	cfgComponent
+	specComponent
 	sourceComponent
 	targetComponent
 	//linkedSource
 	//linkedTarget
 	//GlobalTarget
 )
+
+func (p pathType) string() string {
+	switch p {
+	case filePath:
+		return "filepath"
+	case dirPath:
+		return "dirpath"
+	case dnePath:
+		return "path-DNE"
+	}
+	return ("not a path type")
+}
+func (c componentType) string() string {
+	switch c {
+	case specComponent:
+		return "spec"
+	case sourceComponent:
+		return "source"
+	case targetComponent:
+		return "target"
+	}
+	return "not a component type"
+}
 
 var ErrComponentNotInitialized error = errors.New("Component not initialized")
 
