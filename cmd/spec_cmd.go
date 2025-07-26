@@ -101,6 +101,13 @@ const (
 
 func (f specFlags) identify(pf persistentData) specOptype {
 	return 0
+type specOpData struct {
+	flags         specFlags
+	cmd           *cobra.Command
+	args          []string
+	argcount      int
+	argExists     []bool
+	existingSpecs []*dscore.Spec
 }
 
 func (op *specOpData) populateExisting(args []string) []string {
