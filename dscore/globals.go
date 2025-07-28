@@ -125,11 +125,27 @@ func (G *globals) GetConfig(dirpath string) bool {
 // CoreConfig called to find ds data file in all possible locations
 // ?TODO: If no config file exists, create one and encode gd defaults
 // TODO: require vars be passed (globalDir)?
+func (G *globals) makeCfgPath(suffix string) string {
+	if !pops.HaveHome() {
+		e := pops.GetHomeDir()
+		if e != nil {
+			panic(fmt.Errorf("Failed to get home path:%w", e))
+		}
+	}
+	return pops.HomeJoinC(suffix)
+}
+func resolveHomeSubpath(path string) string {
+	absP, e := pops.TildeFix(path)
+	if e != nil {
+		panic(fmt.Errorf("Error from TildeFix: %w", e))
+	}
+	return absP
+}
 func CoreConfig() {
 
 	//TODO: clean up this homepath/GlobalTargetPath solution
-	cfgdir := pops.Joinpath(*pops.HomePath, globalDirHomeRelative)
-	gd.data.Prefs.GlobalTargetPath = pops.TildeDirty(gd.data.Prefs.GlobalTargetPath)
+	cfgdir := gd.makeCfgPath(globalDirHomeRelative)
+	gd.data.Prefs.GlobalTargetPath = resolveHomeSubpath(gd.data.Prefs.GlobalTargetPath)
 	gotConfig := gd.GetConfig(cfgdir)
 	if gotConfig {
 		gd.status = badToml //pre-emptive

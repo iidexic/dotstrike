@@ -43,6 +43,12 @@ func TestLoadOrEncodeDefaults(t *testing.T) {
 	}
 
 }
+
+func TestCoreConfig(t *testing.T) {
+	t.Log(gd.Detail())
+	CoreConfig()
+	t.Log(gd.Detail())
+}
 func TestForceEncodeDefaults(t *testing.T) {
 	encodeDefaultsToTestfile(t)
 }
