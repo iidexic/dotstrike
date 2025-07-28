@@ -4,6 +4,7 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 
@@ -32,16 +33,13 @@ func initLogging() {
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "dotget",
-	Short: "make groups of config files/dotfiles to copy to one central location",
+	Use:   "dotstrike",
+	Short: "set up, configure, and run file copy jobs to/from specific paths or path groups",
 	Long: `
-Dotstrike is a tool to set up and trigger file copy actions.
-The current use is backing up config files from various locations into a single path/repo, and syncing in both directions.
-It was primarly intended for Windows systems, where there is no designated common path 
-or standard practice for storing these files. 
+Dotstrike is a file management tool that can group files/directories and sync them
+	between their origin point and one or more target destinations.
+Commands:
 
-In practice, dotstrike is a simple file management tool that can group and sync files
-and directories between the path where they are used and a storage/repo location.
 `,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
@@ -109,7 +107,13 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	cobra.OnInitialize(dscore.CoreConfig, dscore.InitTempData, pops.GetHomeDir) // pass all initialization functions here
+	cobra.OnInitialize(dscore.CoreConfig, dscore.InitTempData,
+		func() {
+			e := pops.GetHomeDir()
+			if e != nil {
+				panic(fmt.Errorf("unable  to find homedir: %w", e))
+			}
+		}) // pass all initialization functions here
 	cobra.OnFinalize(dscore.EndEncode)
 	pData = persistentData{
 		// TODO: determine whether verbose is a cobra built-in flag, or if there are other builtin besides help

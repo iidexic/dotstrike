@@ -31,6 +31,7 @@ func (e *errCtr) Error() string {
 }
 
 var ErrGetHome = errCtr{etext: "Failed to retrieve user homedir"}
+var ErrEmptyHome = fmt.Errorf("Home path is empty string")
 
 var Open = os.Open
 var BaseName = filepath.Base
@@ -132,12 +133,14 @@ func OpenFileRW(ospath string) (*os.File, error) {
 // Directly returns error from os.UserHomeDir().
 func HomeJoin(suffix string) (string, error) {
 	if HaveHome() {
-		return *HomePath, nil
+		return HomeJoinC(suffix), nil
 	}
 	home, e := os.UserHomeDir()
-	if len(suffix) > 1 {
+	if e != nil {
+		return "", e
 	}
-	return filepath.Join(home, suffix), e
+	HomePath = &home
+	return Joinpath(home, suffix), nil
 }
 
 // HomeJoinC uses HomePath var (populated on init) to prepend homedir to suffix
@@ -150,14 +153,17 @@ func HomeDirtyJoin(suffix string) string {
 	ce(e)
 	return filepath.Join(home, suffix)
 }
-func GetHomeDir() {
+func GetHomeDir() error {
 	home, e := os.UserHomeDir()
 	if e != nil {
 		ErrGetHome.err = e
+		return &ErrGetHome
 	}
 	if home != "" {
 		HomePath = &home
+		return nil
 	}
+	return ErrEmptyHome
 }
 
 func HaveHome() bool {
@@ -182,9 +188,9 @@ func TildeDirty(ospath string) string {
 func TildeFix(ospath string) (string, error) {
 	// tilde code: 126
 	if c1 := ospath[0]; c1 == tilde && *HomePath != "" {
-		return HomeJoinC(ospath[0:]), nil
+		return HomeJoinC(ospath[1:]), nil
 	} else if c1 == tilde {
-		return HomeJoin(ospath[0:])
+		return HomeJoin(ospath[1:])
 	}
 	return ospath, nil
 }
