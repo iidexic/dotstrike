@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -26,6 +27,22 @@ func retCheck(fpath string) error {
 	}
 	return nil
 }
+
+func TestJoinString(t *testing.T) {
+	p1 := "Header Text:"
+	p2 := "-----------"
+	p3 := " * This comes next"
+	p4 := " * And then this one"
+	p5 := "okay, all done"
+	outtext := make([]string, 0, 5)
+	outtext = append(outtext, p1, p2, p3, p4, p5)
+	t.Log("Direct Slice Print")
+	t.Log(outtext)
+	t.Log("\nSlice Join No-Separator")
+	t.Log(strings.Join(outtext, "\n"))
+
+}
+
 func TestErrorReturn(t *testing.T) {
 	echek := retCheck("./notarealfile.fileextension")
 	t.Logf("Checked done. Got: %v", echek)
