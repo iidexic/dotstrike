@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 	pops "iidexic.dotstrike/pathops"
@@ -75,11 +76,43 @@ type globalModify struct {
 // prefs holds preferences for component-based operations
 // used scoped globally or to individual components/parents
 type prefs struct {
-	KeepRepo         bool   `toml:"keepRepo"`
-	KeepHidden       bool   `toml:"keepHidden"`
-	GlobalTarget     bool   `toml:"globalTarget.enabled"`
-	GlobalTargetPath string `toml:"globalTarget.path"`
+	KeepRepo         bool   `toml:"KeepRepo"`
+	KeepHidden       bool   `toml:"KeepHidden"`
+	GlobalTarget     bool   `toml:"GlobalTarget"`
+	GlobalTargetPath string `toml:"GlobalTargetPath"`
 	//TODO: symlink handling + symlink preference
+}
+
+func (G *globals) Detail() string {
+	lines := make([]string, 1, 32)
+	lines[0] = fmt.Sprintf(`GLOBAL USER DATA:
+=================
+Config Path: '%s'
+Selected Spec(index): %d
+
+Globals Log (instance):
+`, G.dsconfigPath, G.data.Selected)
+	lines = append(lines, G.GlobalMessage...)
+
+	lines = append(lines, G.data.Prefs.Detail())
+	for i := range G.data.Specs {
+		lines = append(lines, G.data.Specs[i].Detail())
+	}
+
+	/* need
+	0. dscdsconfigPath
+	1. GlobalMessage
+	2.
+	*/
+	return strings.Join(lines, "\n")
+}
+
+func (p prefs) Detail() string {
+	return fmt.Sprintf(`Prefs:
+	Keep Repo: %t
+	Keep Hidden Files: %t
+	Use Global Target: %t
+	Global Target path: %s`, p.KeepRepo, p.KeepHidden, p.GlobalTarget, p.GlobalTargetPath)
 }
 
 func (p prefs) equal(p2 prefs) bool {

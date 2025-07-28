@@ -91,10 +91,13 @@ Overrides:
 	}
 
 	// ── Ignores ──────────────────────────────
-	lines = append(lines, "Ignore Patterns:")
-	for _, pat := range S.Ignorepat {
-		lines = append(lines, "	- "+pat)
+	if len(S.Ignorepat) > 0 {
+		lines = append(lines, "Ignore Patterns:")
+		for i, pat := range S.Ignorepat {
+			lines = append(lines, fmt.Sprintf("	 %d.) '%s'", i, pat))
+		}
 	}
+	lines = append(lines, "")
 	return strings.Join(lines, "\n")
 }
 

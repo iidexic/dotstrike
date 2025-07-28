@@ -1,11 +1,10 @@
-storagePath = '~/.config/dotstrike/store'
+SelectedSpec = 1
 
 [prefs]
-keepRepo = true
-keepHidden = true
-globalTarget.enabled = true
-globalTarget.path = 'c:/dev/.config/configSync'
-SelectedSpec = 1                                # index of cfg that is currently selected
+KeepRepo = true
+KeepHidden = true
+GlobalTarget = true
+GlobalTargetPath = 'c:/dev/.config/configSync'
 
 [[specs]]
 alias = 'wezterm'
