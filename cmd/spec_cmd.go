@@ -4,56 +4,83 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/spf13/cobra"
 	"iidexic.dotstrike/dscore"
 )
 
 // specCmd represents the cfg command
 var specCmd = &cobra.Command{
-	Use:   "spec",
+	Use: "spec alias [sourcePath ... targetPath]",
+	Example: `	Create new spec 'term' with 2 sources and a target:
+		ds spec term c:\usr\term ~\term c:\globalstore\
+			*note: when given 2+ paths, the final path will be set as the spec target.
+			 all other paths will be set as sources.
+		ds spec term vim`,
 	Short: "make a new spec or view existing spec details",
-	Long: `make one new spec, or view details of one or more existing specs.
+	Long:  `make one new spec, or view details of one or more existing specs.`,
+	Run:   specRun,
+}
 
-Usage:
-	Make a new spec
-	> 'ds spec <alias> [<source paths> <target path>] [options]'
-	
-
-	> 'ds spec <alias> [<additional aliases>] [options]'`,
-	Run: specRun,
+func init() {
+	rootCmd.AddCommand(specCmd)
+	flagDataSpec = specFlags{
+		modify:   *specCmd.Flags().BoolP("modify component", "m", false, "modify"),
+		yconfirm: *specCmd.Flags().BoolP("autoconfirm user y/n prompts", "y", false, "yes"),
+	}
 }
 
 type specFlags struct {
 	modify, yconfirm bool
 }
 
+var ErrSpecNotMade = errors.New("No spec created; received nil pointer")
+
 var flagDataSpec specFlags
 var specOps = specOpData{flags: &flagDataSpec}
 
 func specRun(cmd *cobra.Command, args []string) {
-	// if not a spec: make new spec
-	// if spec exists, show info
-	// opSpec := specOpData{
-	// 	cmd: cmd, flags: flagDataSpec,
-	// 	args: args, argcount: len(args),
-	// 	argExists: make([]bool, len(args)),
-	// }
+
 	specOps.args = args
 	specOps.argcount = len(args)
 	specOps.cmd = cmd
 	specOps.argExists = make([]bool, len(args))
 
-	notFound := specOps.populateExisting(args) // may not be necessary to return notExists
-	//if same number of notFound and args
+	notFound := specOps.populateExisting(args)
+
 	switch {
 	case len(args) == 0:
 		cmd.Help()
 	case len(notFound) == len(args):
+		err := specOps.specNew()
+		if err != nil {
+			cmd.PrintErr(err)
+		}
 	case len(specOps.existingSpecs) > 0:
 		specOps.outputExistingSpecDetails()
 	}
-	_ = notFound
 
+}
+
+func (op *specOpData) specNew() error {
+	upargs := make([]string, op.argcount)
+	copy(upargs, op.args)
+	tempdat := dscore.GetTempData()
+
+	var spec *dscore.Spec
+	var err error
+	if op.argcount > 1 {
+		spec, err = tempdat.NewSpec(op.args[0], op.args[1:]...)
+	} else {
+		spec, err = tempdat.NewSpec(op.args[0])
+	}
+	if err != nil || spec == nil {
+		return fmt.Errorf("error specNew(): %w, from NewSpec: %w", ErrSpecNotMade, err)
+	}
+
+	return nil
 }
 
 type specOpData struct {
@@ -100,16 +127,4 @@ func countModFlags() int {
 	// 	nlocal++
 	// }
 	return nlocal + pData.countFlags
-}
-
-func init() {
-	rootCmd.AddCommand(specCmd)
-	flagDataSpec = specFlags{
-		modify:   *specCmd.Flags().BoolP("modify component", "m", false, "modify"),
-		yconfirm: *specCmd.Flags().BoolP("autoconfirm user y/n prompts", "y", false, "yes"),
-	}
-
-	// PERSISTENT FLAGS:
-	//
-
 }
