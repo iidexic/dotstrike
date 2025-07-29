@@ -1,7 +1,6 @@
 package dscore
 
 import (
-	"regexp"
 	"strings"
 )
 
@@ -52,7 +51,10 @@ const (
 
 // FindSpecExact returns a pointer to the cfg object where alias = aliasP
 // If aliasP not found, returns nil
-func FindSpecExact(aliasP string) *spec {
+
+var symbols = []rune(` !@#$%^&*()_+{}/\|:"'.,;:[]<>?-=~`)
+
+func FindSpecExact(aliasP string) *Spec {
 	for _, s := range gd.data.Specs {
 		if aliasP == s.Alias {
 			return &s
@@ -119,8 +121,8 @@ func FindSpec(aliasP string) (int, string) {
 }
 
 // hardclean exists. idk
-/*
-func hardclean(s string) string {
+
+func stripSymbols(s string) string {
 	rmv := []rune(`
 !@#$%^&*()_+{}/\|:"'.,;:[]<>?-=~`)
 	rmv = append(rmv, '`')
@@ -129,9 +131,11 @@ func hardclean(s string) string {
 	}
 	return quickclean(s)
 }
-*/
+func hasSymbols(s string) bool { return strings.ContainsAny(s, string(symbols)) }
+
 func quickclean(s string) string { return strings.TrimSpace(strings.ToLower(s)) }
-func checkmatch(lookup string, record string, mode matchMode) int {
+
+/* func checkmatch(lookup string, record string, mode matchMode) int {
 	switch mode {
 	case matchExact:
 		if lookup == record {
@@ -164,7 +168,7 @@ func checkmatch(lookup string, record string, mode matchMode) int {
 
 	}
 	return 0
-}
+} */
 
 func (g *globalData) FFindSpec(aliasP string) (string, matchMode) {
 	for _, s := range g.Specs {

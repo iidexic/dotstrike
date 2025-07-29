@@ -1,57 +1,59 @@
 SelectedSpec = 0
 
 [prefs]
-  keepRepo = true
-  keepHidden = true
-  "globalTarget.enabled" = true
-  "globalTarget.path" = "~\\dotstrike\\globalTarget\\"
+  KeepRepo = true
+  KeepHidden = true
+  GlobalTarget = true
+  GlobalTargetPath = "~\\dotstrike\\globalTarget\\"
 
 [[specs]]
   alias = "nvim"
+  overrideOn = false
   Ctype = 1
 
   [[specs.sources]]
     alias = "nvim-config"
     abspath = ""
     path = "C:\\users\\derek\\appdata\\local\\nvim"
-    ptype = 2
-    ctype = 0
+    ptype = 0
+    ctype = 2
     Parent = "nvim"
 
   [[specs.targets]]
     alias = ""
     abspath = ""
     path = "@GLOBAL@"
-    ptype = 3
-    ctype = 0
+    ptype = 0
+    ctype = 3
     Parent = "nvim"
   [specs.overrides]
-    keepRepo = false
-    keepHidden = false
-    "globalTarget.enabled" = false
-    "globalTarget.path" = ""
+    KeepRepo = false
+    KeepHidden = false
+    GlobalTarget = false
+    GlobalTargetPath = ""
 
 [[specs]]
   alias = "wezterm"
+  overrideOn = false
   Ctype = 1
 
   [[specs.sources]]
     alias = ""
     abspath = ""
     path = "~\\.config\\wezterm"
-    ptype = 2
-    ctype = 0
+    ptype = 0
+    ctype = 2
     Parent = "wezterm"
 
   [[specs.targets]]
     alias = ""
     abspath = ""
     path = "@GLOBAL@"
-    ptype = 3
-    ctype = 0
+    ptype = 0
+    ctype = 3
     Parent = "wezterm"
   [specs.overrides]
-    keepRepo = false
-    keepHidden = false
-    "globalTarget.enabled" = false
-    "globalTarget.path" = ""
+    KeepRepo = false
+    KeepHidden = false
+    GlobalTarget = false
+    GlobalTargetPath = ""
