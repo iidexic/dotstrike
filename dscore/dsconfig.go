@@ -79,7 +79,7 @@ type prefs struct {
 	KeepRepo         bool   `toml:"KeepRepo"`
 	KeepHidden       bool   `toml:"KeepHidden"`
 	GlobalTarget     bool   `toml:"GlobalTarget"`
-	GlobalTargetPath string `toml:"GlobalTargetPath"`
+	GlobalTargetPath string `toml:"GlobalTargetPath, omitempty"`
 	//TODO: symlink handling + symlink preference
 }
 

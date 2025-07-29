@@ -42,7 +42,7 @@ func (S *Spec) initializeInherent() {
 }
 
 // allInitialized check all source/target components to ensure all are initialized
-func (S Spec) allInitialized() bool {
+func (S *Spec) allInitialized() bool {
 	all := S.Ctype > 0
 	for _, src := range S.Sources {
 		all = all && src.isInitialized()
@@ -55,8 +55,8 @@ func (S Spec) allInitialized() bool {
 
 // ── Find/Get Spec Info ──────────────────────────────────────────────
 
-func (S Spec) getAlias() string        { return S.Alias }
-func (S Spec) getCtype() componentType { return S.Ctype }
+func (S *Spec) getAlias() string        { return S.Alias }
+func (S *Spec) getCtype() componentType { return S.Ctype }
 
 func (S *Spec) getSource(alias string) *pathComponent {
 	for _, src := range S.Sources {
@@ -113,10 +113,8 @@ func (S *Spec) GetIgnores() *[]string { return &S.Ignorepat }
 
 func (S *Spec) GetLocalPrefs() *prefs { return &S.Overrides }
 
-// TODO: implement (in globalModify.go)
-
 // IsPathChild looks for the path within the Spec's pathComponent slices
-func (S Spec) IsPathChild(path string) bool {
+func (S *Spec) IsPathChild(path string) bool {
 	for _, src := range S.Sources {
 		if src.Alias == path || src.Path == pops.MakeAbs(path) {
 			return true
@@ -131,7 +129,7 @@ func (S Spec) IsPathChild(path string) bool {
 }
 
 // GetIfChild returns a pointer to the child source or target with the path or alias passed. Returns nil if none found
-func (S Spec) GetIfChild(identifier string) *pathComponent {
+func (S *Spec) GetIfChild(identifier string) *pathComponent {
 	for _, src := range S.Sources {
 		if src.Alias == identifier || src.Path == pops.MakeAbs(identifier) {
 			return &src
@@ -163,15 +161,17 @@ func (S *Spec) CheckAddPath(path string, isSource bool) bool {
 }
 
 // CheckAddMultiplePaths adds paths to spec.Sources if isSource, spec.Targets if !isSource
-func (S *Spec) CheckAddMultiplePaths(paths []string, isSource bool) {
-	for _, p := range paths {
-		S.CheckAddPath(p, isSource)
+// returns slice of bools indicating which indices in paths were added succesfully
+func (S *Spec) CheckAddMultiplePaths(paths []string, isSource bool) []bool {
+	b := make([]bool, len(paths))
+	for i, p := range paths {
+		b[i] = S.CheckAddPath(p, isSource)
 	}
-
+	return b
 }
 
 // ── Running spec copy jobs ──────────────────────────────────────────
-func (S Spec) RunCopy() error {
+func (S *Spec) RunCopy() error {
 	if !S.allInitialized() {
 		return fmt.Errorf("spec not initialized: %s", S.Alias)
 	}
