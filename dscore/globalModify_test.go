@@ -38,15 +38,6 @@ func loadconfig(t *testing.T) *globalModify {
 
 // ── Encoding ────────────────────────────────────────────────────────
 
-func encodeToBuffer(data *globalData) (bytes.Buffer, error) {
-	buf := bytes.Buffer{}
-	e := toml.NewEncoder(&buf).Encode(*data)
-	if e != nil {
-		return buf, e
-	}
-	return buf, nil
-}
-
 func encodeTomltesting(path string, data *globalData) error {
 	file, e := pops.OpenFileRW(pops.CleanPath(path))
 	if file != nil {
@@ -63,6 +54,14 @@ func encodeTomltesting(path string, data *globalData) error {
 		return nil
 	}
 }
+func encodeToBuffer(data *globalData) (bytes.Buffer, error) {
+	buf := bytes.Buffer{}
+	e := toml.NewEncoder(&buf).Encode(*data)
+	if e != nil {
+		return buf, e
+	}
+	return buf, nil
+}
 
 // ┌─────────────────────────────────────────────────────────┐
 // │                          Tests                          │
@@ -71,7 +70,10 @@ func encodeTomltesting(path string, data *globalData) error {
 // test making new spec and adding details. Unnecessary as is covered by TestEditEncode
 func TestNewSpec(t *testing.T) {
 	temp := loadconfig(t)
-	snew := temp.NewSpec("testnew")
+	snew, e := temp.NewSpec("testnew")
+	if e != nil {
+		t.Logf("NewSpec Error: %s", e.Error())
+	}
 	if snew == nil {
 		t.Error("spec returned nil")
 	}
@@ -83,7 +85,7 @@ func TestNewSpec(t *testing.T) {
 
 }
 
-func TestEncodePersonalDefault(t *testing.T) {
+func TestEncodeHardAssign(t *testing.T) {
 	p := gd.data.Prefs
 	t.Log("globaldefaults are:")
 	t.Log("specs empty, selected = 0")
@@ -111,10 +113,27 @@ func TestEncodePersonalDefault(t *testing.T) {
 	encodeTestfile(testTOMLpath, tempData.globalData)
 }
 
+func TestEncodeSoftAssign(t *testing.T) {
+	//CoreConfig() // need to run CoreConfig?
+	InitTempData()
+	t.Log("Performed Init")
+	tmp := GetTempData()
+	st1, err := tmp.NewSpec("gamer", "C:\\users\\derek\\appdata\\local\\nvim")
+	st1.Overrides.Set(map[string]bool{"globaltarget": true})
+	if err != nil {
+		t.Error(err)
+	}
+
+	encodeTestfile(testTOMLpath, tempData.globalData)
+}
+
 // test edit and encode; encodes to buffer and prints before manually writing to file
 func TestEncodeToBuffer(t *testing.T) {
 	temp := loadconfig(t)
-	snew := temp.NewSpec("testEditEncodeSpec")
+	snew, e := temp.NewSpec("testEditEncodeSpec")
+	if e != nil {
+		t.Logf("NewSpec Errored: %s", e.Error())
+	}
 	if snew == nil {
 		t.Error("globalModify.NewSpec() returned nil")
 	}
@@ -158,7 +177,10 @@ func TestEncodeToBuffer(t *testing.T) {
 
 func TestEditEncode(t *testing.T) {
 	temp := loadconfig(t)
-	snew := temp.NewSpec("testEditEncodeSpec")
+	snew, e := temp.NewSpec("testEditEncodeSpec")
+	if e != nil {
+		t.Logf("NewSpec Errored: %s", e.Error())
+	}
 	if snew == nil {
 		t.Error("globalModify.NewSpec() returned nil")
 	}
@@ -182,7 +204,8 @@ func TestEditEncode(t *testing.T) {
 	// if e != nil {
 	// 	t.Errorf("Encode Error: %v", e)
 	// }
-	e := encodeTomltesting(testTOMLpath, temp.globalData)
+	e = nil
+	e = encodeTomltesting(testTOMLpath, temp.globalData)
 	if e != nil {
 		t.Errorf("encode error\n %s", e.Error())
 	}

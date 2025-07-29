@@ -11,6 +11,7 @@ import (
 var ErrNotUnique error = errors.New("Attempted to set component alias to a non-unique value")
 var ErrParentNotFound error = errors.New("Component.Parent did not match any existing alias.")
 var ErrAliasNotFound error = errors.New("Component.Parent did not match any existing alias.")
+var ErrBadKey error = errors.New("Provided map key does not exist")
 
 // for reference:
 // type component interface
@@ -41,18 +42,22 @@ var ErrAliasNotFound error = errors.New("Component.Parent did not match any exis
 //	spec.Sources[0].Path == "C:\foo1"
 //	spec.Sources[1].Path == "C:\foo2"
 //	spec.Targets[0].Path == "C:\foo3"
-func (gm *globalModify) NewSpec(alias string, paths ...string) *Spec {
+func (gm *globalModify) NewSpec(alias string, paths ...string) (*Spec, error) {
 	s := Spec{Alias: alias, Ctype: specComponent}
-
-	if np := len(paths); np > 1 {
-		s.CheckAddPath(paths[len(paths)-1], false)
+	if !gm.initialized {
+		return nil, ErrNoInit
 	}
-	s.addSources(paths...)
-
+	switch {
+	case len(paths) > 1:
+		s.CheckAddPath(paths[len(paths)-1], false)
+		s.addSources(paths[:len(paths)-1]...)
+	case len(paths) == 1:
+		s.CheckAddPath(paths[0], true)
+	}
 	gm.Specs = append(gm.Specs, s)
-	sr := &gm.Specs[len(gm.Specs)-1] //works
+	newSpecPtr := &gm.Specs[len(gm.Specs)-1] //works
 	gm.Modified = true
-	return sr
+	return newSpecPtr, nil
 }
 func (s *Spec) addSources(paths ...string) []bool {
 	added := make([]bool, len(paths))
@@ -99,8 +104,10 @@ func (p *prefs) Set(mpref map[string]bool) error {
 			p.KeepRepo = b
 		case "keephidden", "keep-hidden", "keep_hidden", "hidden":
 			p.KeepHidden = b
-		case "globaltarget", "global target", "global_target", "global-target":
+		case "globaltarget", "globaltgt", "global_target", "global-target":
 			p.GlobalTarget = b
+		default:
+			return ErrBadKey
 		}
 	}
 	return nil
