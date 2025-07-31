@@ -19,21 +19,28 @@ var specCmd = &cobra.Command{
 			*note: when given 2+ paths, the final path will be set as the spec target.
 			 all other paths will be set as sources.
 		ds spec term vim`,
-	Short: "make a new spec or view existing spec details",
-	Long:  `make one new spec, or view details of one or more existing specs.`,
-	Run:   specRun,
+	Short: "make a new spec by providing a unique alias and paths(optional)",
+	Long: `Make one new spec using the first argument as the alias. 
+	All specs must have a unique alias; creation will fail if alias is not unique.
+
+Paths can be provided as arguments after the alias argument. 
+	If one path is provided: it will be added as a child source to the new spec.
+	If two paths are provided: the first path will be added as a source, the second will be added as a target.
+	if n > 2 paths are passed: paths 1 to (n-1) will be added as sources, and the final path will be added as a target.`,
+
+	Run: specRun,
 }
 
 func init() {
 	rootCmd.AddCommand(specCmd)
+
 	flagDataSpec = specFlags{
-		modify:   *specCmd.Flags().BoolP("modify component", "m", false, "modify"),
-		yconfirm: *specCmd.Flags().BoolP("autoconfirm user y/n prompts", "y", false, "yes"),
-	}
+		delete:   specCmd.Flags().Bool("delete", false, "delete spec"),
+		yconfirm: specCmd.Flags().BoolP("autoconfirm user y/n prompts", "y", false, "yes")}
 }
 
 type specFlags struct {
-	modify, yconfirm bool
+	yconfirm, delete *bool
 }
 
 var ErrSpecNotMade = errors.New("No spec created; received nil pointer")
@@ -59,7 +66,15 @@ func specRun(cmd *cobra.Command, args []string) {
 			cmd.PrintErr(err)
 		}
 	case len(specOps.existingSpecs) > 0:
-		specOps.outputExistingSpecDetails()
+		if *specOps.flags.delete {
+			for i := range specOps.existingSpecs {
+				specOps.specDelete(specOps.existingSpecs[i].Alias)
+			}
+
+		} else {
+		}
+		// Select
+		//specOps.outputExistingSpecDetails()
 	}
 
 }
@@ -139,12 +154,4 @@ func (op *specOpData) outputExistingSpecDetails() {
 	} else if op.argcount > 1 || numExist < op.argcount {
 		op.pprintExisting()
 	}
-}
-
-func countModFlags() int {
-	nlocal := 0
-	// if flagDataSpec.modify{
-	// 	nlocal++
-	// }
-	return nlocal + pData.countFlags
 }
