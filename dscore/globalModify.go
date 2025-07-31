@@ -3,6 +3,7 @@ package dscore
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	pops "iidexic.dotstrike/pathops"
@@ -69,7 +70,7 @@ func (s *Spec) addSources(paths ...string) []bool {
 
 // GetModifiableSpec returns a pointer to a spec that will be encoded when the program exits
 // If spec exists but has not yet been modified, this adds that spec to gm.Specs
-// WARN: sets gm.Modified true
+// TODO: Update/Replace this as it is now entirely unnecessary. Also, the errors are a mess
 func (gm *globalModify) GetModifiableSpec(alias string) (*Spec, error) {
 	ermsg := make([]string, 1, len(gm.Specs)+len(gd.data.Specs))
 	ermsg[0] = "[MODIFY_SPECS]"
@@ -94,24 +95,69 @@ func (gm *globalModify) GetModifiableSpec(alias string) (*Spec, error) {
 
 	return nil, fmt.Errorf("No matching alias found in:\n%s", strings.Join(ermsg, "\n"))
 }
-
-// Set is option 1 for modifying preferences
-func (p *prefs) Set(mpref map[string]bool) error {
-	for k, b := range mpref {
-		ck := quickclean(k)
-		switch ck {
-		case "keeprepo", "keep-repo", "keep_repo", "repo":
-			p.KeepRepo = b
-		case "keephidden", "keep-hidden", "keep_hidden", "hidden":
-			p.KeepHidden = b
-		case "globaltarget", "globaltgt", "global_target", "global-target":
-			p.GlobalTarget = b
-		default:
-			return ErrBadKey
+func (gm *globalModify) DeleteSpec(sptr *Spec) bool {
+	for i := range gm.Specs {
+		if &gm.Specs[i] == sptr {
+			gm.Specs = slices.Delete(gm.Specs, i, i+1)
+			return true
 		}
+	}
+	return false
+}
+
+func (gm *globalModify) Select(alias string) bool {
+
+	for i := range gm.globalData.Specs {
+
+	}
+	return true
+}
+
+func (gd *globalData) findAliasIndex(alias string) {
+
+}
+
+// SetM will modify all prefs/overrides with a key assigned in mpref.
+// keys are not case-sensitive, and all spaces are removed.
+// Accepted keys are:
+//   - Keep Git Repo: keeprepo | keep-repo | keep_repo | repo
+//   - Keep other hidden: keephidden | keep-hidden | keep_hidden |  hidden
+//   - Use Global Target:  globaltarget | global-target | global_target | globaltgt
+//
+// Returns ErrBadKey if the key does not match an acceptable input. Otherwise, returns nil
+func (p *prefs) SetM(mpref map[string]bool) error {
+	var fails string
+	for k, b := range mpref {
+		e := p.Set(k, b)
+		if e != nil {
+			fails = fails + ", " + k
+		}
+	}
+	if len(fails) > 0 {
+		return fmt.Errorf("failures: (%s) - error %w", fails, ErrBadKey)
 	}
 	return nil
 }
+
+var nmKeepRepo = []string{"keeprepo", "keep-repo", "keep_repo", "repo"}
+var nmKeepHidden = []string{"keephidden", "keep-hidden", "keep_hidden", "hidden"}
+var nmGlobalTarget = []string{"globaltarget", "globaltgt", "global_target", "global-target"}
+
+func (p *prefs) Set(name string, val bool) error {
+	name = quickclean(name)
+	switch {
+	case slices.Contains(nmKeepRepo, name):
+		p.KeepRepo = val
+	case slices.Contains(nmKeepHidden, name):
+		p.KeepHidden = val
+	case slices.Contains(nmGlobalTarget, name):
+		p.GlobalTarget = val
+	default:
+		return ErrBadKey
+	}
+	return nil
+}
+
 func (p *prefs) SetGlobalTargetPath(path string) { p.GlobalTargetPath = pops.CleanPath(path) }
 func (p *prefs) OverwriteRaw(newp prefs) error {
 	if !p.equal(newp) {
