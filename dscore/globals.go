@@ -83,6 +83,7 @@ func GetGlobals() (*globals, error) {
 	}
 	return &globals{}, fmt.Errorf("Globals not loaded.\n Globals = %+v", gd)
 }
+func (G *globals) WhatConfigPath() string { return G.dsconfigPath }
 
 func (g *globalData) getSpec(alias string) *Spec {
 	for _, s := range g.Specs {
@@ -142,7 +143,12 @@ func resolveHomeSubpath(path string) string {
 	return absP
 }
 func CoreConfig() {
-
+	if pops.HomePath == nil {
+		e := pops.GetHomeDir()
+		if e != nil {
+			panic(fmt.Errorf("failed to get home: %w", e))
+		}
+	}
 	//TODO: clean up this homepath/GlobalTargetPath solution
 	cfgdir := gd.makeCfgPath(globalDirHomeRelative)
 	gd.data.Prefs.GlobalTargetPath = resolveHomeSubpath(gd.data.Prefs.GlobalTargetPath)
@@ -179,4 +185,10 @@ User data file not found and could not be made.`, ee))
 }
 
 func EndEncode() {
+	if tempData.Modified {
+		err := tempData.encodeModified()
+		if err != nil {
+			gd.forcelogG(fmt.Sprintf("error attempting encode: %s", err.Error()))
+		}
+	}
 }

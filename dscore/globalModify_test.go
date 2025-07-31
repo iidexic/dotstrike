@@ -119,12 +119,21 @@ func TestGlobalEncodeSoftAssign(t *testing.T) {
 	t.Log("Performed Init")
 	tmp := TempData()
 	st1, err := tmp.NewSpec("gamer", "C:\\users\\derek\\appdata\\local\\nvim")
-	st1.Overrides.Set(map[string]bool{"globaltarget": true})
 	if err != nil {
 		t.Error(err)
 	}
 
-	encodeTestfile(testTOMLpath, tempData.globalData)
+	err = st1.Overrides.SetM(map[string]bool{"globaltarget": true})
+	if err != nil {
+		t.Error(err)
+	}
+	if tmp.getSpec("gamer") == nil {
+		t.Error("nil pointer from created spec")
+	}
+	if !tmp.Modified {
+		t.Error("Fail: TempData not marked as modified")
+	}
+
 }
 
 // test edit and encode; encodes to buffer and prints before manually writing to file

@@ -50,7 +50,7 @@ type globalData struct {
 	//TargetPath string `toml:"storagePath, omitempty"`
 	Selected int    `toml:"SelectedSpec"`
 	Prefs    prefs  `toml:"prefs"`
-	Specs    []Spec `toml:"specs, omitempty"`
+	Specs    []Spec `toml:"specs"` // possibly needs omitempty
 }
 
 func (g *globalData) equal(g2 *globalData) bool {
@@ -127,7 +127,7 @@ var tempData globalModify
 func (G *globals) decodeRawData() {
 	md, err := toml.Decode(G.rawContents, &G.data)
 	if err != nil {
-		panic(fmt.Errorf("Error in dscore DecodeRawData() from data toml\n%e", err))
+		panic(fmt.Errorf("Error in dscore DecodeRawData() from data toml\n%w", err))
 	}
 	G.md = md //? Is this used at all
 
@@ -164,16 +164,12 @@ func IsDir(ospath string) bool {
 // fields populated are required to avoid data loss on toml encode
 func InitTempData() {
 	if !tempData.initialized {
+		dat := gd.data
 		tempData = globalModify{
-			globalData:  &globalData{},
+			globalData:  &dat,
 			initialized: true,
 			Modified:    false,
 		}
-		tempData.Prefs.GlobalTargetPath = gd.data.Prefs.GlobalTargetPath
-		tempData.Prefs.GlobalTarget = gd.data.Prefs.GlobalTarget
-		tempData.Prefs.KeepHidden = gd.data.Prefs.KeepHidden
-		tempData.Prefs.KeepRepo = gd.data.Prefs.KeepRepo
-		tempData.Selected = gd.data.Selected
 	}
 }
 
@@ -213,6 +209,7 @@ func (gm *globalModify) encodeModified() error {
 		return e
 	}
 	defer file.Close()
+	file.Truncate(0)
 	encode := toml.NewEncoder(file)
 	e = encode.Encode(gm.globalData)
 	if e != nil {
@@ -220,6 +217,10 @@ func (gm *globalModify) encodeModified() error {
 	} else {
 		return nil
 	}
+}
+func (G *globals) forcelogG(outStr string) {
+	G.GlobalMessage = append(G.GlobalMessage, outStr)
+	print(outStr)
 }
 
 func (G *globals) logG(outStr string) {
