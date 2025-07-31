@@ -15,12 +15,28 @@ helpstring = """----[need arg:]----
 'test' or 'cleartest' -> overwrite test file
 'push' -> dotstrike local toml pushed to main toml ('~\\.config\\dotstrike\\')
 'get' or 'pull' -> overwrite dotstrike local toml with main toml
+'test2main' -> overwrite main with test toml
+'test2local' -> overwrite local with test toml
 
 'read' followed by:
     'test' -> print test toml contents
     'local' -> print local dotstrike toml contents
     'main' or 'global' -> print main toml contents
+'wipe' followed by:
+    'test' -> clear test file data
 """
+listnames = ['test', 'local', 'global', 'main']
+
+
+def wipe_file(fp: Path) -> bool:
+    if fp.exists():
+        with fp.open("r+") as file:
+            _ = file.seek(0)
+            size = file.truncate(0)
+            file.close()
+        if size == 0:
+            return True
+    return False
 
 
 def copy_file(source: Path | str, dest: Path | str) -> None:
@@ -42,45 +58,70 @@ def readf(f: Path) -> str:
     return ""
 
 
+def try_copy_twice(src: Path, src_abs: Path, dest: Path):
+    if src.exists():
+        copy_file(src, dest)
+    elif src_abs.exists():
+        copy_file(src_abs, dest)
+    else:
+        print(f'no file at {src} or {src_abs}')
+
+
+def linenum_print(txt: str):
+    tln: list[str] = txt.split("\n")
+    for i in range(len(tln)):
+        tln[i] = f'{i+1}|' + tln[i]
+        print(tln[i])
+
+
 def main():
     if len(sys.argv) <= 1:
         print(helpstring)
-    a = sys.argv[1].lower()
-    if a == 'read':
-        if len(sys.argv) > 2 and sys.argv[2] in ['test', 'local', 'main', 'global']:  # noqa
-            match sys.argv[2].lower():
-                case 'test':
-                    print(readf(testtoml))
-                case 'local':
-                    print(readf(localtoml))
-                case 'main' | 'global':
-                    print(readf(maintoml))
-                case _:
-                    print('unknown file')
     else:
-        match a:
-            case 'cleartest' | 'test' | 'overwritetest':
-                if localtoml.exists():
-                    copy_file(localtoml, testtoml)
-                elif localtoml_abs.exists():
-                    copy_file(localtoml_abs, testtoml)
-                else:
-                    print(f'no file at {localtoml} or {localtoml_abs}')
-            case 'push' | 'to_main':
-                if localtoml.exists():
-                    copy_file(localtoml, maintoml)
-                elif localtoml_abs.exists():
-                    copy_file(localtoml_abs, testtoml)
-                else:
-                    print(f'no file at {localtoml} or {localtoml_abs}')
-            case 'get' | 'pull':
-                if maintoml.exists():
-                    copy_file(localtoml, maintoml)
-                else:
-                    print(f'no file at {maintoml}')
-            case _:
-                print('unknown arg')
-                print(helpstring)
+        a = sys.argv[1].lower()
+        if a == 'read':
+            if len(sys.argv) > 2 and sys.argv[2].lower() in listnames:  # noqa
+                match sys.argv[2].lower():
+                    case 'test':
+                        linenum_print(readf(testtoml))
+                    case 'local':
+                        linenum_print(readf(localtoml))
+                    case 'main' | 'global':
+                        linenum_print(readf(maintoml))
+                    case _:
+                        print('unknown file')
+        elif a == 'wipe':
+            if len(sys.argv) > 2 and sys.argv[2].lower() in listnames:
+                match sys.argv[2].lower():
+                    case 'test':
+                        if testtoml.exists() and wipe_file(testtoml):
+                            print("success")
+                        else:
+                            print("outcome unknown: data may still exist")
+                    case 'local':
+                        print("not set up to wipe local")
+                    case 'main' | 'global':
+                        print("not set up to wipe main")
+                    case _:
+                        print('unknown file')
+        else:
+            match a:
+                case 'cleartest' | 'test' | 'overwritetest':
+                    try_copy_twice(localtoml, localtoml_abs, testtoml)
+                case 'push' | 'to_main':
+                    try_copy_twice(localtoml, localtoml_abs,  maintoml)
+                case 'get' | 'pull':
+                    if maintoml.exists():
+                        copy_file(localtoml, maintoml)
+                    else:
+                        print(f'no file at {maintoml}')
+                case 'test-to-main' | 'test2main' | 'test to main':
+                    try_copy_twice(testtoml, testtoml_abs, maintoml)
+                case 'test-to-local' | 'test2local' | 'test to local':
+                    try_copy_twice(testtoml, testtoml_abs, localtoml)
+                case _:
+                    print('unknown arg')
+                    print(helpstring)
 
 
 if __name__ == "__main__":
