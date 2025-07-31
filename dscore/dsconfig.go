@@ -135,7 +135,10 @@ func (G *globals) decodeRawData() {
 	//CheckDataDecode(G.data, md)
 }
 
-func GetTempData() *globalModify {
+// TempData returns ptr to the central userdata editing struct var of the dscore package.
+// Data must be stored in tempData to be saved (encoded/written to file) on shutdown.
+// if tempData is not initialized beforehand (with InitTempData), TempData returns nil
+func TempData() *globalModify {
 	if tempData.initialized {
 		return &tempData
 	} else {

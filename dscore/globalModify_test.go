@@ -29,7 +29,7 @@ func tError(context string, e error, t *testing.T) {
 func loadconfig(t *testing.T) *globalModify {
 	CoreConfig()   // decode globals
 	InitTempData() // load tempdata struct with globals details
-	temp := GetTempData()
+	temp := TempData()
 	if temp == nil {
 		t.Error("Temp Data not initialized")
 	}
@@ -113,11 +113,11 @@ func TestEncodeHardAssign(t *testing.T) {
 	encodeTestfile(testTOMLpath, tempData.globalData)
 }
 
-func TestEncodeSoftAssign(t *testing.T) {
+func TestGlobalEncodeSoftAssign(t *testing.T) {
 	//CoreConfig() // need to run CoreConfig?
 	InitTempData()
 	t.Log("Performed Init")
-	tmp := GetTempData()
+	tmp := TempData()
 	st1, err := tmp.NewSpec("gamer", "C:\\users\\derek\\appdata\\local\\nvim")
 	st1.Overrides.Set(map[string]bool{"globaltarget": true})
 	if err != nil {

@@ -3,6 +3,6 @@ package cmd
 import "iidexic.dotstrike/dscore"
 
 func showTempOut() {
-	tdat := dscore.GetTempData()
+	tdat := dscore.TempData()
 	_ = tdat
 }

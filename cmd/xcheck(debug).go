@@ -40,7 +40,7 @@ to quickly create a Cobra application.`,
 		if pData.countFlags > 0 {
 
 		}
-		if td := dscore.GetTempData(); td != nil && checkf.temp && td.Modified {
+		if td := dscore.TempData(); td != nil && checkf.temp && td.Modified {
 			cmd.Printf("%+v", td)
 		} else if checkf.temp {
 			cmd.Println("no pending changes (temp is empty)")

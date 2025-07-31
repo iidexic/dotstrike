@@ -67,8 +67,7 @@ func specRun(cmd *cobra.Command, args []string) {
 func (op *specOpData) specNew() error {
 	upargs := make([]string, op.argcount)
 	copy(upargs, op.args)
-	tempdat := dscore.GetTempData()
-
+	tempdat := dscore.TempData()
 	var spec *dscore.Spec
 	var err error
 	if op.argcount > 1 {
@@ -77,10 +76,31 @@ func (op *specOpData) specNew() error {
 		spec, err = tempdat.NewSpec(op.args[0])
 	}
 	if err != nil || spec == nil {
-		return fmt.Errorf("error specNew(): %w, from NewSpec: %w", ErrSpecNotMade, err)
+		return fmt.Errorf("error in op.specNew(): %w, from NewSpec: %w", ErrSpecNotMade, err)
 	}
 
 	return nil
+}
+func (op *specOpData) checkConfirm(fn func(), detail string) {
+	if *op.flags.yconfirm || askConfirmf(detail) {
+		fn()
+	}
+}
+func (op *specOpData) specDelete(alias string) bool {
+	wasdeleted := false
+	if !*op.flags.yconfirm {
+		sptr, e := dscore.TempData().GetModifiableSpec(alias)
+		if e != nil {
+			op.cmd.PrintErrf("Error from tempData.GetModifiableSpec(%s)\n Return vals: %v, Err: %s", alias, sptr, e.Error())
+		}
+		if sptr == nil {
+			op.cmd.PrintErrf("Error in op.specDelete(): %s", dscore.ErrAliasNotFound.Error())
+		} else {
+			b := dscore.TempData().DeleteSpec(sptr)
+			wasdeleted = b
+		}
+	}
+	return wasdeleted
 }
 
 type specOpData struct {
