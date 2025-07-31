@@ -24,6 +24,7 @@ var listCmd = &cobra.Command{
 		}
 		if len(args) == 0 {
 			cmd.Print("USER DATA ---------\n")
+			cmd.Print("using datafile: ", g.WhatConfigPath(), "\n")
 			printsl := g.DescribeAllUserData()
 			for _, p := range printsl {
 				cmd.Print(p, "\n")
@@ -38,7 +39,6 @@ var listCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(listCmd)
-
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
