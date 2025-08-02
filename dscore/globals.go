@@ -52,7 +52,6 @@ var gd = globals{
 		Specs: []Spec{},
 	},
 }
-var GetSpec = gd.data.getSpec
 
 // GD fields
 /* status        globalsReadResult

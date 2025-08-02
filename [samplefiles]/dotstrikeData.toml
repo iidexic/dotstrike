@@ -1,22 +1,59 @@
-SelectedSpec = 1
+SelectedSpec = 0
 
 [prefs]
-KeepRepo = true
-KeepHidden = true
-GlobalTarget = true
-GlobalTargetPath = 'c:/dev/.config/configSync'
+  KeepRepo = true
+  KeepHidden = true
+  GlobalTarget = true
+  GlobalTargetPath = "~\\dotstrike\\globalTarget\\"
 
 [[specs]]
-alias = 'wezterm'
-sources = [
-    { alias = 'wezterm:s0', path = '~/.config/wezterm', ptype = 1, abspath = 'C:/Users/derek/.config/wezterm' },
-]
-targets = [{ alias = '@GLOBAL@' }]
+  alias = "nvim"
+  overrideOn = false
+  Ctype = 1
+
+  [[specs.sources]]
+    alias = "nvim-config"
+    abspath = ""
+    path = "C:\\users\\derek\\appdata\\local\\nvim"
+    ptype = 0
+    ctype = 2
+    Parent = "nvim"
+
+  [[specs.targets]]
+    alias = ""
+    abspath = ""
+    path = "@GLOBAL@"
+    ptype = 0
+    ctype = 3
+    Parent = "nvim"
+  [specs.overrides]
+    KeepRepo = false
+    KeepHidden = false
+    GlobalTarget = false
+    GlobalTargetPath = ""
 
 [[specs]]
-alias = 'nvim'
-sources = [
-    { alias = 'nvim:s0', path = '~/AppData/Local/nvim', ptype = 1, abspath = 'C:/Users/derek/AppData/Local/nvim' },
-]
-targets = [{ alias = '@GLOBAL@' }]
-ignores = ['_xtra/']
+  alias = "wezterm"
+  overrideOn = false
+  Ctype = 1
+
+  [[specs.sources]]
+    alias = ""
+    abspath = ""
+    path = "~\\.config\\wezterm"
+    ptype = 0
+    ctype = 2
+    Parent = "wezterm"
+
+  [[specs.targets]]
+    alias = ""
+    abspath = ""
+    path = "@GLOBAL@"
+    ptype = 0
+    ctype = 3
+    Parent = "wezterm"
+  [specs.overrides]
+    KeepRepo = false
+    KeepHidden = false
+    GlobalTarget = false
+    GlobalTargetPath = ""

@@ -47,12 +47,12 @@ func ce(e error, msg ...string) {
 	}
 }
 
-//TODO: Replace ALL os.IsExist/os.IsNotExist with errors.Is()
-//TODO: Clean up Home functions - here and where used
-//TODO: Replace current config path system with more robust system with fallbacks
+//TODO:(low-recl) Replace ALL os.IsExist/os.IsNotExist with errors.Is()
+//TODO:(med-recl) Clean up Home functions - here and where used
+//TODO:(med-feat) Replace current config path system with more robust system with fallbacks
 
 // enum type for file op outcomes
-type failureType int //TODO: replace system with errors; currently basically converting errors to enum
+type failureType int //TODO:(med-recl) replace system with errors; currently basically converting errors to enum
 
 // Possible outcomes for attempting filesystem operations
 // Different operations have the potential to trigger different subsets of these outcomes
