@@ -11,7 +11,7 @@ func askConfirmf(detail string, vars ...any) bool {
 	reader := bufio.NewReader(os.Stdin)
 	n := 4
 	fdetail := "[request to confirm]: " + detail + "\n:::"
-	var noindex, yesindex int
+	var noindex, yesindex int = -1, -1
 	for {
 		fmt.Printf(fdetail, vars...)
 		response, err := reader.ReadString('\n')
