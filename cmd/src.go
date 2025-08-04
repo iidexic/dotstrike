@@ -4,58 +4,165 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/spf13/cobra"
+	"iidexic.dotstrike/dscore"
 )
 
-type srcFlags struct {
-	alias  *string
-	ignore *[]string
-}
+var srcF = compFlags{}
 
-var srcF = srcFlags{}
+/*
+Flags that actually apply:
+-a --all: print details, --spec
+local:
+-y --yes, --delete, --alias, --ignore (not implemented)
+To be added:
+--verbose
+--global(?)
+*/
+
+var src cmdWrapper
+
+//NOTE: Having a central data structure and building out the command action seems way better than this switch
+//TODO: Refactor entire source command
 
 // srcCmd represents the src command
 var srcCmd = &cobra.Command{
-	Use:   "src",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Use:   "src path ...",
+	Short: "manage sources of a given spec",
+	Long:  `add, modify, and delete source components of selected/specified spec`,
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		/*
-			Alias   string        `toml:"alias"`
-			Path    string        `toml:"path"`
-			Ignores []string      `toml:"ignores"`
-		*/
-		// args = id for src (path, filepath.base(path), or alias)
-		// what are affecting flags:
-		if *pData.all {
+		src = cmdWrapper{Command: cmd, args: args} //WIP/FUTURE IMPLEMENTATION
+		affectedSpecs := getSpecs(cmd)
+		switch {
+		case len(args) > 0 && !detailsIfArgsExist(cmd, args, affectedSpecs):
+			if oneSpecOrUserConfirm("Adding source to Multiple specs", affectedSpecs) {
+				for i := range affectedSpecs {
+					dscore.TempData().Modify() //TODO: standardize this. in the delete it is triggered within the modifying function.
+					added := affectedSpecs[i].CheckAddMultiplePaths(args, true)
+					cmd.Printf("Spec %s:\n", affectedSpecs[i].Alias)
+					printNumberedListFiltered(cmd, args, added)
 
+				}
+			}
+		case *srcF.delete && len(affectedSpecs) > 0:
+			if conf := oneSpecOrUserConfirm("Deletion with multiple sources or specs", affectedSpecs); conf && len(args) > 0 {
+				for i := range affectedSpecs {
+					for _, arg := range args {
+						affectedSpecs[i].DeleteIfChild(arg, true)
+					}
+				}
+			} else if conf && *pFlags.all {
+				for i := range affectedSpecs {
+					affectedSpecs[i].WipeComponentList(true)
+				}
+			}
+		case *pFlags.all && len(args) == 0:
+			cmd.Print(detailAllComponentFrom(affectedSpecs, true))
+		case len(args) == 0 && pFlags.countFlags == 0:
+			cmd.Help()
 		}
+
+		if *pFlags.all {
+		}
+
 	},
 }
 
-func init() {
-	//NOTE: does it make sense to have this attached to spec?
-	// how tf
+func oneSpecOrUserConfirm(requestText string, specs []*dscore.Spec) bool {
+	ls := len(specs)
+	return ls == 1 || (ls > 1 && checkConfirm(requestText, srcF.y))
+}
 
-	//OK:
-	// don't make a subcommand of spec; canot have a main cmd arg if running a subcmd
-	// could make like poleless flags but sounds messy
+func getSpecs(cmd *cobra.Command) []*dscore.Spec {
+	specs := []*dscore.Spec{}
+	if pFlags.bspec {
+		for _, a := range *pFlags.spec {
+			if s := dscore.TempData().GetSpec(a); s != nil {
+				specs = append(specs, s)
+			} else {
+				cmd.Printf("spec %s not found\n", a)
+			}
+		}
+	} else {
+		specs = append(specs, dscore.TempData().SelectedSpec())
+	}
+	return specs
+}
+
+func detailsIfArgsExist(cmd *cobra.Command, args []string, specs []*dscore.Spec) bool {
+	if len(args) == 0 {
+		return true
+	}
+	hasExisting := false
+	details := make([]string, 0, len(specs)+len(args))
+	for _, spec := range specs {
+		if existing := spec.GetExistingChildren(args); len(existing) > 0 {
+			hasExisting = true
+			details = append(details, "In spec "+spec.Alias+":")
+			srctxt, tgttxt := "", ""
+			for i, component := range existing {
+				if component.IsSource() {
+					srctxt += fmt.Sprintf(" %d. %s:%s\n", i, component.Alias, component.Path)
+				} else {
+					tgttxt += fmt.Sprintf(" %d. %s:%s", i, component.Alias, component.Path)
+				}
+			}
+			details = append(details, "[sources]", srctxt, "\n[targets]", tgttxt)
+		}
+
+	}
+	if hasExisting {
+		cmd.Print(strings.Join(details, "\n"))
+	}
+	return hasExisting
+}
+
+func detailAllComponentFrom(specs []*dscore.Spec, isSource bool) string {
+
+	detail := make([]string, 0, len(specs)*2) //arbitrary
+	for _, spec := range specs {
+		detail = append(detail, fmt.Sprintf("Spec: %s", spec.Alias))
+		if isSource {
+			if len(spec.Sources) == 0 {
+				detail = append(detail, " [no sources]")
+
+			} else {
+				for i := range spec.Sources {
+					detail = append(detail, spec.Sources[i].Detail())
+				}
+			}
+		} else {
+
+			if len(spec.Targets) == 0 {
+				detail = append(detail, " [no targets]")
+
+			} else {
+				for i := range spec.Targets {
+					detail = append(detail, spec.Targets[i].Detail())
+				}
+			}
+		}
+	}
+	return strings.Join(detail, "\n")
+
+}
+
+type compFlags struct {
+	alias  *string
+	ignore *[]string
+	delete *bool
+	y      *bool
+}
+
+func init() {
 
 	rootCmd.AddCommand(srcCmd)
-	srcF.ignore = srcCmd.Flags().StringArray("ignore patterns", nil, "ignore")
-	srcF.alias = srcCmd.Flags().String("Set Alias", "", "alias")
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// srcCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// srcCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	srcF.ignore = srcCmd.Flags().StringArray("ignore", nil, "ignore")
+	srcF.alias = srcCmd.Flags().String("alias", "", "set alias")
+	srcF.delete = srcCmd.Flags().Bool("delete", false, "delete")
+	srcF.y = srcCmd.Flags().BoolP("yes", "y", false, "Auto-confirm on prompt")
 }

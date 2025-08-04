@@ -11,6 +11,8 @@ import (
 	"iidexic.dotstrike/dscore"
 )
 
+var temp dscore.Temp
+
 // specCmd represents the cfg command
 var specCmd = &cobra.Command{
 	Use: "spec alias [sourcePath ... targetPath]",
@@ -48,18 +50,19 @@ var ErrSpecNotMade = errors.New("No spec created; received nil pointer")
 var flagDataSpec specFlags
 var specOps = specOpData{flags: &flagDataSpec}
 
+// TODO: source/target flags
 func specRun(cmd *cobra.Command, args []string) {
-
+	temp = dscore.TempData()
 	specOps.args = args
 	specOps.argcount = len(args)
 	specOps.cmd = cmd
 	specOps.argExists = make([]bool, len(args))
 
 	notFound := specOps.populateExisting(args)
-
+	//TODO: (hi-refactor) Already have specs at this point. Replace GetSpec calls after this
 	switch {
 	case len(args) == 0:
-		cmd.Help()
+		specOps.outputSelected()
 	case len(notFound) == len(args):
 		err := specOps.specNew()
 		if err != nil {
@@ -68,15 +71,40 @@ func specRun(cmd *cobra.Command, args []string) {
 	case len(specOps.existingSpecs) > 0:
 		if *specOps.flags.delete {
 			for i := range specOps.existingSpecs {
-				specOps.specDelete(specOps.existingSpecs[i].Alias)
+				deleted := specOps.specDelete(specOps.existingSpecs[i].Alias)
+				if !deleted {
+					cmd.Printf("delete %s failed.", specOps.existingSpecs[i].Alias)
+				}
 			}
 
 		} else {
+			changed := dscore.TempData().SelectPtr(specOps.existingSpecs[0])
+			if changed {
+				cmd.Printf("Selected %s.", specOps.existingSpecs[0].Alias)
+			}
 		}
 		// Select
 		//specOps.outputExistingSpecDetails()
 	}
 
+}
+func (op *specOpData) outputSelected() {
+	s := dscore.TempData().SelectedSpec()
+	if s == nil {
+		op.cmd.Printf("error: spec not found. resetting  selection")
+		op.cmd.Help()
+	} else {
+		op.cmd.Print("Selected spec: ", s.Alias, "\n\n")
+		speclist := dscore.TempData().Specs
+		for i := range speclist {
+			op.cmd.Printf("[%d] ", i)
+			if &speclist[i] == s {
+				op.cmd.Print("***")
+			}
+			op.cmd.Print(speclist[i].Alias, "\n")
+		}
+		op.cmd.Print(s.Detail())
+	}
 }
 
 func (op *specOpData) specNew() error {
@@ -96,26 +124,41 @@ func (op *specOpData) specNew() error {
 
 	return nil
 }
-func (op *specOpData) checkConfirm(fn func(), detail string) {
+func (op *specOpData) checkConfirmExecute(fn func(), detail string) {
+	approve := *op.flags.yconfirm
+	if !approve {
+		approve = askConfirmf(detail)
+	}
 	if *op.flags.yconfirm || askConfirmf(detail) {
 		fn()
 	}
 }
-func (op *specOpData) specDelete(alias string) bool {
-	wasdeleted := false
-	if !*op.flags.yconfirm {
-		sptr, e := dscore.TempData().GetModifiableSpec(alias)
-		if e != nil {
-			op.cmd.PrintErrf("Error from tempData.GetModifiableSpec(%s)\n Return vals: %v, Err: %s", alias, sptr, e.Error())
-		}
-		if sptr == nil {
-			op.cmd.PrintErrf("Error in op.specDelete(): %s", dscore.ErrAliasNotFound.Error())
-		} else {
-			b := dscore.TempData().DeleteSpec(sptr)
-			wasdeleted = b
+
+func (op *specOpData) checkConfirm(detail string) bool {
+	return *op.flags.yconfirm || askConfirmf(detail)
+}
+
+// TODO: fix specDelete and/or shift to specPtrDelete as ptr is getting pulled beforehand anyway.
+func (op *specOpData) specPtrDelete(spec *dscore.Spec) bool {
+	out := false
+
+	if spec != nil {
+		if op.checkConfirm("Delete spec " + spec.Alias) {
+			out = dscore.TempData().DeleteSpec(spec)
 		}
 	}
-	return wasdeleted
+	return out
+}
+
+func (op *specOpData) specDelete(alias string) bool {
+	sptr := dscore.TempData().GetSpec(alias)
+	if sptr == nil {
+		op.cmd.PrintErrf("specDelete error: %s", dscore.ErrAliasNotFound.Error())
+	} else if op.checkConfirm("Delete spec " + sptr.Alias) {
+		dscore.TempData().Modified = true
+		return dscore.TempData().DeleteSpec(sptr)
+	}
+	return false
 }
 
 type specOpData struct {
@@ -131,7 +174,7 @@ func (op *specOpData) populateExisting(args []string) []string {
 	notFound := make([]string, 0, len(args))
 	for i := range args {
 		_ = i
-		if spec := dscore.GetSpec(args[i]); spec != nil {
+		if spec := dscore.TempData().GetSpec(args[i]); spec != nil {
 			op.existingSpecs = append(op.existingSpecs, spec)
 			op.argExists[i] = true
 		} else {

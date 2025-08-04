@@ -7,6 +7,10 @@ import (
 	"strings"
 )
 
+func checkConfirm(detail string, cflag *bool) bool {
+	return *cflag || askConfirmf(detail)
+}
+
 func askConfirmf(detail string, vars ...any) bool {
 	reader := bufio.NewReader(os.Stdin)
 	n := 4

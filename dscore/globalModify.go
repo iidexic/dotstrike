@@ -14,6 +14,14 @@ var ErrParentNotFound error = errors.New("Component.Parent did not match any exi
 var ErrAliasNotFound error = errors.New("Component.Parent did not match any existing alias.")
 var ErrBadKey error = errors.New("Provided map key does not exist")
 
+type Temp interface {
+	NewSpec(string, ...string) (*Spec, error)
+	DeleteSpec(*Spec) bool
+	Select(string) bool
+	SelectedSpec() *Spec
+	GetSpec(string) *Spec
+}
+
 // for reference:
 // type component interface
 // 	getAlias() string
@@ -43,6 +51,7 @@ var ErrBadKey error = errors.New("Provided map key does not exist")
 //	spec.Sources[0].Path == "C:\foo1"
 //	spec.Sources[1].Path == "C:\foo2"
 //	spec.Targets[0].Path == "C:\foo3"
+
 func (gm *globalModify) NewSpec(alias string, paths ...string) (*Spec, error) {
 	s := Spec{Alias: alias, Ctype: specComponent}
 	if !gm.initialized {
@@ -95,9 +104,18 @@ func (gm *globalModify) GetModifiableSpec(alias string) (*Spec, error) {
 
 	return nil, fmt.Errorf("No matching alias found in:\n%s", strings.Join(ermsg, "\n"))
 }
+func (gm *globalModify) GetSpec(alias string) *Spec {
+	for i := range gm.Specs {
+		if gm.Specs[i].Alias == alias {
+			return &gm.Specs[i]
+		}
+	}
+	return nil
+}
 func (gm *globalModify) DeleteSpec(sptr *Spec) bool {
 	for i := range gm.Specs {
 		if &gm.Specs[i] == sptr {
+			// Does this cause a problem if given
 			gm.Specs = slices.Delete(gm.Specs, i, i+1)
 			return true
 		}
@@ -105,16 +123,49 @@ func (gm *globalModify) DeleteSpec(sptr *Spec) bool {
 	return false
 }
 
+func (gm *globalModify) Modify() {
+	gm.Modified = true
+}
+
 func (gm *globalModify) Select(alias string) bool {
 
-	for i := range gm.globalData.Specs {
-
+	index := gm.globalData.findAliasIndex(alias)
+	if index < 0 {
+		return false
+	}
+	if index != gm.globalData.Selected {
+		gm.Modified = true
+		gm.globalData.Selected = index
 	}
 	return true
 }
+func (gm *globalModify) SelectPtr(spec *Spec) bool {
+	for i := range gm.Specs {
+		if &gm.Specs[i] == spec {
+			gm.Modified = true
+			gm.globalData.Selected = i
+			return true
+		}
+	}
+	return false
+}
+func (gm *globalModify) specByIndex(i int) *Spec {
+	if i < len(gm.Specs) {
+		return &gm.globalData.Specs[i]
+	}
+	return nil
+}
 
-func (gd *globalData) findAliasIndex(alias string) {
+func (gm *globalModify) SelectedSpec() *Spec { return gm.specByIndex(gm.Selected) }
 
+// findAliasIndex searches for alias within []Specs
+func (gd *globalData) findAliasIndex(alias string) int {
+	for i := range gd.Specs {
+		if alias == gd.Specs[i].Alias {
+			return i
+		}
+	}
+	return -1
 }
 
 // SetM will modify all prefs/overrides with a key assigned in mpref.

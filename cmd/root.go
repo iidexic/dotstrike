@@ -30,15 +30,36 @@ func initLogging() {
 	_ = logger
 }
 
+type cmdWrapper struct {
+	*cobra.Command
+	args []string
+}
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "dotstrike",
 	Short: "set up, configure, and run file copy jobs to/from specific paths or path groups",
 	Long: `
 Dotstrike is a file management tool that can group files/directories and sync them
-	between their origin point and one or more target destinations.
-Commands:
+	between source paths and one or more target destinations.
 
+Super quick start:
+To start, first create a spec:
+	> ds spec "myspec"
+From there, the spec needs a source (src) and a target (tgt)
+	> ds src c:/my_files/
+	> ds tgt 'd:/backups/personal files/'
+
+
+Specs are the primary method of defining and storing copy job details. The spec command creates a new spec when provided with an alias.
+The spec alias is the identifier for the spec; as such, it must be unique. All aliases are made lowercase, and stripped of spaces/tabs, forward slash/backslash, and at signs. Other symbols should be fine.
+
+Specs contain sources (src) and targets (tgt). Sources are copied to Targets; in other words, a source points to a location containing files, and a target points to where you want those files to be copied to.
+As your first spec has just been created, it will be automatically selected, and other operations will affect it directly.
+If you have multiple specs, you will need to either:
+	- select the spec you want to modify (using spec command with an existing spec name) before running other commands.
+	- use the --spec flag at the end of the command to change selection for only that operation.
+	
 `,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
@@ -47,7 +68,7 @@ Commands:
 		if *version {
 			cmd.Print("version: ", verstr)
 		}
-		if *pData.debug {
+		if *pFlags.debug {
 			cmd.Printf("DEBUG")
 			gdump := dscore.DumpGlobals()
 			for _, l := range gdump {
@@ -91,8 +112,8 @@ type pfid int
 
 //func (p *persistentData) checkAddData() { }
 
-// pData is the persistentData var that stores all persistent flag values
-var pData persistentData
+// pFlags is the persistentData var that stores all persistent flag values
+var pFlags persistentData
 var version *bool
 
 func (p *persistentData) componentFlags() {
@@ -100,31 +121,20 @@ func (p *persistentData) componentFlags() {
 }
 
 func init() {
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
 	cobra.OnInitialize(dscore.CoreConfig, dscore.InitTempData) // pass all initialization functions here
 	cobra.OnFinalize(dscore.EndEncode)
-	pData = persistentData{
+	pFlags = persistentData{
 		// TODO: determine whether verbose is a cobra built-in flag, or if there are other builtin besides help
 		verbose: rootCmd.PersistentFlags().BoolP("verbose", "v", false, "shows additional details on execution (debug)"),
 		all:     rootCmd.PersistentFlags().BoolP("all", "a", false, "applies command to 'all' applicable items (see command help for more detail)"),
 		global:  rootCmd.PersistentFlags().BoolP("global", "g", false, "target the global group"), //uncertain, overlap with all?
-		//NOTE: StringArrayP REQUIRES at least one flag argument
-		// make sure this is acceptable for all use cases.
-		// I would prefer them to also function as bools
-		spec: rootCmd.PersistentFlags().StringArrayP("cfg", "c", nil, "cfg"),
-		src:  rootCmd.PersistentFlags().StringArrayP("source", "s", nil, "src"),
-		tgt:  rootCmd.PersistentFlags().StringArrayP("target", "t", []string{}, "tgt"),
+		spec:    rootCmd.PersistentFlags().StringArrayP("spec", "s", nil, "spec"),
+		src:     rootCmd.PersistentFlags().StringArrayP("source", "o", nil, "src"),
+		tgt:     rootCmd.PersistentFlags().StringArrayP("target", "t", []string{}, "tgt"),
 		// dev use
 		debug: rootCmd.PersistentFlags().Bool("debug", false, "debug"),
-		// Help is default/built-in
-		//help: rootCmd.PersistentFlags().BoolP("help", "?", false, "prints long help for command"),
 	}
-	pData.setup()
+	pFlags.setup()
 	// version is not default
 	version = rootCmd.Flags().Bool("version", false, "print application version")
 }

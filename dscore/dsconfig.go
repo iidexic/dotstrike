@@ -173,6 +173,14 @@ func InitTempData() {
 	}
 }
 
+// standardizeAlias should be applied any time a component alias is set.
+// It performs the following changes:
+//   - removes spaces, tabs, newlines, backslash and forwardslash, and at signs
+//   - converts all alphabetic to lower-case
+func standardizeAlias(alias string) string {
+	return strings.ToLower(strings.Trim(alias, "\\/		\n@"))
+}
+
 // TODO: replace
 func (G *globals) EncodeIfNeeded(tg *globalModify) error {
 	if tempData.initialized && tempData.Modified {

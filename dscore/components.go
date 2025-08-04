@@ -41,7 +41,7 @@ func (p pathType) string() string {
 	case dnePath:
 		return "path-DNE"
 	}
-	return ("not a path type")
+	return ("unknown")
 }
 func (c componentType) string() string {
 	switch c {
@@ -92,19 +92,19 @@ func newPathComponent(ospath string, ctype componentType) *pathComponent {
 
 func (pc pathComponent) Detail() string {
 	lines := make([]string, 0, 16)
-	ctype := pc.Ctype.string()
-	header := fmt.Sprintf("Component: %s", ctype)
-	path := fmt.Sprintf("Path: %s (path type: %s)", pc.Path, pc.Ptype.string())
-	parent := "Parent Alias = " + pc.Parent
-	lines = append(lines, header, path, parent)
+	//ctype := pc.Ctype.string()
+	//header := fmt.Sprintf("Component: %s", ctype)
+	path := fmt.Sprintf("	Path: %s (path type: %s)", pc.Path, pc.Ptype.string())
+	parent := "	Parent Alias = " + pc.Parent
+	lines = append(lines /*, header*/, path, parent)
 	if pc.Alias != "" {
-		lines = append(lines, fmt.Sprintf("Alias: '%s'", pc.Alias))
+		lines = append(lines, fmt.Sprintf("	Alias: '%s'", pc.Alias))
 	}
 	if iqty := len(pc.Ignores); iqty > 0 {
 		ig := make([]string, 0, iqty)
-		ig = append(ig, "List ignore patterns:")
+		ig = append(ig, "	List ignore patterns:")
 		for i, pat := range pc.Ignores {
-			ig = append(ig, fmt.Sprintf("	[%d]: '%s'", i, pat))
+			ig = append(ig, fmt.Sprintf("	 [%d]: '%s'", i, pat))
 		}
 		lines = append(lines, ig...)
 	}
@@ -116,9 +116,19 @@ func (pc pathComponent) Detail() string {
 // 	return pc.Parent + "" + string(pc.Ctype) + "" + pc.Alias
 // }
 
+// MatchesID determines whether the provided identifier string matches any of the following:
+//   - Path
+//   - AbsPath
+//   - Alias
+//   - BaseName of Abspath
 func (pc pathComponent) MatchesID(checkid string) bool {
 	return checkid == pc.Abspath || checkid == pc.Path || checkid == pc.Alias || checkid == pops.BaseName(pc.Abspath)
 }
+func (pc pathComponent) MatchesPath(id string) bool     { return id == pc.Abspath || id == pc.Path }
+func (pc pathComponent) MatchesAlias(id string) bool    { return standardizeAlias(id) == pc.Alias }
+func (pc pathComponent) MatchesPathBase(id string) bool { return id == pops.BaseName(pc.Abspath) }
+
+func (pc pathComponent) IsSource() bool { return pc.Ctype == sourceComponent }
 
 // ── Equality Check ──────────────────────────────────────────────────
 

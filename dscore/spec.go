@@ -2,6 +2,7 @@ package dscore
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	pops "iidexic.dotstrike/pathops"
@@ -18,6 +19,12 @@ func recoverReturn(explainer string) bool {
 }
 
 // Primary user data structure; contains info required to perform a dircopy operation
+// Methods:
+//   - Detail(): nice printable spec detail string
+//   - GetLocalPrefs(): returns Overrides (dscore.prefs)
+//   - GetIgnores(): returns []string of ignore patterns
+//   - IsPathSource/IsPathTarget(path string): checks for existing child component with path
+//   - GetIfChild: If path is within a child component, a pointer to that component is returned
 type Spec struct {
 	Alias      string          `toml:"alias"`      // name, unique
 	Sources    []pathComponent `toml:"sources"`    // paths marked as origin points
@@ -27,6 +34,9 @@ type Spec struct {
 	Overrides  prefs           `toml:"overrides"`  // override global prefs
 	Ctype      componentType
 }
+
+var ErrID error = fmt.Errorf("Identifier not found")
+var ErrComponentType = fmt.Errorf("Identifier found with wrong component type")
 
 // initializeInherent attributes of spec and child pathComponents
 func (S *Spec) initializeInherent() {
@@ -71,12 +81,14 @@ func (S *Spec) Detail() string {
 	lines = append(lines, "Spec: "+S.Alias, "-------------------")
 
 	// ── Sources ──────────────────────────────
-	for _, src := range S.Sources {
+	for i, src := range S.Sources {
+		lines = append(lines, fmt.Sprintf("[src %d]", i+1))
 		lines = append(lines, src.Detail())
 	}
 
 	// ── Targets ──────────────────────────────
-	for _, tgt := range S.Targets {
+	for i, tgt := range S.Targets {
+		lines = append(lines, fmt.Sprintf("[tgt %d]", i+1))
 		lines = append(lines, tgt.Detail())
 	}
 
@@ -128,6 +140,34 @@ func (S *Spec) IsPathChild(path string) bool {
 	return false
 }
 
+func (S *Spec) IsPathSource(path string) bool {
+	for _, src := range S.Sources {
+		if src.Alias == path || src.Path == pops.MakeAbs(path) {
+			return true
+		}
+	}
+	return false
+}
+
+func (S *Spec) IsPathTarget(path string) bool {
+	for _, tgt := range S.Targets {
+		if tgt.Alias == path || tgt.Path == pops.MakeAbs(path) {
+			return true
+		}
+	}
+	return false
+}
+
+func (S *Spec) GetExistingChildren(identifiers []string) []*pathComponent {
+	components := make([]*pathComponent, 0, len(identifiers))
+	for _, id := range identifiers {
+		if pc := S.GetIfChild(id); pc != nil {
+			components = append(components, pc)
+		}
+	}
+	return components
+}
+
 // GetIfChild returns a pointer to the child source or target with the path or alias passed. Returns nil if none found
 func (S *Spec) GetIfChild(identifier string) *pathComponent {
 	for _, src := range S.Sources {
@@ -141,6 +181,19 @@ func (S *Spec) GetIfChild(identifier string) *pathComponent {
 		}
 	}
 	return nil
+}
+
+func (S *Spec) removeSourceByIndex(index int) {
+	tempData.Modify()
+	if index < len(S.Sources) {
+		S.Sources = slices.Delete(S.Sources, index, index)
+	}
+}
+func (S *Spec) removeTargetByIndex(index int) {
+	tempData.Modify()
+	if index < len(S.Targets) {
+		S.Targets = slices.Delete(S.Targets, index, index)
+	}
 }
 
 // ── Modifying Spec Data ─────────────────────────────────────────────
@@ -158,6 +211,46 @@ func (S *Spec) CheckAddPath(path string, isSource bool) bool {
 		}
 	}
 	return false
+}
+func (S *Spec) AliasIfChild(alias string, identifier string, isSource bool) bool {
+	if pc := S.GetIfChild(identifier); pc != nil {
+		if (pc.Ctype == sourceComponent && isSource) ||
+			(pc.Ctype == targetComponent && !isSource) {
+			pc.SetAlias(alias)
+		} else {
+		}
+	}
+	return false
+}
+
+func (S *Spec) DeleteIfChild(identifier string, isSource bool) bool {
+	if isSource {
+		for i := range S.Sources {
+			if S.Sources[i].MatchesID(identifier) {
+				S.removeSourceByIndex(i)
+				break
+			}
+		}
+	} else {
+		for i := range S.Targets {
+			if S.Targets[i].MatchesID(identifier) {
+				S.removeTargetByIndex(i)
+				break
+			}
+		}
+
+	}
+	return false
+}
+
+// WipeComponentList deletes everything from Sources if isSource, or Targets if !isSource
+func (S *Spec) WipeComponentList(isSource bool) {
+	if isSource {
+		S.Sources = make([]pathComponent, 0)
+	} else {
+
+		S.Targets = make([]pathComponent, 0)
+	}
 }
 
 // CheckAddMultiplePaths adds paths to spec.Sources if isSource, spec.Targets if !isSource

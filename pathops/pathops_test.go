@@ -115,3 +115,12 @@ func TestWalkwd(t *testing.T) {
 		}
 	}
 }
+
+func TestCleanPath(t *testing.T) {
+	paths := []string{"../_xtra/dotstrike.toml", ".\\path partee\\\\", "./dotcheck/./doit.go",
+		"..\\..\\double_dot_check\\..\\also-slashes\\", "junktext:P*#!%H!PO( TVHL)}\n", "~/tilde?"}
+	for i, p := range paths {
+		cleaned := CleanPath(p)
+		t.Logf("Path [%d]:\n (%s)->(%s)", i, p, cleaned)
+	}
+}
