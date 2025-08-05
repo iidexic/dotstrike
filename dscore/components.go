@@ -122,7 +122,9 @@ func (pc pathComponent) Detail() string {
 //   - Alias
 //   - BaseName of Abspath
 func (pc pathComponent) MatchesID(checkid string) bool {
-	return checkid == pc.Abspath || checkid == pc.Path || checkid == pc.Alias || checkid == pops.BaseName(pc.Abspath)
+	return checkid == pc.Abspath || checkid == pc.Path || checkid == pc.Alias ||
+		strings.ToLower(checkid) == pops.BaseName(pc.Abspath)
+
 }
 func (pc pathComponent) MatchesPath(id string) bool     { return id == pc.Abspath || id == pc.Path }
 func (pc pathComponent) MatchesAlias(id string) bool    { return standardizeAlias(id) == pc.Alias }

@@ -41,7 +41,8 @@ var srcCmd = &cobra.Command{
 		case len(args) > 0 && !detailsIfArgsExist(cmd, args, affectedSpecs):
 			if oneSpecOrUserConfirm("Adding source to Multiple specs", affectedSpecs) {
 				for i := range affectedSpecs {
-					dscore.TempData().Modify() //TODO: standardize this. in the delete it is triggered within the modifying function.
+					//TODO: standardize modify. in delete its run within the modifying function.
+					dscore.TempData().Modify()
 					added := affectedSpecs[i].CheckAddMultiplePaths(args, true)
 					cmd.Printf("Spec %s:\n", affectedSpecs[i].Alias)
 					printNumberedListFiltered(cmd, args, added)
@@ -51,9 +52,7 @@ var srcCmd = &cobra.Command{
 		case *srcF.delete && len(affectedSpecs) > 0:
 			if conf := oneSpecOrUserConfirm("Deletion with multiple sources or specs", affectedSpecs); conf && len(args) > 0 {
 				for i := range affectedSpecs {
-					for _, arg := range args {
-						affectedSpecs[i].DeleteIfChild(arg, true)
-					}
+					runDelete(affectedSpecs[i], args, true)
 				}
 			} else if conf && *pFlags.all {
 				for i := range affectedSpecs {
@@ -70,6 +69,23 @@ var srcCmd = &cobra.Command{
 		}
 
 	},
+}
+
+func runDelete(spec *dscore.Spec, args []string, isSource bool) {
+
+	if isSource {
+		for _, arg := range args {
+			//test
+			src.Printf("trying to delete %s in spec %s\n", arg, spec.Alias)
+			src.Printf("count sources = %d\n", len(spec.Sources))
+			src.Print(spec.Sources)
+			//end test
+			result := spec.DeleteIfChild(arg, true)
+			src.Printf("\nDeleted? -> %t\n", result)
+			src.Printf("count sources = %d\n", len(spec.Sources))
+			src.Print(spec.Sources)
+		}
+	}
 }
 
 func oneSpecOrUserConfirm(requestText string, specs []*dscore.Spec) bool {

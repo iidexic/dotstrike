@@ -186,7 +186,7 @@ func (S *Spec) GetIfChild(identifier string) *pathComponent {
 func (S *Spec) removeSourceByIndex(index int) {
 	tempData.Modify()
 	if index < len(S.Sources) {
-		S.Sources = slices.Delete(S.Sources, index, index)
+		S.Sources = slices.Delete(S.Sources, index, index+1)
 	}
 }
 func (S *Spec) removeTargetByIndex(index int) {
