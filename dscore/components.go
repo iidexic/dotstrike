@@ -43,7 +43,7 @@ func (p pathType) string() string {
 	}
 	return ("unknown")
 }
-func (c componentType) string() string {
+func (c componentType) String() string {
 	switch c {
 	case specComponent:
 		return "spec"
@@ -52,7 +52,7 @@ func (c componentType) string() string {
 	case targetComponent:
 		return "target"
 	}
-	return "not a component type"
+	return "unknown"
 }
 
 var ErrComponentNotInitialized error = errors.New("Component not initialized")
@@ -121,9 +121,16 @@ func (pc pathComponent) Detail() string {
 //   - AbsPath
 //   - Alias
 //   - BaseName of Abspath
-func (pc pathComponent) MatchesID(checkid string) bool {
-	return checkid == pc.Abspath || checkid == pc.Path || checkid == pc.Alias ||
-		strings.ToLower(checkid) == pops.BaseName(pc.Abspath)
+//
+// TODO: add basepath bool arg
+func (pc pathComponent) MatchesID(id string) bool {
+	if pc.Abspath == "" {
+		return id == pc.Abspath || id == pc.Path || id == pc.Alias ||
+			strings.ToLower(id) == pops.BaseName(pc.Path)
+	} else {
+		return id == pc.Abspath || id == pc.Path || id == pc.Alias ||
+			strings.ToLower(id) == pops.BaseName(pc.Abspath)
+	}
 
 }
 func (pc pathComponent) MatchesPath(id string) bool     { return id == pc.Abspath || id == pc.Path }
