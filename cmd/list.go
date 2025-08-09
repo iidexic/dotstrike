@@ -5,10 +5,14 @@ package cmd
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/spf13/cobra"
 	"iidexic.dotstrike/dscore"
 )
+
+var argstrSource = []string{"source", "sources", "src", "origin"}
+var argstrTarget = []string{"target", "targets", "tgt", "destination"}
 
 // listCmd represents the list command
 var listCmd = &cobra.Command{
@@ -19,22 +23,45 @@ var listCmd = &cobra.Command{
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		g, e := dscore.GetGlobals()
-		if e != nil {
+		switch {
+		case e != nil:
 			panic(fmt.Errorf("globals failed:%v", e))
-		}
-		if len(args) == 0 {
+
+		case len(args) == 0 && *pFlags.debug:
 			cmd.Print("USER DATA ---------\n")
 			cmd.Print("using datafile: ", g.WhatConfigPath(), "\n")
-			printsl := g.DescribeAllUserData()
+			printsl := g.DetailAllUserData(*pFlags.verbose)
 			for _, p := range printsl {
 				cmd.Print(p, "\n")
 			}
-		} else {
+		case *pFlags.verbose:
+			cmd.Print(g.Detail())
+		case len(args) > 0 && slices.Contains(argstrSource, args[0]):
+			cmd.Print(listComponents(dscore.TempData().Specs, true))
+		case len(args) > 0:
 			for i, a := range args {
 				cmd.Printf("%d: %v", i, g.CfgData(a))
 			}
+		default:
+			cmd.Println("Specs:")
+			specs := dscore.TempData().Specs
+			for i := range specs {
+				if dscore.TempData().Selected == i {
+					cmd.Print("*** ", specs[i].ShortDetail(), " ***\n")
+				} else {
+					cmd.Println(specs[i].ShortDetail())
+				}
+			}
 		}
 	},
+}
+
+func listComponents(specs []dscore.Spec, isSource bool) []string {
+	output := make([]string, 0, len(specs))
+	for i := range specs {
+		output = append(output, specs[i].DetailSources(true))
+	}
+	return output
 }
 
 func init() {
