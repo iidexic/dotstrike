@@ -25,8 +25,8 @@ To be added:
 
 var src cmdWrapper
 
-//NOTE: Having a central data structure and building out the command action seems way better than this switch
-//TODO: Refactor entire source command
+//NOTE: src is the main/master command, tgt is nearly a duplicate. Vars and functions required to run the command are stored here. In the future, they may be combined.
+//NOTE: Having a central data structure and building out the command action seems better than this switch
 
 // srcCmd represents the src command
 var srcCmd = &cobra.Command{
@@ -37,53 +37,48 @@ var srcCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		src = cmdWrapper{Command: cmd, args: args} //WIP/FUTURE IMPLEMENTATION
 		affectedSpecs := getSpecs(cmd)
+		detail, oneOrMoreExist := detailsIfArgsExist(args, affectedSpecs)
+		numargs, numspecs := len(args), len(affectedSpecs)
 		switch {
-		case len(args) > 0 && !detailsIfArgsExist(cmd, args, affectedSpecs):
+		case numargs > 0 && !oneOrMoreExist:
 			if oneSpecOrUserConfirm("Adding source to Multiple specs", affectedSpecs) {
 				for i := range affectedSpecs {
-					//TODO: standardize modify. in delete its run within the modifying function.
-					dscore.TempData().Modify()
+					//TODO: standardize modify. (Run in the initial function in dscore performing modify, not end of line)
 					added := affectedSpecs[i].CheckAddMultiplePaths(args, true)
 					cmd.Printf("Spec %s:\n", affectedSpecs[i].Alias)
 					printNumberedListFiltered(cmd, args, added)
 
 				}
 			}
-		case *srcF.delete && len(affectedSpecs) > 0:
-			if conf := oneSpecOrUserConfirm("Deletion with multiple sources or specs", affectedSpecs); conf && len(args) > 0 {
+		case *srcF.delete && numspecs > 0:
+			if oneSpecOrUserConfirm("Deletion with multiple sources or specs", affectedSpecs) && len(args) > 0 {
 				for i := range affectedSpecs {
 					runDelete(affectedSpecs[i], args, true)
 				}
-			} else if conf && *pFlags.all {
+			} else if (*pFlags.all || numspecs == 1) &&
+				checkConfirm(fmt.Sprintf("Deletion of ALL sources for %d specs", numspecs), srcF.y) {
 				for i := range affectedSpecs {
 					affectedSpecs[i].WipeComponentList(true)
 				}
 			}
 		case *pFlags.all && len(args) == 0:
 			cmd.Print(detailAllComponentFrom(affectedSpecs, true))
+		case len(args) > 0:
+			cmd.Print(detail)
 		case len(args) == 0 && pFlags.countFlags == 0:
 			cmd.Help()
-		}
-
-		if *pFlags.all {
 		}
 
 	},
 }
 
 func runDelete(spec *dscore.Spec, args []string, isSource bool) {
-
-	if isSource {
-		for _, arg := range args {
-			//test
-			src.Printf("trying to delete %s in spec %s\n", arg, spec.Alias)
-			src.Printf("count sources = %d\n", len(spec.Sources))
-			src.Print(spec.Sources)
-			//end test
-			result := spec.DeleteIfChild(arg, true)
-			src.Printf("\nDeleted? -> %t\n", result)
-			src.Printf("count sources = %d\n", len(spec.Sources))
-			src.Print(spec.Sources)
+	for _, arg := range args {
+		result := spec.DeleteIfChild(arg, isSource, false)
+		if result == 0 {
+			src.Printf("spec %s: None deleted", spec.Alias)
+		} else {
+			src.Printf("spec %s: %d deleted", spec.Alias, result)
 		}
 	}
 }
@@ -109,10 +104,15 @@ func getSpecs(cmd *cobra.Command) []*dscore.Spec {
 	return specs
 }
 
-func detailsIfArgsExist(cmd *cobra.Command, args []string, specs []*dscore.Spec) bool {
+func detailsIfArgsExist(args []string, specs []*dscore.Spec) (string, bool) {
 	if len(args) == 0 {
-		return true
+		return "", false
 	}
+	//TODO: un-bad this function
+
+	// Functionality:
+	// 1. collects details of the specs passed, prints them directly
+	// 2. checks if args include identifier of an existing component within given specs
 	hasExisting := false
 	details := make([]string, 0, len(specs)+len(args))
 	for _, spec := range specs {
@@ -131,10 +131,7 @@ func detailsIfArgsExist(cmd *cobra.Command, args []string, specs []*dscore.Spec)
 		}
 
 	}
-	if hasExisting {
-		cmd.Print(strings.Join(details, "\n"))
-	}
-	return hasExisting
+	return strings.Join(details, "\n"), hasExisting
 }
 
 func detailAllComponentFrom(specs []*dscore.Spec, isSource bool) string {
