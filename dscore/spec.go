@@ -78,28 +78,36 @@ func (S *Spec) getSource(alias string) *pathComponent {
 }
 func (S *Spec) Detail() string {
 	lines := make([]string, 0, 32)
-	lines = append(lines, "Spec: "+S.Alias, "-------------------")
+	lines = append(lines, "Spec: "+S.Alias, "-------------------",
+		"Sources:", S.DetailSources(false), "Targets:", S.DetailTargets(false))
 
 	// ── Sources ──────────────────────────────
-	for i, src := range S.Sources {
-		lines = append(lines, fmt.Sprintf("[src %d]", i+1))
-		lines = append(lines, src.Detail())
-	}
+	//lines = append(lines, "Sources:")
+	// if len(S.Sources) == 0 {
+	// 	lines = append(lines, "	none")
+	// }
+	// for i, src := range S.Sources {
+	// 	lines = append(lines, fmt.Sprintf("[src %d]", i+1))
+	// 	lines = append(lines, src.Detail())
+	// }
 
 	// ── Targets ──────────────────────────────
-	for i, tgt := range S.Targets {
-		lines = append(lines, fmt.Sprintf("[tgt %d]", i+1))
-		lines = append(lines, tgt.Detail())
-	}
+	// lines = append(lines, "Targets:")
+	// if len(S.Targets) == 0 {
+	// 	lines = append(lines, "	none")
+	// }
+	// for i, tgt := range S.Targets {
+	// 	lines = append(lines, fmt.Sprintf("[tgt %d]", i+1))
+	// 	lines = append(lines, tgt.Detail())
+	// }
 
-	// ── overrides ────────────────────────────
-	overrideOn := fmt.Sprintf("Overrides Enabled: %t", S.OverrideOn)
+	// ── Overrides ────────────────────────────
+	lines = append(lines, fmt.Sprintf("Overrides Enabled: %t", S.OverrideOn))
 	if !S.Overrides.equal(gd.data.Prefs) {
-		lines = append(lines, fmt.Sprintf(`%s
-Overrides:
+		lines = append(lines, fmt.Sprintf(`Overrides:
 	Keep Repo: %t
 	Keep Hidden Files: %t
-	Use Global Target: %t`, overrideOn, S.Overrides.KeepRepo, S.Overrides.KeepHidden, S.Overrides.GlobalTarget))
+	Use Global Target: %t`, S.Overrides.KeepRepo, S.Overrides.KeepHidden, S.Overrides.GlobalTarget))
 	}
 
 	// ── Ignores ──────────────────────────────
@@ -111,6 +119,83 @@ Overrides:
 	}
 	lines = append(lines, "")
 	return strings.Join(lines, "\n")
+}
+func (S *Spec) ShortDetail() string {
+	line := fmt.Sprintf("%s, ", S.Alias)
+	sl := len(S.Sources)
+	tl := len(S.Targets)
+	switch sl {
+	case 1:
+		line += fmt.Sprintf("[1 src: %s]", S.Sources[0].Path)
+	default:
+		line += fmt.Sprintf("[%d sources]", sl)
+	}
+	switch tl {
+	case 1:
+		line += fmt.Sprintf("[1 tgt: %s]", S.Targets[0].Path)
+	default:
+		line += fmt.Sprintf("[%d targets]", tl)
+	}
+
+	if S.OverrideOn {
+		line += "(overrides on)"
+	}
+	return line
+}
+
+func (S *Spec) DetailSources(parentName bool) string {
+	ss := make([]string, len(S.Sources))
+	for i, src := range S.Sources {
+		sstr := ""
+		if parentName {
+			sstr = fmt.Sprintf("spec %s | ", S.Alias)
+		} else {
+			sstr = "	"
+		}
+		if src.Alias != "" {
+			sstr += fmt.Sprintf("%s: ", src.Alias)
+		} else {
+			sstr += fmt.Sprintf("[%d]:", i)
+		}
+		sstr += src.Path
+		if src.Abspath != src.Path && src.Abspath != "" {
+			sstr += fmt.Sprintf(" (%s)", src.Abspath)
+		} else if src.Abspath == "" {
+			sstr += "(WARNING: NO ABSOLUTE PATH)"
+		}
+		if len(src.Ignores) > 0 {
+			sstr += fmt.Sprintf("\n		ignores:%v", src.Ignores)
+		}
+		ss[i] = sstr
+	}
+	return strings.Join(ss, "\n")
+}
+func (S *Spec) DetailTargets(parentName bool) string {
+	ss := make([]string, len(S.Targets))
+	for i, tgt := range S.Targets {
+		sstr := ""
+		if parentName {
+			sstr = fmt.Sprintf("spec %s | ", S.Alias)
+		} else {
+			sstr = "	"
+		}
+		if tgt.Alias != "" {
+			sstr += fmt.Sprintf("%s: ", tgt.Alias)
+		} else {
+			sstr += fmt.Sprintf("[%d]:", i)
+		}
+		sstr += tgt.Path
+		if tgt.Abspath != tgt.Path && tgt.Abspath != "" {
+			sstr += fmt.Sprintf(" (%s)", tgt.Abspath)
+		} else if tgt.Abspath == "" {
+			sstr += "(WARNING: NO ABSOLUTE PATH)"
+		}
+		if len(tgt.Ignores) > 0 {
+			sstr += fmt.Sprintf("\n		ignores:%v", tgt.Ignores)
+		}
+		ss[i] = sstr
+	}
+	return strings.Join(ss, "\n")
 }
 
 func (S *Spec) getTarget(alias string) *pathComponent {
@@ -185,6 +270,7 @@ func (S *Spec) GetIfChild(identifier string) *pathComponent {
 
 func (S *Spec) removeSourceByIndex(index int) {
 	tempData.Modify()
+
 	if index < len(S.Sources) {
 		S.Sources = slices.Delete(S.Sources, index, index+1)
 	}
@@ -192,7 +278,7 @@ func (S *Spec) removeSourceByIndex(index int) {
 func (S *Spec) removeTargetByIndex(index int) {
 	tempData.Modify()
 	if index < len(S.Targets) {
-		S.Targets = slices.Delete(S.Targets, index, index)
+		S.Targets = slices.Delete(S.Targets, index, index+1)
 	}
 }
 
@@ -213,38 +299,49 @@ func (S *Spec) CheckAddPath(path string, isSource bool) bool {
 	return false
 }
 func (S *Spec) AliasIfChild(alias string, identifier string, isSource bool) bool {
+	tempData.Modify()
 	if pc := S.GetIfChild(identifier); pc != nil {
 		if (pc.Ctype == sourceComponent && isSource) ||
 			(pc.Ctype == targetComponent && !isSource) {
-			pc.SetAlias(alias)
+			pc.setAlias(alias)
 		} else {
 		}
 	}
 	return false
 }
 
-func (S *Spec) DeleteIfChild(identifier string, isSource bool) bool {
+func (S *Spec) DeleteIfChild(identifier string, isSource bool, singleDelete bool) int {
+	tempData.Modify()
+	count := 0
 	if isSource {
 		for i := range S.Sources {
 			if S.Sources[i].MatchesID(identifier) {
 				S.removeSourceByIndex(i)
-				break
+				count++
+				if singleDelete {
+					return count
+				}
+			} else {
 			}
 		}
 	} else {
 		for i := range S.Targets {
 			if S.Targets[i].MatchesID(identifier) {
 				S.removeTargetByIndex(i)
-				break
+				count++
+				if singleDelete {
+					return count
+				}
 			}
 		}
 
 	}
-	return false
+	return count
 }
 
 // WipeComponentList deletes everything from Sources if isSource, or Targets if !isSource
 func (S *Spec) WipeComponentList(isSource bool) {
+	tempData.Modify()
 	if isSource {
 		S.Sources = make([]pathComponent, 0)
 	} else {
@@ -256,6 +353,7 @@ func (S *Spec) WipeComponentList(isSource bool) {
 // CheckAddMultiplePaths adds paths to spec.Sources if isSource, spec.Targets if !isSource
 // returns slice of bools indicating which indices in paths were added succesfully
 func (S *Spec) CheckAddMultiplePaths(paths []string, isSource bool) []bool {
+	tempData.Modify()
 	b := make([]bool, len(paths))
 	for i, p := range paths {
 		b[i] = S.CheckAddPath(p, isSource)
