@@ -104,6 +104,12 @@ func (gm *globalModify) GetModifiableSpec(alias string) (*Spec, error) {
 
 	return nil, fmt.Errorf("No matching alias found in:\n%s", strings.Join(ermsg, "\n"))
 }
+
+// GetSpec searches the spec list and returns the *spec that matches provided alias
+//
+// If no matches are found, returns nil.
+//
+// The lookup is exact to the passed alias string
 func (gm *globalModify) GetSpec(alias string) *Spec {
 	for i := range gm.Specs {
 		if gm.Specs[i].Alias == alias {
@@ -123,8 +129,89 @@ func (gm *globalModify) DeleteSpec(sptr *Spec) bool {
 	return false
 }
 
-func (gm *globalModify) Modify() {
-	gm.Modified = true
+type ConfigOption int
+
+const (
+	_ ConfigOption = iota
+	OptBoolUseGlobalTarget
+	OptBoolKeepRepo
+	OptBoolKeepHidden
+	OptStringGlobalTargetPath
+)
+
+func (c ConfigOption) Text() string {
+	switch c {
+	case OptBoolKeepHidden:
+		return "KeepHidden"
+	case OptBoolKeepRepo:
+		return "KeepRepo"
+	case OptBoolUseGlobalTarget:
+		return "UseGlobalTarget"
+	case OptStringGlobalTargetPath:
+		return "SetGlobalTargetPath"
+	}
+	return ("NotAnOption")
+}
+
+func OptionID(optName string) ConfigOption {
+	switch {
+	case slices.Contains(PrefNameKeepRepo, optName):
+		return OptBoolKeepRepo
+	case slices.Contains(PrefNameKeepHidden, optName):
+		return OptBoolKeepHidden
+	case slices.Contains(PrefNameUseGlobalTarget, optName):
+		return OptBoolUseGlobalTarget
+	case slices.Contains(PrefNameGlobalTargetPath, optName):
+		return OptStringGlobalTargetPath
+
+	}
+	return 0
+}
+
+func (gm *globalModify) Modify() { gm.Modified = true }
+
+// SetOptionBool sets selected configOption opt to newValue.
+// Returns true if a config value was changed, false otherwise
+func (gm *globalModify) SetNamedOptionBool(optName string, newValue bool) bool {
+	return gm.SetOptionBool(OptionID(strings.ToLower(strings.TrimSpace(optName))), newValue)
+}
+
+func (gm *globalModify) SetNamedOptionString(optName string, newValue string) error {
+	return gm.SetOptionString(OptionID(strings.ToLower(strings.TrimSpace(optName))), newValue)
+}
+
+func (gm *globalModify) SetOptionBool(opt ConfigOption, newValue bool) bool {
+	switch opt {
+	case OptBoolUseGlobalTarget:
+		tempData.Modify()
+		gm.Prefs.GlobalTarget = newValue
+		return true
+	case OptBoolKeepRepo:
+		tempData.Modify()
+		gm.Prefs.KeepRepo = newValue
+		return true
+	case OptBoolKeepHidden:
+		tempData.Modify()
+		gm.Prefs.KeepHidden = newValue
+		return true
+	}
+
+	return false
+}
+
+// SetOptionString
+func (gm *globalModify) SetOptionString(opt ConfigOption, newValue string) error {
+	switch opt {
+	case OptStringGlobalTargetPath:
+		tempData.Modify()
+		newpath, e := pops.Abs(newValue)
+		if e != nil {
+			return e
+		}
+		gm.GlobalTargetPath = newpath
+		return nil
+	}
+	return ErrID
 }
 
 func (gm *globalModify) Select(alias string) bool {
@@ -148,6 +235,17 @@ func (gm *globalModify) SelectPtr(spec *Spec) bool {
 		}
 	}
 	return false
+}
+
+func (gm *globalModify) ChangeSpecAlias(spec *Spec, newAlias string) bool {
+	newAlias = standardizeAlias(newAlias)
+	otherspec := gm.GetSpec(newAlias)
+	if otherspec != nil {
+		return false
+	}
+	gm.Modify()
+	spec.Alias = newAlias
+	return true
 }
 func (gm *globalModify) specByIndex(i int) *Spec {
 	if i < len(gm.Specs) {
@@ -179,7 +277,7 @@ func (gd *globalData) findAliasIndex(alias string) int {
 func (p *prefs) SetM(mpref map[string]bool) error {
 	var fails string
 	for k, b := range mpref {
-		e := p.Set(k, b)
+		e := p.SetByName(k, b)
 		if e != nil {
 			fails = fails + ", " + k
 		}
@@ -190,18 +288,22 @@ func (p *prefs) SetM(mpref map[string]bool) error {
 	return nil
 }
 
-var nmKeepRepo = []string{"keeprepo", "keep-repo", "keep_repo", "repo"}
-var nmKeepHidden = []string{"keephidden", "keep-hidden", "keep_hidden", "hidden"}
-var nmGlobalTarget = []string{"globaltarget", "globaltgt", "global_target", "global-target"}
+var PrefNameKeepRepo = []string{"keeprepo", "keep-repo", "keep_repo", "repo"}
+var PrefNameKeepHidden = []string{"keephidden", "keep-hidden", "keep_hidden", "hidden"}
+var PrefNameUseGlobalTarget = []string{"useglobaltarget", "useglobaltgt", "use-global", "use-globaltarget", "use_global_target", "use-global-target", "globaltarget"}
+var PrefNameGlobalTargetPath = []string{"globaltargetpath", "targetpath", "global_target_path", "global-target-path"}
 
-func (p *prefs) Set(name string, val bool) error {
+func (p *prefs) SetByName(name string, val bool) error {
 	name = quickclean(name)
 	switch {
-	case slices.Contains(nmKeepRepo, name):
+	case slices.Contains(PrefNameKeepRepo, name):
+		tempData.Modify()
 		p.KeepRepo = val
-	case slices.Contains(nmKeepHidden, name):
+	case slices.Contains(PrefNameKeepHidden, name):
+		tempData.Modify()
 		p.KeepHidden = val
-	case slices.Contains(nmGlobalTarget, name):
+	case slices.Contains(PrefNameUseGlobalTarget, name):
+		tempData.Modify()
 		p.GlobalTarget = val
 	default:
 		return ErrBadKey
@@ -209,23 +311,34 @@ func (p *prefs) Set(name string, val bool) error {
 	return nil
 }
 
-func (p *prefs) SetGlobalTargetPath(path string) { p.GlobalTargetPath = pops.CleanPath(path) }
+func (p *prefs) SetOpt(opt ConfigOption, val bool) {
+	switch opt {
+	case OptBoolKeepHidden:
+		tempData.Modify()
+		p.KeepHidden = val
+	case OptBoolKeepRepo:
+		tempData.Modify()
+		p.KeepRepo = val
+	case OptBoolUseGlobalTarget:
+		tempData.Modify()
+		p.GlobalTarget = val
+	}
+}
+
+func (gd *globalData) SetGlobalTargetPath(path string) { gd.GlobalTargetPath = pops.CleanPath(path) }
+
 func (p *prefs) OverwriteRaw(newp prefs) error {
 	if !p.equal(newp) {
 		p.KeepHidden = newp.KeepHidden
 		p.KeepRepo = newp.KeepRepo
 		p.GlobalTarget = newp.GlobalTarget
-		if newp.GlobalTargetPath != "" {
-			p.GlobalTargetPath = newp.GlobalTargetPath
-		}
-
 	}
 	return nil
 }
 
-// SetAlias sets the PathComponent alias.
+// setAlias sets the PathComponent alias.
 // If PathComponent is not unique, alias is not set, and ErrNotUnique is returned
-func (pc *pathComponent) SetAlias(alias string) error {
+func (pc *pathComponent) setAlias(alias string) error {
 	cfptr := gd.data.getSpec(pc.Parent)
 	if cfptr == nil {
 		return ErrParentNotFound
