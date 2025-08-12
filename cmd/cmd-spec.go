@@ -13,6 +13,8 @@ import (
 
 var temp dscore.Temp
 
+//TODO: (mid-doc) Update/Correct Long detail to match current function
+
 // specCmd represents the cfg command
 var specCmd = &cobra.Command{
 	Use: "spec alias [sourcePath ... targetPath]",
@@ -38,11 +40,14 @@ func init() {
 
 	flagDataSpec = specFlags{
 		delete:   specCmd.Flags().Bool("delete", false, "delete spec"),
-		yconfirm: specCmd.Flags().BoolP("autoconfirm user y/n prompts", "y", false, "yes")}
+		yconfirm: specCmd.Flags().BoolP("autoconfirm user y/n prompts", "y", false, "yes"),
+		alias:    specCmd.Flags().String("set-alias", "", "set-alias ALIAS"),
+	}
 }
 
 type specFlags struct {
 	yconfirm, delete *bool
+	alias            *string
 }
 
 var ErrSpecNotMade = errors.New("No spec created; received nil pointer")
@@ -51,6 +56,7 @@ var flagDataSpec specFlags
 var specOps = specOpData{flags: &flagDataSpec}
 
 // TODO: source/target flags
+// TODO: Use SelectedSpec for 0-arg edits
 func specRun(cmd *cobra.Command, args []string) {
 	temp = dscore.TempData()
 	specOps.args = args
@@ -59,10 +65,13 @@ func specRun(cmd *cobra.Command, args []string) {
 	specOps.argExists = make([]bool, len(args))
 
 	notFound := specOps.populateExisting(args)
-	//TODO: (hi-refactor) Already have specs at this point. Replace GetSpec calls after this
 	switch {
+
 	case len(args) == 0:
-		specOps.outputSelected()
+		act := specOps.checkFlagActions()
+		if !act {
+			specOps.outputSelected()
+		}
 	case len(notFound) == len(args):
 		err := specOps.specNew()
 		if err != nil {
@@ -76,7 +85,6 @@ func specRun(cmd *cobra.Command, args []string) {
 					cmd.Printf("delete %s failed.", specOps.existingSpecs[i].Alias)
 				}
 			}
-
 		} else {
 			changed := dscore.TempData().SelectPtr(specOps.existingSpecs[0])
 			if changed {
@@ -124,21 +132,50 @@ func (op *specOpData) specNew() error {
 
 	return nil
 }
-func (op *specOpData) checkConfirmExecute(fn func(), detail string) {
-	approve := *op.flags.yconfirm
-	if !approve {
-		approve = askConfirmf(detail)
+
+func (op *specOpData) checkFlagActions() bool {
+	if newAlias := *op.flags.alias; newAlias != "" {
+		switch {
+		case op.argcount == 1 && len(op.existingSpecs) == 1:
+			spec := op.existingSpecs[0]
+			op.editSpecAlias(spec, newAlias)
+		case op.argcount == 0:
+			spec := dscore.TempData().SelectedSpec()
+			op.editSpecAlias(spec, newAlias)
+		case op.argcount > 1:
+			op.cmd.Print("Error - cannot change alias of multiple specs!")
+		}
+		return true
 	}
-	if *op.flags.yconfirm || askConfirmf(detail) {
-		fn()
+	return false
+}
+
+func (op *specOpData) editSpecAlias(spec *dscore.Spec, newAlias string) {
+	ogAlias := spec.Alias
+	changed := dscore.TempData().ChangeSpecAlias(spec, newAlias)
+	if !changed {
+		op.cmd.Printf(`Updating spec '%s' to '%s' failed:
+Alias not unique (spec '%s' already exists)`, spec.Alias, newAlias, newAlias)
+	} else {
+		op.cmd.Printf("Spec '%s' updated to '%s'", ogAlias, newAlias)
 	}
 }
+
+// func (op *specOpData) checkConfirmExecute(fn func(), detail string) {
+// 	approve := *op.flags.yconfirm
+// 	if !approve {
+// 		approve = askConfirmf(detail)
+// 	}
+// 	if *op.flags.yconfirm || askConfirmf(detail) {
+// 		fn()
+// 	}
+// }
 
 func (op *specOpData) checkConfirm(detail string) bool {
 	return *op.flags.yconfirm || askConfirmf(detail)
 }
 
-// TODO: fix specDelete and/or shift to specPtrDelete as ptr is getting pulled beforehand anyway.
+// TODO:(hi-refactor) fix specDelete and/or shift to specPtrDelete as ptr is getting pulled beforehand anyway.
 func (op *specOpData) specPtrDelete(spec *dscore.Spec) bool {
 	out := false
 
