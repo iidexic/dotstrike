@@ -59,6 +59,6 @@ func CheckDataDecode(decoded globalData, md toml.MetaData) {
 │  Data  │
 ╰────────╯
 targetPath:%s
-Specs:`, decoded.Prefs.GlobalTargetPath)
+Specs:`, decoded.GlobalTargetPath)
 	printcfgs(decoded.Specs)
 }

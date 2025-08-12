@@ -44,12 +44,12 @@ var gd = globals{
 	loaded: false,
 	data: globalData{
 		Prefs: prefs{
-			KeepRepo:         true,
-			KeepHidden:       true,
-			GlobalTarget:     true,
-			GlobalTargetPath: "~\\dotstrike\\globalTarget\\", // this doesnt work until transformed in CoreConfig.
+			KeepRepo:     true,
+			KeepHidden:   true,
+			GlobalTarget: true,
 		},
-		Specs: []Spec{},
+		GlobalTargetPath: "~\\dotstrike\\globalTarget\\", // this doesnt work until transformed in CoreConfig.
+		Specs:            []Spec{},
 	},
 }
 
@@ -74,6 +74,16 @@ func globalsFilepath() string {
 		panic(e)
 	}
 	return gpath
+}
+
+func ConfigTomlPath() string {
+	if gd.loaded && gd.dsconfigPath != "" {
+		return gd.dsconfigPath
+	} else if !gd.loaded {
+		return "CONFIG NOT LOADED"
+	} else {
+		return "CONFIG PATH NOT POPULATED"
+	}
 }
 
 func GetGlobals() (*globals, error) {
@@ -150,7 +160,7 @@ func CoreConfig() {
 	}
 	//TODO: clean up this homepath/GlobalTargetPath solution
 	cfgdir := gd.makeCfgPath(globalDirHomeRelative)
-	gd.data.Prefs.GlobalTargetPath = resolveHomeSubpath(gd.data.Prefs.GlobalTargetPath)
+	gd.data.GlobalTargetPath = resolveHomeSubpath(gd.data.GlobalTargetPath)
 	gotConfig := gd.GetConfig(cfgdir)
 	if gotConfig {
 		gd.status = badToml //pre-emptive

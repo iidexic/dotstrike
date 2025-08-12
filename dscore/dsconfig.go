@@ -48,9 +48,10 @@ type globals struct {
 type globalData struct {
 	// moved TargetPath to Prefs
 	//TargetPath string `toml:"storagePath, omitempty"`
-	Selected int    `toml:"SelectedSpec"`
-	Prefs    prefs  `toml:"prefs"`
-	Specs    []Spec `toml:"specs"` // possibly needs omitempty
+	Selected         int    `toml:"SelectedSpec"`
+	GlobalTargetPath string `toml:"targetpath"`
+	Prefs            prefs  `toml:"prefs"`
+	Specs            []Spec `toml:"specs"` // possibly needs omitempty
 }
 
 func (g *globalData) equal(g2 *globalData) bool {
@@ -64,6 +65,14 @@ type globalModify struct {
 	initialized, Modified bool
 }
 
+type prefs struct {
+	KeepRepo     bool `toml:"KeepRepo"`
+	KeepHidden   bool `toml:"KeepHidden"` //unused in 0.1
+	GlobalTarget bool `toml:"GlobalTarget"`
+	//TODO: symlink handling + symlink preference
+	//TODO: remove/clean KeepHidden if not yet using
+}
+
 /*
 	NOTE:FROM DOCS:
 
@@ -75,13 +84,9 @@ type globalModify struct {
 
 // prefs holds preferences for component-based operations
 // used scoped globally or to individual components/parents
-type prefs struct {
-	KeepRepo         bool   `toml:"KeepRepo"`
-	KeepHidden       bool   `toml:"KeepHidden"`
-	GlobalTarget     bool   `toml:"GlobalTarget"`
-	GlobalTargetPath string `toml:"GlobalTargetPath, omitempty"`
-	//TODO: symlink handling + symlink preference
-}
+// type globalPrefs struct {
+// 	SelectNewSpec bool `toml:"SelectNewSpec"`
+// }
 
 func (G *globals) Detail() string {
 	lines := make([]string, 1, 32)
@@ -111,13 +116,12 @@ func (p prefs) Detail() string {
 	return fmt.Sprintf(`Prefs:
 	Keep Repo: %t
 	Keep Hidden Files: %t
-	Use Global Target: %t
-	Global Target path: %s`, p.KeepRepo, p.KeepHidden, p.GlobalTarget, p.GlobalTargetPath)
+	Use Global Target: %t`, p.KeepRepo, p.KeepHidden, p.GlobalTarget)
 }
 
 func (p prefs) equal(p2 prefs) bool {
 	return p.KeepHidden == p2.KeepHidden && p.KeepRepo == p2.KeepRepo &&
-		p.GlobalTarget == p2.GlobalTarget && p.GlobalTargetPath == p2.GlobalTargetPath
+		p.GlobalTarget == p2.GlobalTarget
 }
 
 // TempGlob exists to store new global data temporarily during runtime
@@ -173,7 +177,7 @@ func InitTempData() {
 	}
 }
 
-// standardizeAlias should be applied any time a component alias is set.
+// standardizeAlias should be applied any time a spec or component alias is set.
 // It performs the following changes:
 //   - removes spaces, tabs, newlines, backslash and forwardslash, and at signs
 //   - converts all alphabetic to lower-case
