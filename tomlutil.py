@@ -112,7 +112,7 @@ def main():
                     try_copy_twice(localtoml, localtoml_abs,  maintoml)
                 case 'get' | 'pull':
                     if maintoml.exists():
-                        copy_file(localtoml, maintoml)
+                        copy_file(maintoml, localtoml)
                     else:
                         print(f'no file at {maintoml}')
                 case 'test-to-main' | 'test2main' | 'test to main':

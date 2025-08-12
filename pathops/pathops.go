@@ -1,6 +1,7 @@
 package pops
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -8,12 +9,16 @@ import (
 )
 
 // enum for path format
-type pathType int
+type pathType int16
 
 const (
-	notPath pathType = iota
-	localPath
-	absPath
+	UnknownPath pathType = iota - 1
+	InaccessiblePath
+	//---
+	LocalDirPath
+	AbsDirPath
+	LocalFilePath
+	AbsFilePath
 )
 
 var HomePath *string = nil
@@ -32,6 +37,7 @@ func (e *errCtr) Error() string {
 
 var ErrGetHome = errCtr{etext: "Failed to retrieve user homedir"}
 var ErrEmptyHome = fmt.Errorf("Home path is empty string")
+var ErrNilInfo = fmt.Errorf("nil os.FileInfo")
 
 var Open = os.Open
 var BaseName = filepath.Base
@@ -52,7 +58,7 @@ func ce(e error, msg ...string) {
 //TODO:(med-feat) Replace current config path system with more robust system with fallbacks
 
 // enum type for file op outcomes
-type failureType int //TODO:(med-recl) replace system with errors; currently basically converting errors to enum
+type failureType int16 //TODO:(med-recl) replace system with errors; currently basically converting errors to enum
 
 // Possible outcomes for attempting filesystem operations
 // Different operations have the potential to trigger different subsets of these outcomes
@@ -208,6 +214,43 @@ func MakeAbs(inpath string) string {
 		inpath = filepath.Clean(inpath)
 	}
 	return inpath
+}
+func PathExists(path string) (bool, error) {
+
+	path = CleanPath(path)
+	s, e := os.Stat(path)
+	if e != nil && errors.Is(e, os.ErrNotExist) {
+		return false, e
+	} else if e != nil && errors.Is(e, os.ErrExist) {
+
+	}
+	if s != nil {
+		return true, nil
+	}
+	return true, ErrNilInfo
+}
+
+func PathTypeIfExists(path string) (pathType, error) {
+	path = CleanPath(path)
+	s, e := os.Stat(path)
+	if e != nil && errors.Is(e, os.ErrNotExist) {
+		return UnknownPath, e
+	} else if e != nil {
+
+	}
+	isdir := s.IsDir()
+	isabs := filepath.IsAbs(path)
+	switch {
+	case isdir && isabs:
+		return AbsDirPath, nil
+	case isdir:
+		return LocalDirPath, nil
+	case isabs:
+		return AbsFilePath, nil
+	default:
+		return LocalFilePath, nil
+	}
+
 }
 
 var Abs = filepath.Abs

@@ -75,10 +75,10 @@ func (CM *copierMaschine) RunJob(jobName string) *CopyJob {
 
 // CopyJob prepares and executes the copy of all contents of PathIn to PathOut
 type CopyJob struct {
-	PathIn, PathOut string     // Root of copy source and destination (*or destination parent)
-	parentPathOut   string     // unused. populated on run if JobSettings.makeRootSubdir = true
-	fstack          []filecopy // record of files copied
-	newDirs         map[string]bool
+	PathIn, PathOut string          // Root of copy source and destination (*or destination parent)
+	parentPathOut   string          // unused. populated on run if JobSettings.makeRootSubdir = true
+	fstack          []filecopy      // record of files copied
+	newDirs         map[string]bool //
 	ignore          IgnoreSet
 	OpErrors        []fs.PathError
 	JobSettings     copyConfig
@@ -92,10 +92,20 @@ type copyConfig struct {
 	//DRY_RUN bool
 }
 
-// SetOptionMakeSubdir - sets CopyJob.JobSettings.makeRootSubdir
+// JobOptionMakeSubdir - sets CopyJob.JobSettings.makeRootSubdir
 // if true: set PathOut = filepath.Join(PathOut, filepath.Base(PathIn)), store original
-func (J *CopyJob) SetOptionMakeSubdir(makeSubdir bool) {
+func (J *CopyJob) JobOptionMakeSubdir(makeSubdir bool) {
 	J.JobSettings.makeRootSubdir = makeSubdir
+}
+
+func (J *CopyJob) JobOptionSetBool(optionName string, val bool) {
+	switch optionName {
+	case "makerootsubdir", "subdir", "globaltarget":
+		J.JobSettings.noFiles = val
+	case "nofiles", "no_files", "dryrun", "dry_run":
+		J.JobSettings.noFiles = val
+	case "copydirectories", "copy_dirs":
+	}
 }
 
 // filecopy acts as a record of a single file's copy operation
@@ -159,15 +169,19 @@ func (J *CopyJob) Run( /* params */ ) error {
 // logDir adds directories to j.newDirs if they are not already present
 // NOTE: Walk sends relative paths to logDir (J.newDirs keys will be relative)
 func (J *CopyJob) logDir(dir string, copied bool) {
-	exists := false
+	var exists bool
 	for keydir := range J.newDirs {
-		exists = exists || keydir == dir
+		exists = (exists || keydir == dir)
 	}
 	if !exists {
 		J.newDirs[dir] = copied
 	}
 
 }
+
+// ╭─────────────────────────────────────────────────────────╮
+// │                      WALK FUNCTION                      │
+// ╰─────────────────────────────────────────────────────────╯
 
 func (J *CopyJob) Walk(p string, d DirEntry, e error) error {
 	// make relative path first; used for dirs & files
@@ -211,6 +225,7 @@ func (J *CopyJob) Walk(p string, d DirEntry, e error) error {
 	outF, e := MakeOpenFileF(pto)
 	defer outF.Close()
 	J.checkAndLogError(pto, "MakeOpen_Out", e)
+
 	// ── 3. perform copy ──────────────────────────────────────
 	wb, e := io.CopyBuffer(outF, inF, nil)
 	J.checkAndLogError(pto, "CopyError_Out", e)

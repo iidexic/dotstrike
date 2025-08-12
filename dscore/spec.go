@@ -144,6 +144,9 @@ func (S *Spec) ShortDetail() string {
 }
 
 func (S *Spec) DetailSources(parentName bool) string {
+	if len(S.Sources) == 0 {
+		return "	none"
+	}
 	ss := make([]string, len(S.Sources))
 	for i, src := range S.Sources {
 		sstr := ""
@@ -171,6 +174,9 @@ func (S *Spec) DetailSources(parentName bool) string {
 	return strings.Join(ss, "\n")
 }
 func (S *Spec) DetailTargets(parentName bool) string {
+	if len(S.Targets) == 0 {
+		return "	none"
+	}
 	ss := make([]string, len(S.Targets))
 	for i, tgt := range S.Targets {
 		sstr := ""
@@ -362,7 +368,7 @@ func (S *Spec) CheckAddMultiplePaths(paths []string, isSource bool) []bool {
 }
 
 // ── Running spec copy jobs ──────────────────────────────────────────
-func (S *Spec) RunCopy() error {
+func (S *Spec) RunCopy(global bool) error {
 	if !S.allInitialized() {
 		return fmt.Errorf("spec not initialized: %s", S.Alias)
 	}
@@ -370,8 +376,9 @@ func (S *Spec) RunCopy() error {
 	//NOTE:
 	for y, tgt := range S.Targets {
 		for x, src := range S.Sources {
-			//TODO: Finish Spec run copy jobs
-			copymachine.NewJob(S.Alias+"."+fmt.Sprintf("%d", x)+"."+fmt.Sprintf("%d", y), src.Path, tgt.Path)
+			job := copymachine.NewJob(S.Alias+"."+fmt.Sprintf("%d", x)+"."+fmt.Sprintf("%d", y), src.Path, tgt.Path)
+			job.JobOptionMakeSubdir(true)
+			_ = job
 		}
 	}
 	return nil
