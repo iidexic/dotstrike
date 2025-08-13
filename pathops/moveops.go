@@ -30,6 +30,7 @@ type copierMaschine struct {
 
 // primary-instance use
 var cmachine copierMaschine = copierMaschine{JobQueue: make(map[string]*CopyJob)}
+var Copier = &cmachine
 
 func GetCopierMaschine() *copierMaschine { return &cmachine }
 
@@ -90,6 +91,11 @@ type copyConfig struct {
 	copyAllDirectories bool // copies directories regardless of whether files will be copied  TODO: implement
 	noFiles            bool // does not copy files. Use for dry run, or enable copyAllDirectories to only copy directory structure
 	//DRY_RUN bool
+}
+
+// TODO: Implement + test IgnoreGit  (ALSO Test Global)
+func (J *CopyJob) IgnoreGit() {
+
 }
 
 // JobOptionMakeSubdir - sets CopyJob.JobSettings.makeRootSubdir
@@ -190,15 +196,18 @@ func (J *CopyJob) Walk(p string, d DirEntry, e error) error {
 	// DIRECTORIES:
 	if d.IsDir() {
 		// check ignore + prevent recursion (if PathOut is a subdir of PathIn)
-		if J.ignore.isIgnored(p) || strings.HasPrefix(p, J.PathOut) {
+		if J.ignore.isIgnored(p, true) || strings.HasPrefix(p, J.PathOut) {
 			J.logDir(prr, false)
 			return fs.SkipDir
 		}
 		J.logDir(prr, true)
 		return nil
+	} else { // File Ignore
+		if J.ignore.isIgnored(p, false) {
+			return nil
+		}
 	}
 
-	// FILES:
 	// ── 0.1 make filepath out ─────────────────────────────────
 	pto := Joinpath(J.PathOut, prr)
 	if !filepath.IsAbs(pto) {
@@ -214,19 +223,21 @@ func (J *CopyJob) Walk(p string, d DirEntry, e error) error {
 		J.addFile(prr, inDE.Size(), 0) // for dry runs
 		return nil
 	}
-	// ── 1. open in file ──────────────────────────────────────
+
+	// ── 1. open in file ──
 	inF, e := OpenExistingFile(p)
 	defer inF.Close()
 	if e != nil {
 		J.logError(p, "OpenExisting_In", e)
 		return nil //skip file if opening errors
 	}
-	// ── 2. make+open out file ────────────────────────────────
+	// ── 2. make/open out file ──
+
 	outF, e := MakeOpenFileF(pto)
 	defer outF.Close()
 	J.checkAndLogError(pto, "MakeOpen_Out", e)
 
-	// ── 3. perform copy ──────────────────────────────────────
+	// ── 3. perform copy ──
 	wb, e := io.CopyBuffer(outF, inF, nil)
 	J.checkAndLogError(pto, "CopyError_Out", e)
 
@@ -295,10 +306,18 @@ func (ip iptn) matches(s string) bool {
 	return false
 }
 
-func (I *IgnoreSet) isIgnored(dirpath string) bool {
-	for _, pat := range I.ignoreDir {
-		if pat.matches(dirpath) {
-			return true
+func (I *IgnoreSet) isIgnored(path string, isDir bool) bool {
+	if isDir {
+		for _, pat := range I.ignoreDir {
+			if pat.matches(path) {
+				return true
+			}
+		}
+	} else {
+		for _, pat := range I.ignoreFile {
+			if pat.matches(path) {
+				return true
+			}
 		}
 	}
 	return false

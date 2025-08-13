@@ -84,7 +84,7 @@ func (J *CopyJob) WalkC(p string, d DirEntry, e error) error {
 		var re error
 		writedir := true
 		// check ignore + prevent recursion (if PathOut is a subdir of PathIn)
-		if J.ignore.isIgnored(p) || strings.HasPrefix(p, J.PathOut) { // WARN: need to check for files too
+		if J.ignore.isIgnored(p, true) || strings.HasPrefix(p, J.PathOut) { // WARN: need to check for files too
 			writedir = false
 			re = fs.SkipDir
 		}
