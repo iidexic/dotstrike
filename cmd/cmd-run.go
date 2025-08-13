@@ -4,18 +4,17 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 	"iidexic.dotstrike/dscore"
 )
 
 type runner struct {
 	*cobra.Command
-	specs                     []*dscore.Spec
-	args                      []string
-	flagY, flagNoSelectedSpec *bool
-	flagOverrides             *[]string
+	specs                              []*dscore.Spec
+	args                               []string
+	flagY, flagNoSelectedSpec, flagAll *bool
+	flagNoFiles, flagAllDir            *bool
+	flagOverrides                      *[]string
 }
 
 var mainRun runner
@@ -25,25 +24,19 @@ var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Run the selected spec copy job",
 	Long:  ``,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("run called")
-	},
+	Run:   mainRun.run,
 }
 
-func (r *runner) runRun(cmd *cobra.Command, args []string) {
+func (r *runner) run(cmd *cobra.Command, args []string) {
 	// 2 lines in and it's already wack, what even is this
 	mainRun = runner{Command: cmd, flagY: r.flagY, flagOverrides: r.flagOverrides}
-	r = &mainRun //lets just call this forced singleton
-	nSpecsEst := 1
-	if pFlags.bspec {
-		nSpecsEst += len(*pFlags.spec)
-	}
-	r.specs = r.makeSpecList(nSpecsEst)
+	r = &mainRun //lets just call this forced singleton pattern :)
+	r.specs = r.makeSpecList()
 }
 
-func (r *runner) makeSpecList(n int) []*dscore.Spec {
+func (r *runner) makeSpecList() []*dscore.Spec {
 	listAlias := *pFlags.spec
-	specs := make([]*dscore.Spec, 0, n)
+	specs := make([]*dscore.Spec, 0, len(listAlias)+1)
 	temp := dscore.TempData()
 	if !*r.flagNoSelectedSpec {
 		specs = append(specs, temp.SelectedSpec())
@@ -59,6 +52,12 @@ func (r *runner) makeSpecList(n int) []*dscore.Spec {
 
 func init() {
 	rootCmd.AddCommand(runCmd)
+	mainRun.flagAll = runCmd.Flags().Bool("all", false, "Run ALL spec copy jobs")
+	mainRun.flagNoSelectedSpec = runCmd.Flags().Bool("noselected", false, "Disable run of selected spec")
+	mainRun.flagY = runCmd.Flags().BoolP("confirm", "y", false, "Auto-Confirm all prompts during run")
+	mainRun.flagOverrides = runCmd.Flags().StringArray("override", []string{}, `Set one-time overrides with a space-separated list of 'prefName value' pairs; check spec help for more details on available options.`)
+	mainRun.flagNoFiles = runCmd.Flags().BoolP("no-files", "n", false, "Disable filecopy for run. Use for dry runs, or in combination with --all-dir to copy only the directory structure")
+	mainRun.flagAllDir = runCmd.Flags().BoolP("all-dirs", "d", false, "Copy all Source subdirectories, including empty subdirectories. Use with --no-files to only copy the directories themselves.")
 
 	// Here you will define your flags and configuration settings.
 
