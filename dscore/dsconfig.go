@@ -65,12 +65,13 @@ type globalModify struct {
 	initialized, Modified bool
 }
 
+// !TODO:(hi-refactor) Change to use maps for prefs. Either make prefs a map or make prefs contain maps
+// - This will majorly simplify working with config options
 type prefs struct {
 	KeepRepo     bool `toml:"KeepRepo"`
 	KeepHidden   bool `toml:"KeepHidden"` //unused in 0.1
 	GlobalTarget bool `toml:"GlobalTarget"`
 	//TODO: symlink handling + symlink preference
-	//TODO: remove/clean KeepHidden if not yet using
 }
 
 /*

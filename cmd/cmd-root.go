@@ -20,7 +20,7 @@ func ce(e error) {
 	}
 }
 
-// TODO: SET UP LOGGING
+// TODO:(low-implement) SET UP LOGGING
 func initLogging() {
 	lf, e := pops.MakeOpenFileF("dslog.txt")
 	if e != nil {
@@ -120,6 +120,7 @@ func (p *persistentData) componentFlags() {
 
 }
 
+// TODO:(HIGH-Refactor) REMOVE FLAGS THAT ARE NOT TRUE PERSISTENT, ADD TO COMMANDS WHERE USED.
 func init() {
 	cobra.OnInitialize(dscore.CoreConfig, dscore.InitTempData) // pass all initialization functions here
 	cobra.OnFinalize(dscore.EndEncode)

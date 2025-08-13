@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"text/scanner"
+
+	"iidexic.dotstrike/dscore"
 )
 
 var lesstext = "what huhh??!?!1?"
@@ -55,6 +57,14 @@ func retCheck(fpath string) error {
 		return e
 	}
 	return nil
+}
+func TestPrintEnum(t *testing.T) {
+	t.Log("printing dscore.OptBoolKeepRepo (v, +v, #v, s maybe):")
+	t.Logf("[%v]", dscore.OptBoolKeepRepo)
+	t.Logf("[%+v]", dscore.OptBoolKeepRepo)
+	t.Logf("[%#v]", dscore.OptBoolKeepRepo)
+	t.Logf("[%#+v]", dscore.OptBoolKeepRepo)
+	t.Logf("[%n]", dscore.OptBoolKeepRepo)
 }
 
 func TestIndexString(t *testing.T) {

@@ -132,11 +132,11 @@ func (gm *globalModify) DeleteSpec(sptr *Spec) bool {
 type ConfigOption int
 
 const (
-	_ ConfigOption = iota
+	OptBoolKeepRepo ConfigOption = iota
 	OptBoolUseGlobalTarget
-	OptBoolKeepRepo
 	OptBoolKeepHidden
 	OptStringGlobalTargetPath
+	optionCount
 )
 
 func (c ConfigOption) Text() string {
