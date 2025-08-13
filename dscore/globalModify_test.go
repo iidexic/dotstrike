@@ -26,7 +26,7 @@ func tError(context string, e error, t *testing.T) {
 
 // ── Decoding ────────────────────────────────────────────────────────
 
-func loadconfig(t *testing.T) *globalModify {
+func initForTest(t *testing.T) *globalModify {
 	CoreConfig()   // decode globals
 	InitTempData() // load tempdata struct with globals details
 	temp := TempData()
@@ -69,7 +69,7 @@ func encodeToBuffer(data *globalData) (bytes.Buffer, error) {
 
 // test making new spec and adding details. Unnecessary as is covered by TestEditEncode
 func TestNewSpec(t *testing.T) {
-	temp := loadconfig(t)
+	temp := initForTest(t)
 	snew, e := temp.NewSpec("testnew")
 	if e != nil {
 		t.Logf("NewSpec Error: %s", e.Error())
@@ -138,7 +138,7 @@ func TestGlobalEncodeSoftAssign(t *testing.T) {
 
 // test edit and encode; encodes to buffer and prints before manually writing to file
 func TestEncodeToBuffer(t *testing.T) {
-	temp := loadconfig(t)
+	temp := initForTest(t)
 	snew, e := temp.NewSpec("testEditEncodeSpec")
 	if e != nil {
 		t.Logf("NewSpec Errored: %s", e.Error())
@@ -185,7 +185,7 @@ func TestEncodeToBuffer(t *testing.T) {
 }
 
 func TestEditEncode(t *testing.T) {
-	temp := loadconfig(t)
+	temp := initForTest(t)
 	snew, e := temp.NewSpec("testEditEncodeSpec")
 	if e != nil {
 		t.Logf("NewSpec Errored: %s", e.Error())
