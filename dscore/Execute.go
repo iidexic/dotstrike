@@ -2,6 +2,7 @@ package dscore
 
 import (
 	"fmt"
+	"slices"
 
 	pops "iidexic.dotstrike/pathops"
 )
@@ -39,10 +40,10 @@ func (S *Spec) applyJobConfig(job *pops.CopyJob) *pops.CopyJob {
 		p = gd.data.Prefs
 	}
 
-	if p.GlobalTarget {
+	if p.bools[OptBUseGlobalTgt] {
 		job.JobOptionMakeSubdir(true)
 	}
-	if p.KeepRepo {
+	if p.bools[OptBKeepRepo] {
 		job.IgnoreGit()
 	}
 
@@ -65,11 +66,7 @@ func (S *Spec) jobName(isrc, itgt int) string {
 var hardCopyOverride *prefs = &prefs{}
 var useHardOverride bool = false
 
-var overrideWhat = map[ConfigOption]bool{
-	OptBKeepHidden:   false,
-	OptBkeepRepo:     false,
-	OptBUseGlobalTgt: false,
-}
+var overrideWhat []bool = make([]bool, len(BoolOptions))
 
 func MakeHardOverride() *prefs {
 	// Add all options to the map, with their existing values in global (or spec if overrides already on)
@@ -78,13 +75,11 @@ func MakeHardOverride() *prefs {
 }
 
 func SetHardOverride(boolOpt ConfigOption, value bool) bool {
-	switch boolOpt {
-	case OptBkeepRepo:
-		hardCopyOverride.KeepRepo = value
-	case OptBKeepHidden:
-		hardCopyOverride.KeepHidden = value
-	case OptBUseGlobalTgt:
-		hardCopyOverride.GlobalTarget = value
+	if slices.Contains(BoolOptions, boolOpt) {
+		hardCopyOverride.bools[boolOpt] = value
+
+		return true
 	}
+
 	return false
 }

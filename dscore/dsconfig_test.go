@@ -26,3 +26,28 @@ func TestStringOps(t *testing.T) {
 	t.Fail()
 
 }
+
+func TestConfigOptionOrder(t *testing.T) {
+	countFailures := 0
+
+	all := append(BoolOptions, StringOptions...)
+	for i, o := range all {
+		indexFail := false
+		icfgopt := ConfigOption(i)
+		itext := icfgopt.Text()
+		if icfgopt != o {
+			t.Errorf("ConfigOption(%d) = %s, should equal %s", i, itext, o.Text())
+			indexFail = true
+		}
+		l := OptionID(strings.ToLower(itext))
+		if l != icfgopt {
+			t.Errorf("Get ID: Input [%d]'%s' - Got [%d]'%s' ", i, itext, int(l), l.Text())
+			indexFail = true
+		}
+
+		if indexFail {
+			countFailures++
+		}
+	}
+	t.Logf("Checked ConfigOption System: %d failures.", countFailures)
+}

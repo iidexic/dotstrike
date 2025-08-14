@@ -129,66 +129,6 @@ func (gm *globalModify) DeleteSpec(sptr *Spec) bool {
 	return false
 }
 
-// ╭─────────────────────────────────────────────────────────╮
-// │                     CONFIG OPTIONS                      │
-// ╰─────────────────────────────────────────────────────────╯
-var (
-	PrefNameKeepRepo         = []string{"keeprepo", "keep-repo", "keep_repo", "repo"}
-	PrefNameKeepHidden       = []string{"keephidden", "keep-hidden", "keep_hidden", "hidden"}
-	PrefNameUseGlobalTarget  = []string{"useglobaltarget", "useglobaltgt", "use-global", "use-globaltarget", "use_global_target", "use-global-target", "globaltarget"}
-	PrefNameGlobalTargetPath = []string{"globaltargetpath", "targetpath", "global_target_path", "global-target-path"}
-	PrefNameCopyFiles        = []string{"copyfiles", "copy-files", "copy_files", "docopy"}
-	PrefNameCopyAllDirs      = []string{"alldirs", "all-dirs", "all_dirs", "alldir", "all-dir", "all_dir", "copyalldirs", "copy-all-dirs", "copy-alldir"}
-)
-
-type ConfigOption int
-
-const (
-	OptBKeepRepo ConfigOption = iota
-	OptBUseGlobalTgt
-	OptBKeepHidden
-	OptBCopyAllDirs
-	OptBCopyFiles
-	OptSGlobalTargetPath
-	optionCount
-)
-
-func (c ConfigOption) Text() string {
-	switch c {
-	case OptBKeepHidden:
-		return "KeepHidden"
-	case OptBKeepRepo:
-		return "KeepRepo"
-	case OptBUseGlobalTgt:
-		return "UseGlobalTarget"
-	case OptBCopyFiles:
-		return "CopyFiles"
-	case OptBCopyAllDirs:
-		return "CopyNoFiles"
-	case OptSGlobalTargetPath:
-		return "SetGlobalTargetPath"
-	}
-	return ("NotAnOption")
-}
-
-func OptionID(optName string) ConfigOption {
-	switch {
-	case slices.Contains(PrefNameKeepRepo, optName):
-		return OptBKeepRepo
-	case slices.Contains(PrefNameKeepHidden, optName):
-		return OptBKeepHidden
-	case slices.Contains(PrefNameUseGlobalTarget, optName):
-		return OptBUseGlobalTgt
-	case slices.Contains(PrefNameGlobalTargetPath, optName):
-		return OptSGlobalTargetPath
-	case slices.Contains(PrefNameCopyFiles, optName):
-		return OptBCopyFiles
-	case slices.Contains(PrefNameCopyAllDirs, optName):
-		return OptBCopyAllDirs
-	}
-	return 0
-}
-
 func (gm *globalModify) Modify() { gm.Modified = true }
 
 // SetOptionBool sets selected configOption opt to newValue.
@@ -202,21 +142,15 @@ func (gm *globalModify) SetNamedOptionString(optName string, newValue string) er
 }
 
 func (gm *globalModify) SetOptionBool(opt ConfigOption, newValue bool) bool {
-	switch opt {
-	case OptBUseGlobalTgt:
-		tempData.Modify()
-		gm.Prefs.GlobalTarget = newValue
+	val, exist := gm.Prefs.bools[opt]
+	switch {
+	case exist && val != newValue:
+		gm.Modify()
+		gm.Prefs.bools[opt] = newValue
 		return true
-	case OptBKeepRepo:
-		tempData.Modify()
-		gm.Prefs.KeepRepo = newValue
-		return true
-	case OptBKeepHidden:
-		tempData.Modify()
-		gm.Prefs.KeepHidden = newValue
+	case exist:
 		return true
 	}
-
 	return false
 }
 
@@ -287,7 +221,7 @@ func (gd *globalData) findAliasIndex(alias string) int {
 	return -1
 }
 
-// SetM will modify all prefs/overrides with a key assigned in mpref.
+// SetOptMap will modify all prefs/overrides with a key assigned in mpref.
 // keys are not case-sensitive, and all spaces are removed.
 // Accepted keys are:
 //   - Keep Git Repo: keeprepo | keep-repo | keep_repo | repo
@@ -295,11 +229,11 @@ func (gd *globalData) findAliasIndex(alias string) int {
 //   - Use Global Target:  globaltarget | global-target | global_target | globaltgt
 //
 // Returns ErrBadKey if the key does not match an acceptable input. Otherwise, returns nil
-func (p *prefs) SetM(mpref map[string]bool) error {
+func (p *prefs) SetOptMap(mpref map[string]bool) error {
 	var fails string
 	for k, b := range mpref {
-		e := p.SetByName(k, b)
-		if e != nil {
+		set := p.setByName(k, b)
+		if !set {
 			fails = fails + ", " + k
 		}
 	}
@@ -309,45 +243,38 @@ func (p *prefs) SetM(mpref map[string]bool) error {
 	return nil
 }
 
-func (p *prefs) SetByName(name string, val bool) error {
-	name = quickclean(name)
-	switch {
-	case slices.Contains(PrefNameKeepRepo, name):
-		tempData.Modify()
-		p.KeepRepo = val
-	case slices.Contains(PrefNameKeepHidden, name):
-		tempData.Modify()
-		p.KeepHidden = val
-	case slices.Contains(PrefNameUseGlobalTarget, name):
-		tempData.Modify()
-		p.GlobalTarget = val
-	default:
-		return ErrBadKey
+func (p *prefs) setByName(name string, val bool) bool {
+	if opt := OptionID(name); opt != NotAnOption {
+		return p.setOpt(opt, val)
 	}
-	return nil
+	return false
 }
 
-func (p *prefs) SetOpt(opt ConfigOption, val bool) {
-	switch opt {
-	case OptBKeepHidden:
+func (p *prefs) setOpt(opt ConfigOption, val bool) bool {
+	optVal, exist := p.bools[opt]
+	switch {
+	case exist && val != optVal:
 		tempData.Modify()
-		p.KeepHidden = val
-	case OptBKeepRepo:
-		tempData.Modify()
-		p.KeepRepo = val
-	case OptBUseGlobalTgt:
-		tempData.Modify()
-		p.GlobalTarget = val
+		p.bools[opt] = val
+		return true
+	case exist:
+		return true
 	}
+	return false
 }
 
 func (gd *globalData) SetGlobalTargetPath(path string) { gd.GlobalTargetPath = pops.CleanPath(path) }
 
+// TODO:(V0.0.1) Delete
 func (p *prefs) OverwriteRaw(newp prefs) error {
 	if !p.equal(newp) {
-		p.KeepHidden = newp.KeepHidden
-		p.KeepRepo = newp.KeepRepo
-		p.GlobalTarget = newp.GlobalTarget
+		for co := range p.bools {
+			delete(p.bools, co)
+		}
+		for k, v := range newp.bools {
+			p.bools[k] = v
+		}
+
 	}
 	return nil
 }

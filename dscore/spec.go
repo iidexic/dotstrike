@@ -104,10 +104,7 @@ func (S *Spec) Detail() string {
 	// ── Overrides ────────────────────────────
 	lines = append(lines, fmt.Sprintf("Overrides Enabled: %t", S.OverrideOn))
 	if !S.Overrides.equal(gd.data.Prefs) {
-		lines = append(lines, fmt.Sprintf(`Overrides:
-	Keep Repo: %t
-	Keep Hidden Files: %t
-	Use Global Target: %t`, S.Overrides.KeepRepo, S.Overrides.KeepHidden, S.Overrides.GlobalTarget))
+		lines = append(lines, fmt.Sprintf("Overrides:\n%s", S.Overrides.Detail()))
 	}
 
 	// ── Ignores ──────────────────────────────
@@ -373,6 +370,7 @@ func (S *Spec) CheckAddMultiplePaths(paths []string, isSource bool) []bool {
 // 		return fmt.Errorf("spec not initialized: %s", S.Alias)
 // 	}
 // 	copymachine := pops.GetCopierMaschine()
+
 // 	for y, tgt := range S.Targets {
 // 		for x, src := range S.Sources {
 // 			job := copymachine.NewJob(S.Alias+"."+fmt.Sprintf("%d", x)+"."+fmt.Sprintf("%d", y), src.Path, tgt.Path)

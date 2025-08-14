@@ -50,8 +50,8 @@ func cfgGlobalApply(cmd *cobra.Command, args []string) {
 	temp := dscore.TempData()
 	for i := 0; i < len(args)-1; i += 2 {
 		opt := dscore.OptionID(args[i])
-		switch opt {
-		case dscore.OptBkeepRepo, dscore.OptBKeepHidden, dscore.OptBUseGlobalTgt:
+		switch {
+		case dscore.IsBoolOption(opt):
 			barg := dscore.StringToBool(args[i+1])
 			if barg != nil {
 				output := textOptionModified(opt.Text(), temp.SetOptionBool(opt, *barg))
@@ -60,7 +60,7 @@ func cfgGlobalApply(cmd *cobra.Command, args []string) {
 				cmd.Printf("Failed. Cannot convert '%s' to true/false.", args[i+1])
 			}
 
-		case dscore.OptSGlobalTargetPath: // unnecessarily messy
+		case dscore.IsStringOption(opt): // unnecessarily messy
 			cfgApplyGlobalTargetCautious(cmd, args[i+1])
 		}
 	}
