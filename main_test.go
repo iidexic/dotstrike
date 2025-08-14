@@ -60,11 +60,11 @@ func retCheck(fpath string) error {
 }
 func TestPrintEnum(t *testing.T) {
 	t.Log("printing dscore.OptBoolKeepRepo (v, +v, #v, s maybe):")
-	t.Logf("[%v]", dscore.OptBoolKeepRepo)
-	t.Logf("[%+v]", dscore.OptBoolKeepRepo)
-	t.Logf("[%#v]", dscore.OptBoolKeepRepo)
-	t.Logf("[%#+v]", dscore.OptBoolKeepRepo)
-	t.Logf("[%n]", dscore.OptBoolKeepRepo)
+	t.Logf("[%v]", dscore.OptBkeepRepo)
+	t.Logf("[%+v]", dscore.OptBkeepRepo)
+	t.Logf("[%#v]", dscore.OptBkeepRepo)
+	t.Logf("[%#+v]", dscore.OptBkeepRepo)
+	t.Logf("[%n]", dscore.OptBkeepRepo)
 }
 
 func TestIndexString(t *testing.T) {

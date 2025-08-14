@@ -51,7 +51,7 @@ func cfgGlobalApply(cmd *cobra.Command, args []string) {
 	for i := 0; i < len(args)-1; i += 2 {
 		opt := dscore.OptionID(args[i])
 		switch opt {
-		case dscore.OptBoolKeepRepo, dscore.OptBoolKeepHidden, dscore.OptBoolUseGlobalTarget:
+		case dscore.OptBkeepRepo, dscore.OptBKeepHidden, dscore.OptBUseGlobalTgt:
 			barg := dscore.StringToBool(args[i+1])
 			if barg != nil {
 				output := textOptionModified(opt.Text(), temp.SetOptionBool(opt, *barg))
@@ -60,7 +60,7 @@ func cfgGlobalApply(cmd *cobra.Command, args []string) {
 				cmd.Printf("Failed. Cannot convert '%s' to true/false.", args[i+1])
 			}
 
-		case dscore.OptStringGlobalTargetPath: // unnecessarily messy
+		case dscore.OptSGlobalTargetPath: // unnecessarily messy
 			cfgApplyGlobalTargetCautious(cmd, args[i+1])
 		}
 	}
@@ -78,7 +78,7 @@ func cfgApplyGlobalTargetCautious(cmd *cobra.Command, newpath string) {
 		y = true
 	}
 	if y {
-		e = temp.SetOptionString(dscore.OptStringGlobalTargetPath, newpath)
+		e = temp.SetOptionString(dscore.OptSGlobalTargetPath, newpath)
 		if e != nil {
 			cmd.Printf("Error converting path '%s' to absolute path", newpath)
 		}

@@ -44,6 +44,11 @@ var gd = globals{
 	loaded: false,
 	data: globalData{
 		Prefs: prefs{
+			boolOpts: map[ConfigOption]bool{
+				OptBKeepHidden:   true,
+				OptBKeepRepo:     true,
+				OptBUseGlobalTgt: true,
+			},
 			KeepRepo:     true,
 			KeepHidden:   true,
 			GlobalTarget: true,

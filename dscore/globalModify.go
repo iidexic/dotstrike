@@ -129,25 +129,43 @@ func (gm *globalModify) DeleteSpec(sptr *Spec) bool {
 	return false
 }
 
+// ╭─────────────────────────────────────────────────────────╮
+// │                     CONFIG OPTIONS                      │
+// ╰─────────────────────────────────────────────────────────╯
+var (
+	PrefNameKeepRepo         = []string{"keeprepo", "keep-repo", "keep_repo", "repo"}
+	PrefNameKeepHidden       = []string{"keephidden", "keep-hidden", "keep_hidden", "hidden"}
+	PrefNameUseGlobalTarget  = []string{"useglobaltarget", "useglobaltgt", "use-global", "use-globaltarget", "use_global_target", "use-global-target", "globaltarget"}
+	PrefNameGlobalTargetPath = []string{"globaltargetpath", "targetpath", "global_target_path", "global-target-path"}
+	PrefNameCopyFiles        = []string{"copyfiles", "copy-files", "copy_files", "docopy"}
+	PrefNameCopyAllDirs      = []string{"alldirs", "all-dirs", "all_dirs", "alldir", "all-dir", "all_dir", "copyalldirs", "copy-all-dirs", "copy-alldir"}
+)
+
 type ConfigOption int
 
 const (
-	OptBoolKeepRepo ConfigOption = iota
-	OptBoolUseGlobalTarget
-	OptBoolKeepHidden
-	OptStringGlobalTargetPath
+	OptBKeepRepo ConfigOption = iota
+	OptBUseGlobalTgt
+	OptBKeepHidden
+	OptBCopyAllDirs
+	OptBCopyFiles
+	OptSGlobalTargetPath
 	optionCount
 )
 
 func (c ConfigOption) Text() string {
 	switch c {
-	case OptBoolKeepHidden:
+	case OptBKeepHidden:
 		return "KeepHidden"
-	case OptBoolKeepRepo:
+	case OptBKeepRepo:
 		return "KeepRepo"
-	case OptBoolUseGlobalTarget:
+	case OptBUseGlobalTgt:
 		return "UseGlobalTarget"
-	case OptStringGlobalTargetPath:
+	case OptBCopyFiles:
+		return "CopyFiles"
+	case OptBCopyAllDirs:
+		return "CopyNoFiles"
+	case OptSGlobalTargetPath:
 		return "SetGlobalTargetPath"
 	}
 	return ("NotAnOption")
@@ -156,14 +174,17 @@ func (c ConfigOption) Text() string {
 func OptionID(optName string) ConfigOption {
 	switch {
 	case slices.Contains(PrefNameKeepRepo, optName):
-		return OptBoolKeepRepo
+		return OptBKeepRepo
 	case slices.Contains(PrefNameKeepHidden, optName):
-		return OptBoolKeepHidden
+		return OptBKeepHidden
 	case slices.Contains(PrefNameUseGlobalTarget, optName):
-		return OptBoolUseGlobalTarget
+		return OptBUseGlobalTgt
 	case slices.Contains(PrefNameGlobalTargetPath, optName):
-		return OptStringGlobalTargetPath
-
+		return OptSGlobalTargetPath
+	case slices.Contains(PrefNameCopyFiles, optName):
+		return OptBCopyFiles
+	case slices.Contains(PrefNameCopyAllDirs, optName):
+		return OptBCopyAllDirs
 	}
 	return 0
 }
@@ -182,15 +203,15 @@ func (gm *globalModify) SetNamedOptionString(optName string, newValue string) er
 
 func (gm *globalModify) SetOptionBool(opt ConfigOption, newValue bool) bool {
 	switch opt {
-	case OptBoolUseGlobalTarget:
+	case OptBUseGlobalTgt:
 		tempData.Modify()
 		gm.Prefs.GlobalTarget = newValue
 		return true
-	case OptBoolKeepRepo:
+	case OptBKeepRepo:
 		tempData.Modify()
 		gm.Prefs.KeepRepo = newValue
 		return true
-	case OptBoolKeepHidden:
+	case OptBKeepHidden:
 		tempData.Modify()
 		gm.Prefs.KeepHidden = newValue
 		return true
@@ -202,7 +223,7 @@ func (gm *globalModify) SetOptionBool(opt ConfigOption, newValue bool) bool {
 // SetOptionString
 func (gm *globalModify) SetOptionString(opt ConfigOption, newValue string) error {
 	switch opt {
-	case OptStringGlobalTargetPath:
+	case OptSGlobalTargetPath:
 		tempData.Modify()
 		newpath, e := pops.Abs(newValue)
 		if e != nil {
@@ -288,11 +309,6 @@ func (p *prefs) SetM(mpref map[string]bool) error {
 	return nil
 }
 
-var PrefNameKeepRepo = []string{"keeprepo", "keep-repo", "keep_repo", "repo"}
-var PrefNameKeepHidden = []string{"keephidden", "keep-hidden", "keep_hidden", "hidden"}
-var PrefNameUseGlobalTarget = []string{"useglobaltarget", "useglobaltgt", "use-global", "use-globaltarget", "use_global_target", "use-global-target", "globaltarget"}
-var PrefNameGlobalTargetPath = []string{"globaltargetpath", "targetpath", "global_target_path", "global-target-path"}
-
 func (p *prefs) SetByName(name string, val bool) error {
 	name = quickclean(name)
 	switch {
@@ -313,13 +329,13 @@ func (p *prefs) SetByName(name string, val bool) error {
 
 func (p *prefs) SetOpt(opt ConfigOption, val bool) {
 	switch opt {
-	case OptBoolKeepHidden:
+	case OptBKeepHidden:
 		tempData.Modify()
 		p.KeepHidden = val
-	case OptBoolKeepRepo:
+	case OptBKeepRepo:
 		tempData.Modify()
 		p.KeepRepo = val
-	case OptBoolUseGlobalTarget:
+	case OptBUseGlobalTgt:
 		tempData.Modify()
 		p.GlobalTarget = val
 	}

@@ -66,9 +66,9 @@ var hardCopyOverride *prefs = &prefs{}
 var useHardOverride bool = false
 
 var overrideWhat = map[ConfigOption]bool{
-	OptBoolKeepHidden:      false,
-	OptBoolKeepRepo:        false,
-	OptBoolUseGlobalTarget: false,
+	OptBKeepHidden:   false,
+	OptBkeepRepo:     false,
+	OptBUseGlobalTgt: false,
 }
 
 func MakeHardOverride() *prefs {
@@ -79,11 +79,11 @@ func MakeHardOverride() *prefs {
 
 func SetHardOverride(boolOpt ConfigOption, value bool) bool {
 	switch boolOpt {
-	case OptBoolKeepRepo:
+	case OptBkeepRepo:
 		hardCopyOverride.KeepRepo = value
-	case OptBoolKeepHidden:
+	case OptBKeepHidden:
 		hardCopyOverride.KeepHidden = value
-	case OptBoolUseGlobalTarget:
+	case OptBUseGlobalTgt:
 		hardCopyOverride.GlobalTarget = value
 	}
 	return false
