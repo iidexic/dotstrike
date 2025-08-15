@@ -123,7 +123,7 @@ func TestGlobalEncodeSoftAssign(t *testing.T) {
 		t.Error(err)
 	}
 
-	err = st1.Overrides.SetM(map[string]bool{"globaltarget": true})
+	err = st1.Overrides.setOptMap(map[string]bool{"globaltarget": true})
 	if err != nil {
 		t.Error(err)
 	}

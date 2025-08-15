@@ -155,10 +155,8 @@ func OptionID(optName string) ConfigOption {
 	}
 	return NotAnOption
 }
-
-func IsBoolOption(opt ConfigOption) bool { return slices.Contains(BoolOptions, opt) }
-
-func IsStringOption(opt ConfigOption) bool { return slices.Contains(StringOptions, opt) }
+func OptionIsBool(opt ConfigOption) bool   { return slices.Contains(BoolOptions, opt) }
+func OptionIsString(opt ConfigOption) bool { return slices.Contains(StringOptions, opt) }
 
 // ──────────────────────────────────────────────────────────────────────
 

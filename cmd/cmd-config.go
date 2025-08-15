@@ -19,8 +19,12 @@ var argcmp = [][]string{{"global", "target", "path"}, {"use", "global", "target"
 var configCmd = &cobra.Command{
 	Use: "cfg [ optionName optionValue ] ...",
 	// ValidArgs - names/altnames for every config to be modified
-	ValidArgs: []cobra.Completion{"globaltarget", "globaltargetpath", "path", "useGlobalTarget"},
-
+	// WARNING: Probably need to delete?
+	ValidArgs: []cobra.Completion{"true", "false",
+		"KeepHidden", "KeepRepo", "UseGlobalTarget",
+		"CopyFiles", "CopyAllDirs", "GlobalTargetPath",
+		"keephidden", "keeprepo", "useglobaltarget",
+		"copyfiles", "copyalldirs", "globaltargetpath"},
 	Short: "Modify spec overrides and global config values",
 	Long: `Change dotstrike configuration options as well as spec config options.
 cfg expects arguments in pairs, with each pair containing:
@@ -37,13 +41,50 @@ func cfgRun(cmd *cobra.Command, args []string) {
 	case la == 0 && !*pFlags.global:
 		cfgPrintSelectedSpec(cmd)
 		cfgPrintFlagSpecs(cmd)
-
 	case la == 0:
 		cfgPrintGlobalPrefs(cmd)
-
 	case *pFlags.global && len(args) >= 2: //apply args to global config
 	case len(args) >= 2:
+
 	}
+}
+
+func cfgSpecApply(cmd *cobra.Command, args []string) {
+	temp := dscore.TempData()
+	specs := getSpecs(cmd, !*cfgFlagNoSelect)
+	var confirmUser bool
+	if ls := len(specs); ls > 1 {
+		confirmUser = checkConfirm(fmt.Sprintf("Apply Overrides to %d specs", ls), cfgFlagY)
+	} else if ls == 1 {
+		confirmUser = true
+	}
+	if confirmUser {
+		for i := range specs {
+			e := temp.SetSpecOverridesMap(specs[i], cfgArgsMap(args))
+			if e != nil {
+
+			}
+		}
+	}
+}
+
+// cfgArgsMap creates a map out of an argument list that can be used in SetSpecOverridesMap.
+//
+// It assumes that args is formatted as a linear slice of string:"bool" key value pairs
+//   - even index values (args[i]) are treated as a string key (representing a ConfigOption)
+//   - the next index value ( args[i+1]) will be used as the bool value for that key.
+//
+// If a string cannot be transformed into a bool true/false, the key/value will be discarded.
+func cfgArgsMap(args []string) map[string]bool {
+	M := make(map[string]bool, len(args)/2)
+	_ = M
+	for i := 0; i < len(args)-1; i += 2 {
+		btry := dscore.StringToBool(args[i+1])
+		if btry != nil {
+			M[args[i]] = *btry
+		}
+	}
+	return M
 }
 
 func cfgGlobalApply(cmd *cobra.Command, args []string) {
@@ -51,7 +92,7 @@ func cfgGlobalApply(cmd *cobra.Command, args []string) {
 	for i := 0; i < len(args)-1; i += 2 {
 		opt := dscore.OptionID(args[i])
 		switch {
-		case dscore.IsBoolOption(opt):
+		case dscore.OptionIsBool(opt):
 			barg := dscore.StringToBool(args[i+1])
 			if barg != nil {
 				output := textOptionModified(opt.Text(), temp.SetOptionBool(opt, *barg))
@@ -60,7 +101,7 @@ func cfgGlobalApply(cmd *cobra.Command, args []string) {
 				cmd.Printf("Failed. Cannot convert '%s' to true/false.", args[i+1])
 			}
 
-		case dscore.IsStringOption(opt): // unnecessarily messy
+		case dscore.OptionIsString(opt): // unnecessarily messy
 			cfgApplyGlobalTargetCautious(cmd, args[i+1])
 		}
 	}
@@ -71,9 +112,9 @@ func cfgApplyGlobalTargetCautious(cmd *cobra.Command, newpath string) {
 	temp := dscore.TempData()
 	exist, e := pops.PathExists(newpath)
 	if e != nil {
-		y = checkConfirm("Error checking path. Set as Global Target path anyway", flagConfirm)
+		y = checkConfirm("Error checking path. Set as Global Target path anyway", cfgFlagY)
 	} else if !exist {
-		y = checkConfirm("Path does not exist or was not found. Set as Global Target path anyway", flagConfirm)
+		y = checkConfirm("Path does not exist or was not found. Set as Global Target path anyway", cfgFlagY)
 	} else {
 		y = true
 	}
@@ -129,7 +170,7 @@ func textOptionModified(val string, modified bool) string {
 
 }
 
-var flagConfirm *bool
+var cfgFlagY, cfgFlagNoSelect *bool
 
 type cfgOpt int
 
@@ -146,7 +187,8 @@ func makeValid(argcomponents [][]string) []string {
 
 func init() {
 	rootCmd.AddCommand(configCmd)
-	flagConfirm = configCmd.Flags().BoolP("confirm", "y", false, "--confirm/-y")
+	cfgFlagY = configCmd.Flags().BoolP("confirm", "y", false, "--confirm/-y")
+	cfgFlagNoSelect = configCmd.Flags().Bool("noselect", false, "disable all action on selected spec")
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command

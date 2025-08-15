@@ -1,11 +1,12 @@
 package dscore
 
-import "strings"
-
+// StringToBool tries to get a bool from string
+// if succeeds, returns found value (*true or *false)
+// if fails to match with any option, returns nil
 func StringToBool(text string) *bool {
 	var t bool = true
 	var f bool = false
-	text = strings.TrimSpace(strings.ToLower(text))
+	text = quickclean(text)
 	switch text {
 	case "true", "1", "yes", "t", "y", "on", "enabled":
 		return &t
@@ -17,6 +18,7 @@ func StringToBool(text string) *bool {
 	}
 }
 
+// TODO: clean up; no use for these I can think of.
 //
 // // StringToBoolFalsy returns true only if text == "true" (case insensitive, spaces removed)
 // // returns false in any other case
@@ -28,4 +30,4 @@ func StringToBool(text string) *bool {
 // 	return false
 // }
 //
-// func StringBoolTruthyFalsy(text string) bool { return len(text) > 0 } //TODO: delete
+// func StringBoolTruthyFalsy(text string) bool { return len(text) > 0 }

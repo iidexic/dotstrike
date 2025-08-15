@@ -202,9 +202,19 @@ func (gm *globalModify) ChangeSpecAlias(spec *Spec, newAlias string) bool {
 	spec.Alias = newAlias
 	return true
 }
+
 func (gm *globalModify) specByIndex(i int) *Spec {
 	if i < len(gm.Specs) {
 		return &gm.globalData.Specs[i]
+	}
+	return nil
+}
+func (gm *globalModify) SetSpecOverride(s *Spec, opt ConfigOption, val bool) {}
+
+func (gm *globalModify) SetSpecOverridesMap(s *Spec, newValues map[string]bool) error {
+	e := s.Overrides.setOptMap(newValues)
+	if e != nil {
+		return e
 	}
 	return nil
 }
@@ -221,7 +231,7 @@ func (gd *globalData) findAliasIndex(alias string) int {
 	return -1
 }
 
-// SetOptMap will modify all prefs/overrides with a key assigned in mpref.
+// setOptMap will modify all prefs/overrides with a key assigned in mpref.
 // keys are not case-sensitive, and all spaces are removed.
 // Accepted keys are:
 //   - Keep Git Repo: keeprepo | keep-repo | keep_repo | repo
@@ -229,7 +239,7 @@ func (gd *globalData) findAliasIndex(alias string) int {
 //   - Use Global Target:  globaltarget | global-target | global_target | globaltgt
 //
 // Returns ErrBadKey if the key does not match an acceptable input. Otherwise, returns nil
-func (p *prefs) SetOptMap(mpref map[string]bool) error {
+func (p *prefs) setOptMap(mpref map[string]bool) error {
 	var fails string
 	for k, b := range mpref {
 		set := p.setByName(k, b)
