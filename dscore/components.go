@@ -3,6 +3,7 @@ package dscore
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -149,8 +150,13 @@ func pathComponentEqual(pc, pc2 pathComponent) bool {
 // specEqual compares two cfg params for equality.
 // standalone function to ensure compatible with slices.EqualFunc
 func specEqual(S, S2 Spec) bool {
-	return S.Alias == S2.Alias && S.Overrides == S2.Overrides && S.Ctype == S2.Ctype &&
+	return S.Alias == S2.Alias && S.Ctype == S2.Ctype &&
 		slices.EqualFunc(S.Sources, S2.Sources, pathComponentEqual) &&
 		slices.EqualFunc(S.Targets, S2.Targets, pathComponentEqual) &&
-		slices.Equal(S.Ignorepat, S2.Ignorepat)
+		slices.Equal(S.Ignorepat, S2.Ignorepat) &&
+		S.Overrides.equal(S2.Overrides)
+}
+
+func prefsEqual(p, p2 prefs) bool {
+	return maps.Equal(p.bools, p2.bools)
 }

@@ -32,6 +32,26 @@ type copierMaschine struct {
 var cmachine copierMaschine = copierMaschine{JobQueue: make(map[string]*CopyJob)}
 var Copier = &cmachine
 
+// CopyJob prepares and executes the copy of all contents of PathIn to PathOut
+type CopyJob struct {
+	PathIn, PathOut string          // Root of copy source and destination (*or destination parent)
+	parentPathOut   string          // unused. populated on run if JobSettings.makeRootSubdir = true
+	fstack          []filecopy      // record of files copied
+	newDirs         map[string]bool //
+	ignore          IgnoreSet
+	OpErrors        []fs.PathError
+	JobSettings     copyConfig
+}
+
+// NOTE: unless explicitly stated, copyConfig values do not override ignores
+type copyConfig struct {
+	makeRootSubdir     bool // if true, appends base(PathIn) to PathOut
+	copyAllDirectories bool // copies directories regardless of whether files will be copied
+	noFiles            bool // does not copy files. Use for dry run, or enable copyAllDirectories to only copy directory structure
+	//DRY_RUN bool
+}
+
+// TODO:(low-refactor) move to function access only
 func GetCopierMaschine() *copierMaschine { return &cmachine }
 
 // NewJob creates a new job and adds to the JobQueue; returns a ptr to created job if successful

@@ -24,7 +24,7 @@ var tgtCmd = &cobra.Command{
 
 	Run: func(cmd *cobra.Command, args []string) {
 		tgt = cmdWrapper{Command: cmd, args: args} //WIP/FUTURE IMPLEMENTATION
-		affectedSpecs := getSpecs(cmd)
+		affectedSpecs := getSpecs(cmd, true)
 		detail, oneOrMoreExist := detailsIfArgsExist(args, affectedSpecs)
 		numargs, numspecs := len(args), len(affectedSpecs)
 		switch {

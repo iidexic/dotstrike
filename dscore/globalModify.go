@@ -129,45 +129,6 @@ func (gm *globalModify) DeleteSpec(sptr *Spec) bool {
 	return false
 }
 
-type ConfigOption int
-
-const (
-	OptBoolKeepRepo ConfigOption = iota
-	OptBoolUseGlobalTarget
-	OptBoolKeepHidden
-	OptStringGlobalTargetPath
-	optionCount
-)
-
-func (c ConfigOption) Text() string {
-	switch c {
-	case OptBoolKeepHidden:
-		return "KeepHidden"
-	case OptBoolKeepRepo:
-		return "KeepRepo"
-	case OptBoolUseGlobalTarget:
-		return "UseGlobalTarget"
-	case OptStringGlobalTargetPath:
-		return "SetGlobalTargetPath"
-	}
-	return ("NotAnOption")
-}
-
-func OptionID(optName string) ConfigOption {
-	switch {
-	case slices.Contains(PrefNameKeepRepo, optName):
-		return OptBoolKeepRepo
-	case slices.Contains(PrefNameKeepHidden, optName):
-		return OptBoolKeepHidden
-	case slices.Contains(PrefNameUseGlobalTarget, optName):
-		return OptBoolUseGlobalTarget
-	case slices.Contains(PrefNameGlobalTargetPath, optName):
-		return OptStringGlobalTargetPath
-
-	}
-	return 0
-}
-
 func (gm *globalModify) Modify() { gm.Modified = true }
 
 // SetOptionBool sets selected configOption opt to newValue.
@@ -181,28 +142,22 @@ func (gm *globalModify) SetNamedOptionString(optName string, newValue string) er
 }
 
 func (gm *globalModify) SetOptionBool(opt ConfigOption, newValue bool) bool {
-	switch opt {
-	case OptBoolUseGlobalTarget:
-		tempData.Modify()
-		gm.Prefs.GlobalTarget = newValue
+	val, exist := gm.Prefs.bools[opt]
+	switch {
+	case exist && val != newValue:
+		gm.Modify()
+		gm.Prefs.bools[opt] = newValue
 		return true
-	case OptBoolKeepRepo:
-		tempData.Modify()
-		gm.Prefs.KeepRepo = newValue
-		return true
-	case OptBoolKeepHidden:
-		tempData.Modify()
-		gm.Prefs.KeepHidden = newValue
+	case exist:
 		return true
 	}
-
 	return false
 }
 
 // SetOptionString
 func (gm *globalModify) SetOptionString(opt ConfigOption, newValue string) error {
 	switch opt {
-	case OptStringGlobalTargetPath:
+	case OptSGlobalTargetPath:
 		tempData.Modify()
 		newpath, e := pops.Abs(newValue)
 		if e != nil {
@@ -247,6 +202,7 @@ func (gm *globalModify) ChangeSpecAlias(spec *Spec, newAlias string) bool {
 	spec.Alias = newAlias
 	return true
 }
+
 func (gm *globalModify) specByIndex(i int) *Spec {
 	if i < len(gm.Specs) {
 		return &gm.globalData.Specs[i]
@@ -254,6 +210,31 @@ func (gm *globalModify) specByIndex(i int) *Spec {
 	return nil
 }
 
+// TODO:(mid-refactor/system) re-work SetSpecOverrides/setOptMap to take into account OverrideOn and other non-prefs settings.
+// Should function similarly or same to setting GlobalTargetPath
+
+func (gm *globalModify) SetSpecOverridesMap(s *Spec, newValues map[string]bool) []string {
+	fails := s.Overrides.setOptMap(newValues)
+	for i, f := range fails {
+		// Check to see if
+		if matchOverrideOn(f) {
+			s.OverrideOn = newValues[f]
+			fails = slices.Delete(fails, i, i+1)
+			break
+		}
+	}
+	return fails
+}
+
+func matchOverrideOn(t string) bool { return strings.Contains("override", strings.ToLower(t)) }
+
+func (gm *globalModify) SetSpecEnableOverrides(s *Spec, enable bool) bool {
+	if s.OverrideOn != enable {
+		s.OverrideOn = enable
+		return true
+	}
+	return false
+}
 func (gm *globalModify) SelectedSpec() *Spec { return gm.specByIndex(gm.Selected) }
 
 // findAliasIndex searches for alias within []Specs
@@ -266,72 +247,58 @@ func (gd *globalData) findAliasIndex(alias string) int {
 	return -1
 }
 
-// SetM will modify all prefs/overrides with a key assigned in mpref.
+// setOptMap will modify all prefs/overrides with a key assigned in mpref.
 // keys are not case-sensitive, and all spaces are removed.
 // Accepted keys are:
 //   - Keep Git Repo: keeprepo | keep-repo | keep_repo | repo
 //   - Keep other hidden: keephidden | keep-hidden | keep_hidden |  hidden
 //   - Use Global Target:  globaltarget | global-target | global_target | globaltgt
 //
-// Returns ErrBadKey if the key does not match an acceptable input. Otherwise, returns nil
-func (p *prefs) SetM(mpref map[string]bool) error {
-	var fails string
+// Returns list of strings that failed to correspond to an option
+func (p *prefs) setOptMap(mpref map[string]bool) []string {
+	fails := make([]string, 0, len(mpref))
 	for k, b := range mpref {
-		e := p.SetByName(k, b)
-		if e != nil {
-			fails = fails + ", " + k
+		set := p.setByName(k, b)
+		if !set {
+			fails = append(fails, k)
+		} else {
+			//IDEA: Try stripping map of values that have been written with no return.
 		}
 	}
-	if len(fails) > 0 {
-		return fmt.Errorf("failures: (%s) - error %w", fails, ErrBadKey)
-	}
-	return nil
+	return fails
 }
 
-var PrefNameKeepRepo = []string{"keeprepo", "keep-repo", "keep_repo", "repo"}
-var PrefNameKeepHidden = []string{"keephidden", "keep-hidden", "keep_hidden", "hidden"}
-var PrefNameUseGlobalTarget = []string{"useglobaltarget", "useglobaltgt", "use-global", "use-globaltarget", "use_global_target", "use-global-target", "globaltarget"}
-var PrefNameGlobalTargetPath = []string{"globaltargetpath", "targetpath", "global_target_path", "global-target-path"}
-
-func (p *prefs) SetByName(name string, val bool) error {
-	name = quickclean(name)
-	switch {
-	case slices.Contains(PrefNameKeepRepo, name):
-		tempData.Modify()
-		p.KeepRepo = val
-	case slices.Contains(PrefNameKeepHidden, name):
-		tempData.Modify()
-		p.KeepHidden = val
-	case slices.Contains(PrefNameUseGlobalTarget, name):
-		tempData.Modify()
-		p.GlobalTarget = val
-	default:
-		return ErrBadKey
+func (p *prefs) setByName(name string, val bool) bool {
+	if opt := OptionID(name); opt != NotAnOption {
+		return p.setOpt(opt, val)
 	}
-	return nil
+	return false
 }
 
-func (p *prefs) SetOpt(opt ConfigOption, val bool) {
-	switch opt {
-	case OptBoolKeepHidden:
-		tempData.Modify()
-		p.KeepHidden = val
-	case OptBoolKeepRepo:
-		tempData.Modify()
-		p.KeepRepo = val
-	case OptBoolUseGlobalTarget:
-		tempData.Modify()
-		p.GlobalTarget = val
+func (p *prefs) setOpt(opt ConfigOption, val bool) bool {
+	optVal, exist := p.bools[opt]
+	if exist {
+		if val != optVal {
+			tempData.Modify()
+			p.bools[opt] = val
+		}
+		return true
 	}
+	return false
 }
 
 func (gd *globalData) SetGlobalTargetPath(path string) { gd.GlobalTargetPath = pops.CleanPath(path) }
 
+// TODO:(V0.0.1) Delete
 func (p *prefs) OverwriteRaw(newp prefs) error {
 	if !p.equal(newp) {
-		p.KeepHidden = newp.KeepHidden
-		p.KeepRepo = newp.KeepRepo
-		p.GlobalTarget = newp.GlobalTarget
+		for co := range p.bools {
+			delete(p.bools, co)
+		}
+		for k, v := range newp.bools {
+			p.bools[k] = v
+		}
+
 	}
 	return nil
 }

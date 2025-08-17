@@ -36,7 +36,7 @@ var srcCmd = &cobra.Command{
 
 	Run: func(cmd *cobra.Command, args []string) {
 		src = cmdWrapper{Command: cmd, args: args} //WIP/FUTURE IMPLEMENTATION
-		affectedSpecs := getSpecs(cmd)
+		affectedSpecs := getSpecs(cmd, true)
 		detail, oneOrMoreExist := detailsIfArgsExist(args, affectedSpecs)
 		numargs, numspecs := len(args), len(affectedSpecs)
 		switch {
@@ -88,7 +88,9 @@ func oneSpecOrUserConfirm(requestText string, specs []*dscore.Spec) bool {
 	return ls == 1 || (ls > 1 && checkConfirm(requestText, srcF.y))
 }
 
-func getSpecs(cmd *cobra.Command) []*dscore.Spec {
+// !!TODO:(HIGHEST:FIX) DECIDE + IMPLEMENT IF GETSPECS INHERENTLY INCLUDES SELECTED & IF GETSPECS PROCESSES NOSELECT
+// getSpecs compiles the list of specs from args of the spec flag
+func getSpecs(cmd *cobra.Command, includeSelected bool) []*dscore.Spec {
 	specs := []*dscore.Spec{}
 	if pFlags.bspec {
 		for _, a := range *pFlags.spec {
@@ -98,7 +100,8 @@ func getSpecs(cmd *cobra.Command) []*dscore.Spec {
 				cmd.Printf("spec %s not found\n", a)
 			}
 		}
-	} else {
+	}
+	if includeSelected {
 		specs = append(specs, dscore.TempData().SelectedSpec())
 	}
 	return specs

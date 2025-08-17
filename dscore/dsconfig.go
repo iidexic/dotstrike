@@ -2,6 +2,7 @@ package dscore
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"slices"
 	"strings"
@@ -68,26 +69,96 @@ type globalModify struct {
 // !TODO:(hi-refactor) Change to use maps for prefs. Either make prefs a map or make prefs contain maps
 // - This will majorly simplify working with config options
 type prefs struct {
-	KeepRepo     bool `toml:"KeepRepo"`
-	KeepHidden   bool `toml:"KeepHidden"` //unused in 0.1
-	GlobalTarget bool `toml:"GlobalTarget"`
+	bools map[ConfigOption]bool
 	//TODO: symlink handling + symlink preference
 }
 
-/*
-	NOTE:FROM DOCS:
+// ╭─────────────────────────────────────────────────────────╮
+// │                     CONFIG OPTIONS                      │
+// ╰─────────────────────────────────────────────────────────╯
 
-|If the "omitempty" option is present the following value will be skipped:
-| -> arrays, slices, maps, and string with len of 0, struct with all zero values, bool false
-|+ALSO If omitzero is given all int and float types with a value of 0 will be skipped.
-| ( start iota at 1 with _ = iota to get past this)
-*/
+// uses ConfigOption index
+type ConfigOption int
 
-// prefs holds preferences for component-based operations
-// used scoped globally or to individual components/parents
-// type globalPrefs struct {
-// 	SelectNewSpec bool `toml:"SelectNewSpec"`
-// }
+// TODO:(mid-feat) better system (when do patterns/regex)
+
+// ── ConfigOptions ───────────────────────────────────────────────────
+
+const (
+	NotAnOption ConfigOption = iota - 1
+	OptBKeepRepo
+	OptBKeepHidden
+	OptBUseGlobalTgt
+	OptBCopyFiles
+	OptBCopyAllDirs
+	OptSGlobalTargetPath
+)
+
+// BoolOptions is a list containing all bool-value ConfigOptions
+// requires all val == index
+var BoolOptions = []ConfigOption{0, 1, 2, 3, 4}
+
+// StringOptions is a list containing all string-value ConfigOptions
+// requires all val == index + len(BoolOptions)
+var StringOptions = []ConfigOption{5}
+
+// var AllOptions = append(BoolOptions,StringOptions...)
+
+// optionCount provides the total length of the ConfigOption enum
+var optionCount = len(BoolOptions) + len(StringOptions)
+
+var PrefIdentifiers = [][]string{
+	{"keeprepo", "keep-repo", "keep_repo", "repo"},
+	{"keephidden", "keep-hidden", "keep_hidden", "hidden"},
+	{
+		"useglobaltarget", "use-global-target", "use_global_target",
+		"useglobaltgt", "use-globaltarget",
+		"globaltarget", "use-global",
+	},
+	{"copyfiles", "copy-files", "copy_files", "docopy"},
+	{
+		"alldirs", "all-dirs", "all_dirs",
+		"alldir", "all-dir", "all_dir",
+		"copyalldirs", "copy-all-dirs", "copy-alldir",
+	},
+	{"globaltargetpath", "targetpath", "global_target_path", "global-target-path"},
+}
+
+func (c ConfigOption) Text() string {
+	switch c {
+	case OptBKeepHidden:
+		return "KeepHidden"
+	case OptBKeepRepo:
+		return "KeepRepo"
+	case OptBUseGlobalTgt:
+		return "UseGlobalTarget"
+	case OptBCopyFiles:
+		return "CopyFiles"
+	case OptBCopyAllDirs:
+		return "CopyAllDirs"
+	case OptSGlobalTargetPath:
+		return "GlobalTargetPath"
+	}
+	return ("NotAnOption")
+}
+
+// OptionID returns the ConfigOption that optName corresponds to within PrefIdentifiers.
+//
+// optName is run through quickclean() before checking available values.
+func OptionID(optName string) ConfigOption {
+	//OptionID relies on having ConfigOption Enum values match PrefIdentifiers index
+	for i := range PrefIdentifiers {
+		if slices.Contains(PrefIdentifiers[i], quickclean(optName)) {
+			return ConfigOption(i)
+		}
+
+	}
+	return NotAnOption
+}
+func OptionIsBool(opt ConfigOption) bool   { return slices.Contains(BoolOptions, opt) }
+func OptionIsString(opt ConfigOption) bool { return slices.Contains(StringOptions, opt) }
+
+// ──────────────────────────────────────────────────────────────────────
 
 func (G *globals) Detail() string {
 	lines := make([]string, 1, 32)
@@ -114,15 +185,15 @@ Globals Log (instance):
 }
 
 func (p prefs) Detail() string {
-	return fmt.Sprintf(`Prefs:
-	Keep Repo: %t
-	Keep Hidden Files: %t
-	Use Global Target: %t`, p.KeepRepo, p.KeepHidden, p.GlobalTarget)
+	out := ""
+	for k, v := range p.bools {
+		out = fmt.Sprintf("%s\n%s:%t", out, k.Text(), v)
+	}
+	return out
 }
 
 func (p prefs) equal(p2 prefs) bool {
-	return p.KeepHidden == p2.KeepHidden && p.KeepRepo == p2.KeepRepo &&
-		p.GlobalTarget == p2.GlobalTarget
+	return maps.Equal(p.bools, p2.bools)
 }
 
 // TempGlob exists to store new global data temporarily during runtime
@@ -134,8 +205,10 @@ func (G *globals) decodeRawData() {
 	if err != nil {
 		panic(fmt.Errorf("Error in dscore DecodeRawData() from data toml\n%w", err))
 	}
+	//TODO:(VO.1) REMOVE UNUSED
 	G.md = md //? Is this used at all
 
+	// don't remember what this one is about
 	//TODO: run CheckDataDecode on debug flag
 	//CheckDataDecode(G.data, md)
 }

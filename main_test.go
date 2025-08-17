@@ -60,12 +60,23 @@ func retCheck(fpath string) error {
 }
 func TestPrintEnum(t *testing.T) {
 	t.Log("printing dscore.OptBoolKeepRepo (v, +v, #v, s maybe):")
-	t.Logf("[%v]", dscore.OptBoolKeepRepo)
-	t.Logf("[%+v]", dscore.OptBoolKeepRepo)
-	t.Logf("[%#v]", dscore.OptBoolKeepRepo)
-	t.Logf("[%#+v]", dscore.OptBoolKeepRepo)
-	t.Logf("[%n]", dscore.OptBoolKeepRepo)
+	t.Logf("[%v]", dscore.OptBKeepRepo)
+	t.Logf("[%+v]", dscore.OptBKeepRepo)
+	t.Logf("[%#v]", dscore.OptBKeepRepo)
+	t.Logf("[%#+v]", dscore.OptBKeepRepo)
+	t.Logf("[%x]", dscore.OptBKeepRepo)
 }
+
+// func TestIndexBrainpower(t *testing.T) {
+// 	si := []int{0, 1, 2, 3, 4, 5, 6, 7}
+// 	siw := []string{"big", "stuff", "we", "are", "doing", "things", "DONT PRINT THIS"}
+// 	for i := 0; i < len(si)-1; i += 2 {
+// 		t.Logf("ints:[%d:%d]", si[i], si[i+1])
+// 	}
+// 	for i := 0; i < len(siw)-1; i += 2 {
+// 		t.Logf("strings:[%s:%s]", siw[i], siw[i+1])
+// 	}
+// }
 
 func TestIndexString(t *testing.T) {
 	text := lesstext
