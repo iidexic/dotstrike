@@ -18,6 +18,8 @@ func recoverReturn(explainer string) bool {
 	return false
 }
 
+//TODO: Replace overrides with map/maps?
+
 // Primary user data structure; contains info required to perform a dircopy operation
 // Methods:
 //   - Detail(): nice printable spec detail string

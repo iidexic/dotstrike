@@ -42,3 +42,5 @@ func stripFalse(list []any, keep []bool) {
 
 	}
 }
+
+func isEven(n int) bool { return n%2 == 0 }
