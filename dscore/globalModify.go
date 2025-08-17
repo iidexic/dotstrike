@@ -209,16 +209,32 @@ func (gm *globalModify) specByIndex(i int) *Spec {
 	}
 	return nil
 }
-func (gm *globalModify) SetSpecOverride(s *Spec, opt ConfigOption, val bool) {}
 
-func (gm *globalModify) SetSpecOverridesMap(s *Spec, newValues map[string]bool) error {
-	e := s.Overrides.setOptMap(newValues)
-	if e != nil {
-		return e
+// TODO:(mid-refactor/system) re-work SetSpecOverrides/setOptMap to take into account OverrideOn and other non-prefs settings.
+// Should function similarly or same to setting GlobalTargetPath
+
+func (gm *globalModify) SetSpecOverridesMap(s *Spec, newValues map[string]bool) []string {
+	fails := s.Overrides.setOptMap(newValues)
+	for i, f := range fails {
+		// Check to see if
+		if matchOverrideOn(f) {
+			s.OverrideOn = newValues[f]
+			fails = slices.Delete(fails, i, i+1)
+			break
+		}
 	}
-	return nil
+	return fails
 }
 
+func matchOverrideOn(t string) bool { return strings.Contains("override", strings.ToLower(t)) }
+
+func (gm *globalModify) SetSpecEnableOverrides(s *Spec, enable bool) bool {
+	if s.OverrideOn != enable {
+		s.OverrideOn = enable
+		return true
+	}
+	return false
+}
 func (gm *globalModify) SelectedSpec() *Spec { return gm.specByIndex(gm.Selected) }
 
 // findAliasIndex searches for alias within []Specs
@@ -238,19 +254,18 @@ func (gd *globalData) findAliasIndex(alias string) int {
 //   - Keep other hidden: keephidden | keep-hidden | keep_hidden |  hidden
 //   - Use Global Target:  globaltarget | global-target | global_target | globaltgt
 //
-// Returns ErrBadKey if the key does not match an acceptable input. Otherwise, returns nil
-func (p *prefs) setOptMap(mpref map[string]bool) error {
-	var fails string
+// Returns list of strings that failed to correspond to an option
+func (p *prefs) setOptMap(mpref map[string]bool) []string {
+	fails := make([]string, 0, len(mpref))
 	for k, b := range mpref {
 		set := p.setByName(k, b)
 		if !set {
-			fails = fails + ", " + k
+			fails = append(fails, k)
+		} else {
+			//IDEA: Try stripping map of values that have been written with no return.
 		}
 	}
-	if len(fails) > 0 {
-		return fmt.Errorf("failures: (%s) - error %w", fails, ErrBadKey)
-	}
-	return nil
+	return fails
 }
 
 func (p *prefs) setByName(name string, val bool) bool {
@@ -262,12 +277,11 @@ func (p *prefs) setByName(name string, val bool) bool {
 
 func (p *prefs) setOpt(opt ConfigOption, val bool) bool {
 	optVal, exist := p.bools[opt]
-	switch {
-	case exist && val != optVal:
-		tempData.Modify()
-		p.bools[opt] = val
-		return true
-	case exist:
+	if exist {
+		if val != optVal {
+			tempData.Modify()
+			p.bools[opt] = val
+		}
 		return true
 	}
 	return false
