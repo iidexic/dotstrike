@@ -4,6 +4,8 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"strings"
+
 	"github.com/spf13/cobra"
 	"iidexic.dotstrike/dscore"
 )
@@ -15,6 +17,7 @@ type runner struct {
 	flagY, flagNoSelectedSpec, flagAll *bool
 	flagNoFiles, flagAllDir            *bool
 	flagOverrides                      *[]string
+	specNames                          []string
 }
 
 var mainRun runner
@@ -28,23 +31,33 @@ var runCmd = &cobra.Command{
 }
 
 func (r *runner) run(cmd *cobra.Command, args []string) {
-	// 2 lines in and it's already wack, what even is this
-	mainRun = runner{Command: cmd, flagY: r.flagY, flagOverrides: r.flagOverrides}
-	r = &mainRun //lets just call this forced singleton pattern :)
+	r.Command = cmd
+	r.args = args
+	r.specNames = make([]string, 0, len(args))
 	r.specs = r.makeSpecList()
+	if len(r.specs) > 0 {
+		conf := oneSpecOrUserConfirm("Copy Multiple Specs: "+strings.Join(r.specNames, ", "), r.specs)
+		if conf {
+
+		}
+	}
 }
 
 func (r *runner) makeSpecList() []*dscore.Spec {
 	listAlias := *pFlags.spec
+	// reason for not writing directly to r.specs??
 	specs := make([]*dscore.Spec, 0, len(listAlias)+1)
 	temp := dscore.TempData()
 	if !*r.flagNoSelectedSpec {
-		specs = append(specs, temp.SelectedSpec())
+		ss := temp.SelectedSpec()
+		specs = append(specs, ss)
+		r.specNames = append(r.specNames, ss.Alias)
 	}
 	for _, alias := range listAlias {
 		s := temp.GetSpec(alias)
 		if s != nil {
 			specs = append(specs, s)
+			r.specNames = append(r.specNames, s.Alias)
 		}
 	}
 	return specs

@@ -9,10 +9,11 @@ import (
 
 //TODO: Make Run command non-persistently modify spec prefs for hard overrides/one-time overrides
 
-func (S *Spec) RunCopy(hardOverride *prefs) error {
-	if useHardOverride {
+func BuildCopyJobs() {
 
-	}
+}
+func (S *Spec) RunCopy(hardOverride *prefs) error {
+	//NOTE: Where do jobconfig? within makeCopyJobs?
 	if !S.allInitialized() {
 		return fmt.Errorf("spec not initialized: %s", S.Alias)
 	}
@@ -26,24 +27,33 @@ func (S *Spec) makeCopyJobs() error {
 	for x := range S.Sources {
 		for y := range S.Targets {
 			job := S.newCopyJob(x, y)
+			jobprefs := S.makeJobConfig()
+			if jobprefs != nil {
+
+			}
 			S.applyJobConfig(job)
 		}
 	}
 	return nil
 }
 
+func (S *Spec) makeJobConfig() *prefs {
+
+	return nil
+}
+
 func (S *Spec) applyJobConfig(job *pops.CopyJob) *pops.CopyJob {
-	var p prefs
+	var runPrefs prefs
 	if S.OverrideOn {
-		p = S.Overrides
+		runPrefs = S.Overrides
 	} else {
-		p = gd.data.Prefs
+		runPrefs = gd.data.Prefs
 	}
 
-	if p.bools[OptBUseGlobalTgt] {
+	if runPrefs.bools[OptBUseGlobalTgt] {
 		job.JobOptionMakeSubdir(true)
 	}
-	if p.bools[OptBKeepRepo] {
+	if !runPrefs.bools[OptBKeepRepo] {
 		job.IgnoreGit()
 	}
 
@@ -62,22 +72,28 @@ func (S *Spec) jobName(isrc, itgt int) string {
 	return fmt.Sprintf("%s.src-%d.tgt-%d", S.Alias, isrc, itgt)
 }
 
-// For runtime override flag use.
-var hardCopyOverride *prefs = &prefs{}
-var useHardOverride bool = false
-
-var overrideWhat []bool = make([]bool, len(BoolOptions))
-
-func MakeHardOverride() *prefs {
-	// Add all options to the map, with their existing values in global (or spec if overrides already on)
-	useHardOverride = true
-	return hardCopyOverride
+type runtimeOverride struct {
+	//*prefs //maybe we just add to map only what we do want to force
+	options map[ConfigOption]bool
+	on      bool
 }
+
+var hardOverrides = runtimeOverride{options: make(map[ConfigOption]bool), on: false} //unnecessary initialize?
+// For runtime override flag use.
+// var hardCopyOverride *prefs = &prefs{}
+// var useHardOverride bool = false
+//
+// var overrideWhat []bool = make([]bool, len(BoolOptions))
+//
+// func MakeHardOverride() *prefs {
+// 	// Add all options to the map, with their existing values in global (or spec if overrides already on)
+// 	useHardOverride = true
+// 	return hardCopyOverride
+// }
 
 func SetHardOverride(boolOpt ConfigOption, value bool) bool {
 	if slices.Contains(BoolOptions, boolOpt) {
-		hardCopyOverride.bools[boolOpt] = value
-
+		hardOverrides.options[boolOpt] = value
 		return true
 	}
 
