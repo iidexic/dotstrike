@@ -8,8 +8,11 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"iidexic.dotstrike/config"
 )
 
+// TODO: Document this (i dont remember what it's for)
 type esource = byte
 
 const (
@@ -22,10 +25,24 @@ const (
 
 type DirEntry = fs.DirEntry
 
+// here: Based on Actions
+const (
+	NotAnOption      = config.NotAnOption
+	BoolRootSubdir   = config.BoolRootSubdir
+	BoolNoFiles      = config.BoolNoFiles
+	BoolCopyAllDirs  = config.BoolCopyAllDirs
+	BoolIgnoreRepo   = config.BoolIgnoreRepo
+	BoolIgnoreHidden = config.BoolIgnoreHidden
+	BoolUseGlobalOut = config.BoolUseGlobalTarget
+)
+
+var GlobalOutDir string //NOTE: would need to be set by dscore?
+
 // copierMaschine builds and executes CopyJobs
 // Ideally single-instance; use GetCopier to get
 type copierMaschine struct {
-	JobQueue map[string]*CopyJob
+	JobQueue  map[string]*CopyJob
+	GlobalOut string
 }
 
 // primary-instance use
@@ -94,28 +111,9 @@ func (CM *copierMaschine) RunJob(jobName string) *CopyJob {
 	return nil
 }
 
-// CopyJob prepares and executes the copy of all contents of PathIn to PathOut
-type CopyJob struct {
-	PathIn, PathOut string          // Root of copy source and destination (*or destination parent)
-	parentPathOut   string          // unused. populated on run if JobSettings.makeRootSubdir = true
-	fstack          []filecopy      // record of files copied
-	newDirs         map[string]bool //
-	ignore          IgnoreSet
-	OpErrors        []fs.PathError
-	JobSettings     copyConfig
-}
-
-// NOTE: unless explicitly stated, copyConfig values do not override ignores
-type copyConfig struct {
-	makeRootSubdir     bool // if true, appends base(PathIn) to PathOut
-	copyAllDirectories bool // copies directories regardless of whether files will be copied  TODO: implement
-	noFiles            bool // does not copy files. Use for dry run, or enable copyAllDirectories to only copy directory structure
-	//DRY_RUN bool
-}
-
-// TODO: Implement + test IgnoreGit  (ALSO Test Global)
+// TODO:  test IgnoreGit  (ALSO Test Global)
 func (J *CopyJob) IgnoreGit() {
-
+	J.ignore.Patterns = append(J.ignore.Patterns, subptn{ptn: `.git`, matchDir: true})
 }
 
 // JobOptionMakeSubdir - sets CopyJob.JobSettings.makeRootSubdir
@@ -297,48 +295,4 @@ func conditionPath(p string) (string, error) {
 		p = strings.Replace(p, "/", `\`, -1)
 	}
 	return p, e
-}
-
-// ── Ignore Functionality ────────────────────────────────────────────
-// TODO: Finish Ignore system. For now it's not priority
-// IgnoreSet stores & processes ignore data for a CopyJob
-type IgnoreSet struct {
-	ignoreDir  []iptn
-	ignoreFile []iptn
-}
-
-// iptn is a single ignore string pattern
-// pattern is loaded with raw provided string
-// anyL + anyR are true if pattern[0]=="*" and pattern[len-1]=="*"  respectively
-type iptn struct {
-	pattern    string
-	anyL, anyR bool
-	dir        bool
-	psize      byte
-}
-
-// matches checks string against the valid iptn
-func (ip iptn) matches(s string) bool {
-	if strings.Index(s, ip.pattern) >= 0 {
-		return true
-	}
-
-	return false
-}
-
-func (I *IgnoreSet) isIgnored(path string, isDir bool) bool {
-	if isDir {
-		for _, pat := range I.ignoreDir {
-			if pat.matches(path) {
-				return true
-			}
-		}
-	} else {
-		for _, pat := range I.ignoreFile {
-			if pat.matches(path) {
-				return true
-			}
-		}
-	}
-	return false
 }
