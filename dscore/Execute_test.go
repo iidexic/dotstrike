@@ -3,7 +3,7 @@ package dscore
 import "testing"
 
 func TestTempAssign(t *testing.T) {
-	p := prefs{bools: map[ConfigOption]bool{OptBKeepRepo: true, OptBKeepHidden: true, OptBUseGlobalTgt: false}}
+	p := prefs{Bools: map[ConfigOption]bool{BoolIgnoreRepo: false, BoolIgnoreHidden: true, BoolUseGlobalTarget: false}}
 	//1. run init
 	temp := initForTest(t)
 	//2. get selected spec

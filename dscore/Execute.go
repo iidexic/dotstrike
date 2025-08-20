@@ -2,7 +2,6 @@ package dscore
 
 import (
 	"fmt"
-	"slices"
 
 	pops "iidexic.dotstrike/pathops"
 )
@@ -50,10 +49,10 @@ func (S *Spec) applyJobConfig(job *pops.CopyJob) *pops.CopyJob {
 		runPrefs = gd.data.Prefs
 	}
 
-	if runPrefs.bools[OptBUseGlobalTgt] {
+	if runPrefs.Bools[BoolUseGlobalTarget] {
 		job.JobOptionMakeSubdir(true)
 	}
-	if !runPrefs.bools[OptBKeepRepo] {
+	if runPrefs.Bools[BoolIgnoreRepo] {
 		job.IgnoreGit()
 	}
 
@@ -73,7 +72,7 @@ func (S *Spec) jobName(isrc, itgt int) string {
 }
 
 type runtimeOverride struct {
-	//*prefs //maybe we just add to map only what we do want to force
+	//*prefs //just add only changed to map
 	options map[ConfigOption]bool
 	on      bool
 }
@@ -91,8 +90,9 @@ var hardOverrides = runtimeOverride{options: make(map[ConfigOption]bool), on: fa
 // 	return hardCopyOverride
 // }
 
+// TODO:(NOW) - Re-write to use option.ValType IsBool
 func SetHardOverride(boolOpt ConfigOption, value bool) bool {
-	if slices.Contains(BoolOptions, boolOpt) {
+	if boolOpt.IsBool() {
 		hardOverrides.options[boolOpt] = value
 		return true
 	}

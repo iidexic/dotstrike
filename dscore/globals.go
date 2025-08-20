@@ -44,12 +44,12 @@ var gd = globals{
 	loaded: false,
 	data: globalData{
 		Prefs: prefs{
-			bools: map[ConfigOption]bool{
-				OptBKeepHidden:   true,
-				OptBKeepRepo:     true,
-				OptBUseGlobalTgt: true,
-				OptBCopyAllDirs:  false,
-				OptBCopyFiles:    true,
+			Bools: map[ConfigOption]bool{
+				BoolIgnoreHidden:    false,
+				BoolIgnoreRepo:      false,
+				BoolUseGlobalTarget: true,
+				BoolCopyAllDirs:     false,
+				BoolNoFiles:         false,
 			},
 		},
 		GlobalTargetPath: "~\\dotstrike\\globalTarget\\", // this doesnt work until transformed in CoreConfig.

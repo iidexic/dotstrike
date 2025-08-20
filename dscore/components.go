@@ -158,5 +158,5 @@ func specEqual(S, S2 Spec) bool {
 }
 
 func prefsEqual(p, p2 prefs) bool {
-	return maps.Equal(p.bools, p2.bools)
+	return maps.Equal(p.Bools, p2.Bools)
 }

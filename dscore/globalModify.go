@@ -142,11 +142,11 @@ func (gm *globalModify) SetNamedOptionString(optName string, newValue string) er
 }
 
 func (gm *globalModify) SetOptionBool(opt ConfigOption, newValue bool) bool {
-	val, exist := gm.Prefs.bools[opt]
+	val, exist := gm.Prefs.Bools[opt]
 	switch {
 	case exist && val != newValue:
 		gm.Modify()
-		gm.Prefs.bools[opt] = newValue
+		gm.Prefs.Bools[opt] = newValue
 		return true
 	case exist:
 		return true
@@ -157,7 +157,7 @@ func (gm *globalModify) SetOptionBool(opt ConfigOption, newValue bool) bool {
 // SetOptionString
 func (gm *globalModify) SetOptionString(opt ConfigOption, newValue string) error {
 	switch opt {
-	case OptSGlobalTargetPath:
+	case StringGlobalTargetPath:
 		tempData.Modify()
 		newpath, e := pops.Abs(newValue)
 		if e != nil {
@@ -249,10 +249,7 @@ func (gd *globalData) findAliasIndex(alias string) int {
 
 // setOptMap will modify all prefs/overrides with a key assigned in mpref.
 // keys are not case-sensitive, and all spaces are removed.
-// Accepted keys are:
-//   - Keep Git Repo: keeprepo | keep-repo | keep_repo | repo
-//   - Keep other hidden: keephidden | keep-hidden | keep_hidden |  hidden
-//   - Use Global Target:  globaltarget | global-target | global_target | globaltgt
+// Accepted keys are in dsconfig.go or config package
 //
 // Returns list of strings that failed to correspond to an option
 func (p *prefs) setOptMap(mpref map[string]bool) []string {
@@ -276,11 +273,11 @@ func (p *prefs) setByName(name string, val bool) bool {
 }
 
 func (p *prefs) setOpt(opt ConfigOption, val bool) bool {
-	optVal, exist := p.bools[opt]
+	optVal, exist := p.Bools[opt]
 	if exist {
 		if val != optVal {
 			tempData.Modify()
-			p.bools[opt] = val
+			p.Bools[opt] = val
 		}
 		return true
 	}
@@ -290,18 +287,19 @@ func (p *prefs) setOpt(opt ConfigOption, val bool) bool {
 func (gd *globalData) SetGlobalTargetPath(path string) { gd.GlobalTargetPath = pops.CleanPath(path) }
 
 // TODO:(V0.0.1) Delete
-func (p *prefs) OverwriteRaw(newp prefs) error {
-	if !p.equal(newp) {
-		for co := range p.bools {
-			delete(p.bools, co)
-		}
-		for k, v := range newp.bools {
-			p.bools[k] = v
-		}
-
-	}
-	return nil
-}
+// func (p *prefs) OverwriteRaw(newp prefs) error {
+// 	if !p.equal(newp) {
+// 		for co := range p.bools {
+// 			delete(p.bools, co)
+// 		}
+// 		maps.Copy(p.bools, newp.bools)
+// 		// for k, v := range newp.bools {
+// 		// 	p.bools[k] = v
+// 		// }
+//
+// 	}
+// 	return nil
+// }
 
 // setAlias sets the PathComponent alias.
 // If PathComponent is not unique, alias is not set, and ErrNotUnique is returned
