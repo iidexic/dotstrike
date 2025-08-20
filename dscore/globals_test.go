@@ -94,5 +94,6 @@ func encodeDefaultsToTestfile(t *testing.T) {
 	if ee != nil {
 		t.Errorf(`Failed writing default config to test toml.
 Test data file could not be found/accecssed/created.`)
+		t.Logf("ERROR: %v\n%s", ee, ee.Error())
 	}
 }

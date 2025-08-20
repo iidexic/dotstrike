@@ -17,9 +17,6 @@ func TestCleanPaths(t *testing.T) {
 		func(p string, d DirEntry, e error) error {
 			var rawp, winp, cleanp, relp string
 			rawp = p
-			if runtime.GOOS == "windows" {
-				winp = strings.Replace(p, "/", `\`, -1)
-			}
 			cleanp = filepath.Clean(p)
 			relp, rele := filepath.Rel(filepath.Clean(inpath), cleanp)
 			if rele != nil {
