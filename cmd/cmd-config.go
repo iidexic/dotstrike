@@ -19,12 +19,8 @@ var argcmp = [][]string{{"global", "target", "path"}, {"use", "global", "target"
 var configCmd = &cobra.Command{
 	Use: "cfg [ optionName optionValue ] ...",
 	// ValidArgs - names/altnames for every config to be modified
-	// WARNING: Probably need to delete?
-	ValidArgs: []cobra.Completion{"true", "false",
-		"KeepHidden", "KeepRepo", "UseGlobalTarget",
-		"CopyFiles", "CopyAllDirs", "GlobalTargetPath",
-		"keephidden", "keeprepo", "useglobaltarget",
-		"copyfiles", "copyalldirs", "globaltargetpath", "override"},
+	ValidArgs: []cobra.Completion{"ignorehidden", "ignorerepo", "useglobaltarget",
+		"nofiles", "copyalldirs", "globaltargetpath", "override"},
 	Short: "Modify spec overrides and global config values",
 	Long: `Change dotstrike configuration options as well as spec config options.
 cfg expects arguments in pairs, with each pair containing:
@@ -32,17 +28,28 @@ cfg expects arguments in pairs, with each pair containing:
 	- New value of that option
 To modify global config options, use the --global flag`,
 	// global flag as bool? as arg list?
-	Run: cfgRun,
+	Run: cfg.run,
 }
 
 //TODO: This will just be way easier if it's a struct
 
-func cfgRun(cmd *cobra.Command, args []string) {
+type cfgOp struct {
+	cfgFlagY, cfgFlagNoSelect, cfgFlagForceWrite *bool
+	cmd                                          *cobra.Command
+	args                                         []string
+	specs                                        []*dscore.Spec
+}
+
+var cfg cfgOp
+
+func (c *cfgOp) run(cmd *cobra.Command, args []string) {
 	la := len(args)
 	switch {
 	case la == 0 && !*pFlags.global:
 		cfgPrintSelectedSpec(cmd)
 		cfgPrintFlagSpecs(cmd)
+	case la == 0 && *cfgFlagForceWrite:
+		dscore.TempData().Modify()
 	case la == 0:
 		cfgPrintGlobalPrefs(cmd)
 	case *pFlags.global && len(args) >= 2: //apply args to global config
@@ -144,7 +151,7 @@ func cfgGlobalApply(cmd *cobra.Command, args []string) {
 		case dscore.OptionIsBool(opt):
 			barg := dscore.StringToBool(args[i+1])
 			if barg != nil {
-				output := textOptionModified(opt.Text(), temp.SetOptionBool(opt, *barg))
+				output := textOptionModified(opt.String(), temp.SetOptionBool(opt, *barg))
 				cmd.Print(output)
 			} else {
 				cmd.Printf("Failed. Cannot convert '%s' to true/false.", args[i+1])
@@ -168,7 +175,7 @@ func cfgApplyGlobalTargetCautious(cmd *cobra.Command, newpath string) {
 		y = true
 	}
 	if y {
-		e = temp.SetOptionString(dscore.OptSGlobalTargetPath, newpath)
+		e = temp.SetOptionString(dscore.StringGlobalTargetPath, newpath)
 		if e != nil {
 			cmd.Printf("Error converting path '%s' to absolute path", newpath)
 		}
@@ -219,10 +226,11 @@ func textOptionModified(val string, modified bool) string {
 
 }
 
-var cfgFlagY, cfgFlagNoSelect *bool
+var cfgFlagY, cfgFlagNoSelect, cfgFlagForceWrite *bool
 
 type cfgOpt int
 
+// what was this for
 func makeValid(argcomponents [][]string) []string {
 	outsl := make([]string, 0, len(argcomponents)*3)
 	for i := range argcomponents {
@@ -238,6 +246,7 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 	cfgFlagY = configCmd.Flags().BoolP("confirm", "y", false, "--confirm/-y")
 	cfgFlagNoSelect = configCmd.Flags().Bool("noselect", false, "disable all action on selected spec")
+	cfgFlagForceWrite = configCmd.Flags().Bool("force-write", false, "force write config to file.")
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command

@@ -32,7 +32,9 @@ func initLogging() {
 
 type cmdWrapper struct {
 	*cobra.Command
-	args []string
+	args    []string
+	specs   []*dscore.Spec
+	runFunc func(*cobra.Command, []string)
 }
 
 // rootCmd represents the base command when called without any subcommands
@@ -126,7 +128,7 @@ func init() {
 	cobra.OnFinalize(dscore.EndEncode)
 	pFlags = persistentData{
 		// TODO: determine whether verbose is a cobra built-in flag, or if there are other builtin besides help
-		verbose: rootCmd.PersistentFlags().BoolP("verbose", "v", false, "shows additional details on execution (debug)"),
+		verbose: rootCmd.PersistentFlags().BoolP("verbose", "v", false, "shows additional details on execution"),
 		all:     rootCmd.PersistentFlags().BoolP("all", "a", false, "applies command to 'all' applicable items (see command help for more detail)"),
 		global:  rootCmd.PersistentFlags().BoolP("global", "g", false, "target the global group"), //uncertain, overlap with all?
 		spec:    rootCmd.PersistentFlags().StringArrayP("spec", "s", nil, "spec"),
