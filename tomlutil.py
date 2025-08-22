@@ -79,8 +79,9 @@ def main():
         print(helpstring)
     else:
         a = sys.argv[1].lower()
+        numargs: int = len(sys.argv)
         if a == 'read':
-            if len(sys.argv) > 2 and sys.argv[2].lower() in listnames:  # noqa
+            if numargs > 2 and sys.argv[2].lower() in listnames:  # noqa
                 match sys.argv[2].lower():
                     case 'test':
                         linenum_print(readf(testtoml))
@@ -91,7 +92,7 @@ def main():
                     case _:
                         print('unknown file')
         elif a == 'wipe':
-            if len(sys.argv) > 2 and sys.argv[2].lower() in listnames:
+            if numargs > 2 and sys.argv[2].lower() in listnames:
                 match sys.argv[2].lower():
                     case 'test':
                         if testtoml.exists() and wipe_file(testtoml):
@@ -99,9 +100,11 @@ def main():
                         else:
                             print("outcome unknown: data may still exist")
                     case 'local':
-                        print("not set up to wipe local")
+                        if localtoml.exists():
+                            run_wipe_localtoml(sys.argv)
                     case 'main' | 'global':
-                        print("not set up to wipe main")
+                        if maintoml.exists():
+                            run_wipe_maintoml(sys.argv)
                     case _:
                         print('unknown file')
         else:
@@ -122,6 +125,32 @@ def main():
                 case _:
                     print('unknown arg')
                     print(helpstring)
+
+
+def run_wipe_maintoml(args: list[str]) -> None:
+    if maintoml.exists():
+        if len(args) > 3 and sys.argv[3] == "--confirm":
+            if wipe_file(maintoml):
+                print("succeeded")
+            else:
+                print("failure - maintoml still contains some data")
+        else:
+            print('Run with `--confirm` to wipe main')
+    else:
+        print(f"maintoml does not exist at {str(maintoml)}")
+
+
+def run_wipe_localtoml(args: list[str]) -> None:
+    if localtoml.exists():
+        if len(args) > 3 and sys.argv[3] == "--confirm":
+            if wipe_file(localtoml):
+                print("succeeded")
+            else:
+                print("failure - localtoml still contains some data")
+        else:
+            print('Run with `--confirm` to wipe local')
+    else:
+        print(f"localtoml does not exist at {str(localtoml)}")
 
 
 if __name__ == "__main__":
