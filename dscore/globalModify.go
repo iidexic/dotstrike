@@ -214,13 +214,15 @@ func (gm *globalModify) specByIndex(i int) *Spec {
 // Should function similarly or same to setting GlobalTargetPath
 
 func (gm *globalModify) SetSpecOverridesMap(s *Spec, newValues map[string]bool) []string {
-	fails := s.Overrides.setOptMap(newValues)
-	for i, f := range fails {
-		// Check to see if
-		if matchOverrideOn(f) {
-			s.OverrideOn = newValues[f]
-			fails = slices.Delete(fails, i, i+1)
-			break
+	fails, e := s.Overrides.setOptMap(newValues)
+	if e != nil {
+		for i, f := range fails {
+			// Check to see if
+			if matchOverrideOn(f) {
+				s.OverrideOn = newValues[f]
+				fails = slices.Delete(fails, i, i+1)
+				break
+			}
 		}
 	}
 	return fails
@@ -252,36 +254,52 @@ func (gd *globalData) findAliasIndex(alias string) int {
 // Accepted keys are in dsconfig.go or config package
 //
 // Returns list of strings that failed to correspond to an option
-func (p *prefs) setOptMap(mpref map[string]bool) []string {
+func (p *prefs) setOptMap(mpref map[string]bool) ([]string, error) {
 	fails := make([]string, 0, len(mpref))
+	var ferr error
 	for k, b := range mpref {
-		set := p.setByName(k, b)
-		if !set {
+		err := p.setByName(k, b)
+		if err != nil {
 			fails = append(fails, k)
+			if ferr == nil {
+				ferr = fmt.Errorf("%w", err)
+			} else {
+				ferr = fmt.Errorf("%w\n%w", ferr, err)
+			}
 		} else {
 			//IDEA: Try stripping map of values that have been written with no return.
 		}
 	}
-	return fails
+	return fails, ferr
 }
 
-func (p *prefs) setByName(name string, val bool) bool {
+// TODO:(low-refactor) clean up the SetOption mess.
+func (p *prefs) setByName(name string, val bool) error {
 	if opt := OptionID(name); opt != NotAnOption {
-		return p.setOpt(opt, val)
+		e := p.setOpt(opt, val)
+		if e != nil {
+			return fmt.Errorf("prefs.setOpt error 0 name='%s',OptionID='%s';\n%w", name, opt.String(), e)
+		}
+		return nil
 	}
-	return false
+	return fmt.Errorf("OptionID: String %s produced NotAnOption", name)
 }
 
-func (p *prefs) setOpt(opt ConfigOption, val bool) bool {
-	optVal, exist := p.Bools[opt]
-	if exist {
-		if val != optVal {
-			tempData.Modify()
-			p.Bools[opt] = val
-		}
-		return true
+func (p *prefs) setOpt(opt ConfigOption, val bool) error {
+	if opt.IsBool() && opt.IsRealOption() {
+		p.Bools[opt] = val
+		tempData.Modify()
+		return nil
 	}
-	return false
+	failString := "error assigning option" + opt.String() + " ("
+	if !opt.IsBool() {
+		failString += "not a boolean option, "
+	}
+	if !opt.IsRealOption() {
+		failString += "not real option"
+	}
+	failString += ")"
+	return fmt.Errorf("%s", failString)
 }
 
 func (gd *globalData) SetGlobalTargetPath(path string) { gd.GlobalTargetPath = pops.CleanPath(path) }

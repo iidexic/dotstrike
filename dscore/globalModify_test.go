@@ -123,15 +123,66 @@ func TestGlobalEncodeSoftAssign(t *testing.T) {
 		t.Error(err)
 	}
 
-	failed := st1.Overrides.setOptMap(map[string]bool{"globaltarget": true})
+	failed, e := st1.Overrides.setOptMap(map[string]bool{"globaltarget": true})
 	if len(failed) > 0 {
 		t.Error("failed set option globaltarget")
+		if e != nil {
+			t.Log(e)
+		}
 	}
 	if tmp.getSpec("gamer") == nil {
 		t.Error("nil pointer from created spec")
 	}
 	if !tmp.Modified {
 		t.Error("Fail: TempData not marked as modified")
+	}
+
+}
+func TestPrefSetByName(t *testing.T) {
+	CoreConfig()
+	InitTempData()
+	set := map[string]bool{"ignorehidden": false, "nohidden": true, "copyalldirs": true}
+	spec := tempData.SelectedSpec()
+	for k, v := range set {
+		e := spec.Overrides.setByName(k, v)
+		if e != nil {
+			t.Errorf("failed setting %s = %t (%v)\nError:%s", k, v, v, e.Error())
+		}
+	}
+}
+
+func TestOptionID(t *testing.T) {
+	tnames := []string{"ignorehidden", "nohidden", "copyalldirs"}
+	expect := []ConfigOption{BoolIgnoreHidden, BoolIgnoreHidden, BoolCopyAllDirs}
+
+	for i, nm := range tnames {
+		found := OptionID(nm)
+		if found != expect[i] {
+			t.Errorf("expecting %s, found %s", expect[i].String(), found.String())
+		}
+	}
+}
+
+func TestSetOverridesMap(t *testing.T) {
+	CoreConfig()
+	InitTempData()
+	if !tempData.initialized {
+		t.Errorf("tempData not initialized")
+	}
+	temp := TempData()
+	if !temp.initialized {
+		t.Errorf("TempData() not initialized")
+	}
+	set := map[string]bool{"ignorehidden": false, "nohidden": true}
+
+	spec := temp.SelectedSpec()
+	if spec != nil {
+		setmap := tempData.SetSpecOverridesMap(spec, set)
+		if len(setmap) > 0 {
+			t.Errorf("setmap returned: %v", setmap)
+		}
+	} else {
+		t.Errorf("SelectedSpec is nil")
 	}
 
 }

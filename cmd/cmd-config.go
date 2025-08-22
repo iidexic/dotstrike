@@ -5,15 +5,11 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"iidexic.dotstrike/dscore"
 	pops "iidexic.dotstrike/pathops"
 )
-
-var argcmp = [][]string{{"global", "target", "path"}, {"use", "global", "target"},
-	{"enable", "global", "target"}, {"keep", "repo"}, {"keep", "git"}, {"copy", "repo"}}
 
 // configCmd represents the mod command
 var configCmd = &cobra.Command{
@@ -34,31 +30,43 @@ To modify global config options, use the --global flag`,
 //TODO: This will just be way easier if it's a struct
 
 type cfgOp struct {
-	cfgFlagY, cfgFlagNoSelect, cfgFlagForceWrite *bool
-	cmd                                          *cobra.Command
-	args                                         []string
-	specs                                        []*dscore.Spec
+	flagY, flagNoSelect, flagForcedWrite *bool
+	verbose                              bool
+	cmd                                  *cobra.Command
+	args                                 []string
+	specs                                []*dscore.Spec
 }
 
 var cfg cfgOp
 
 func (c *cfgOp) run(cmd *cobra.Command, args []string) {
 	la := len(args)
-	switch {
-	case la == 0 && !*pFlags.global:
-		cfgPrintSelectedSpec(cmd)
-		cfgPrintFlagSpecs(cmd)
-	case la == 0 && *cfgFlagForceWrite:
-		dscore.TempData().Modify()
-	case la == 0:
-		cfgPrintGlobalPrefs(cmd)
-	case *pFlags.global && len(args) >= 2: //apply args to global config
-		cfgGlobalApply(cmd, args)
+	global := *pFlags.global
+	c.verbose = *pFlags.verbose
+	if la == 0 {
+		switch {
+		case !global && pFlags.bspec:
+			cfgPrintSelectedSpec(cmd)
+			cfgPrintFlagSpecs(cmd)
+		case *c.flagForcedWrite:
+			dscore.TempData().Modify()
+		case global:
+			cfgPrintGlobalPrefs(cmd)
+		default:
+			cfgPrintSelectedSpec(cmd)
+		}
 
-	case len(args) >= 2:
-		good := cfgSpecApply(cmd, args)
-		if !good {
-			cfgPrintErrHelp(cmd)
+	}
+	if la >= 2 {
+		switch {
+		case global:
+			c.applyToGlobals(cmd, args)
+		case !*c.flagNoSelect:
+			e := c.applyToSpecs(cmd, args)
+			if e != nil {
+				cmd.Print(e)
+				cfgPrintErrHelp(cmd)
+			}
 		}
 	}
 }
@@ -66,28 +74,46 @@ func cfgPrintErrHelp(cmd *cobra.Command) {
 	cmd.Println("check cfg --help for argument info")
 }
 
+func (c *cfgOp) vprintf(s string, vals ...any) {
+
+	if c.verbose {
+		if len(vals) == 0 {
+			c.cmd.Print(s)
+		} else {
+			c.cmd.Printf(s, vals...)
+		}
+	}
+
+}
+func (c *cfgOp) vprintSelected() {
+	if c.verbose {
+		c.cmd.Print("Selected Specs: ")
+		for i := range c.specs {
+			c.cmd.Printf("%s, ", c.specs[i].Alias)
+		}
+	}
+}
+
 // return == outcome match user intent;
-func cfgSpecApply(cmd *cobra.Command, args []string) bool {
+func (c *cfgOp) applyToSpecs(cmd *cobra.Command, args []string) error {
 	temp := dscore.TempData()
-	specs := getSpecs(cmd, !*cfgFlagNoSelect)
+	specs := getSpecs(cmd, !*c.flagNoSelect)
 	var confirmUser bool
 	if ls := len(specs); ls > 1 {
-		confirmUser = checkConfirm(fmt.Sprintf("Apply Options (overrides) to %d specs", ls), cfgFlagY)
+		confirmUser = checkConfirm(fmt.Sprintf("Apply Options (overrides) to %d specs", ls), c.flagY)
 	} else if ls == 1 {
 		confirmUser = true
 	} else if ls == 0 {
-		return false
+		return fmt.Errorf("no specs selected")
 	}
 	if confirmUser {
-		mapargs, remainder := cfgArgsMap(args)
+		c.vprintSelected()
+		mapargs, remainder := c.cfgArgsMap(args)
 		lr := len(remainder)
-		cfgOutRemainder(cmd, remainder)
-		if lr > 0 {
-			cfgOutRemainder(cmd, remainder)
-		}
+		c.outputRemainder(remainder)
 		if len(mapargs) == 0 {
-			cmd.Print("Failed")
-			return false
+			//cmd.Print("Failed\n")
+			return fmt.Errorf("no config options could be made from args")
 		}
 		for i := range specs {
 			failed := temp.SetSpecOverridesMap(specs[i], mapargs)
@@ -103,18 +129,18 @@ func cfgSpecApply(cmd *cobra.Command, args []string) bool {
 			}
 		}
 	}
-	return true
+	return nil
 }
 
-func cfgOutRemainder(cmd *cobra.Command, remainder []string) {
+func (c *cfgOp) outputRemainder(remainder []string) {
 	lr := len(remainder)
 	if !isEven(lr) {
-		cmd.Printf("unpaired key '%s' not used", remainder[lr-1])
+		c.cmd.Printf("unpaired key '%s' not used", remainder[lr-1])
 	}
 	if lr > 2 {
-		cmd.Println("cannot make true/false for:")
+		c.cmd.Println("cannot make true/false for:")
 		for i := range lr / 2 {
-			cmd.Printf("%s = '%s'", remainder[i*2], remainder[i*2+1])
+			c.cmd.Printf("%s = '%s'", remainder[i*2], remainder[i*2+1])
 		}
 	}
 }
@@ -128,7 +154,7 @@ func cfgOutRemainder(cmd *cobra.Command, remainder []string) {
 //
 // If a value cannot be converted to a bool, both key/value arg will be added to the remainder.
 // If the final key has no corresponding value (when len(args) is odd), that key will also be added to remainder.
-func cfgArgsMap(args []string) (map[string]bool, []string) {
+func (c *cfgOp) cfgArgsMap(args []string) (map[string]bool, []string) {
 	remainder := make([]string, 0, len(args))
 	M := make(map[string]bool, len(args)/2)
 	_ = M
@@ -142,8 +168,7 @@ func cfgArgsMap(args []string) (map[string]bool, []string) {
 	}
 	return M, remainder
 }
-
-func cfgGlobalApply(cmd *cobra.Command, args []string) {
+func (c *cfgOp) applyToGlobals(cmd *cobra.Command, args []string) {
 	temp := dscore.TempData()
 	for i := 0; i < len(args)-1; i += 2 {
 		opt := dscore.OptionID(args[i])
@@ -158,19 +183,19 @@ func cfgGlobalApply(cmd *cobra.Command, args []string) {
 			}
 
 		case dscore.OptionIsString(opt): // unnecessarily messy
-			cfgApplyGlobalTargetCautious(cmd, args[i+1])
+			c.cfgApplyGlobalTargetCautious(cmd, args[i+1])
 		}
 	}
 }
 
-func cfgApplyGlobalTargetCautious(cmd *cobra.Command, newpath string) {
+func (c *cfgOp) cfgApplyGlobalTargetCautious(cmd *cobra.Command, newpath string) {
 	y := false
 	temp := dscore.TempData()
 	exist, e := pops.PathExists(newpath)
 	if e != nil {
-		y = checkConfirm("Error checking path. Set as Global Target path anyway", cfgFlagY)
+		y = checkConfirm("Error checking path. Set as Global Target path anyway", c.flagY)
 	} else if !exist {
-		y = checkConfirm("Path does not exist or was not found. Set as Global Target path anyway", cfgFlagY)
+		y = checkConfirm("Path does not exist or was not found. Set as Global Target path anyway", c.flagY)
 	} else {
 		y = true
 	}
@@ -226,27 +251,23 @@ func textOptionModified(val string, modified bool) string {
 
 }
 
-var cfgFlagY, cfgFlagNoSelect, cfgFlagForceWrite *bool
-
-type cfgOpt int
-
-// what was this for
-func makeValid(argcomponents [][]string) []string {
-	outsl := make([]string, 0, len(argcomponents)*3)
-	for i := range argcomponents {
-		outsl = append(outsl, strings.Join(argcomponents[i], ""))
-		outsl = append(outsl, strings.Join(argcomponents[i], "-"))
-		outsl = append(outsl, strings.Join(argcomponents[i], "_"))
-	}
-
-	return outsl
-}
+// // what was this for (unused?)
+// func makeValid(argcomponents [][]string) []string {
+// 	outsl := make([]string, 0, len(argcomponents)*3)
+// 	for i := range argcomponents {
+// 		outsl = append(outsl, strings.Join(argcomponents[i], ""))
+// 		outsl = append(outsl, strings.Join(argcomponents[i], "-"))
+// 		outsl = append(outsl, strings.Join(argcomponents[i], "_"))
+// 	}
+//
+// 	return outsl
+// }
 
 func init() {
 	rootCmd.AddCommand(configCmd)
-	cfgFlagY = configCmd.Flags().BoolP("confirm", "y", false, "--confirm/-y")
-	cfgFlagNoSelect = configCmd.Flags().Bool("noselect", false, "disable all action on selected spec")
-	cfgFlagForceWrite = configCmd.Flags().Bool("force-write", false, "force write config to file.")
+	cfg.flagY = configCmd.Flags().BoolP("confirm", "y", false, "--confirm/-y")
+	cfg.flagNoSelect = configCmd.Flags().Bool("noselect", false, "disable all action on selected spec")
+	cfg.flagForcedWrite = configCmd.Flags().Bool("force-write", false, "force write config to file.")
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
