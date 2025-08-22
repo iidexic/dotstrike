@@ -58,13 +58,26 @@ func retCheck(fpath string) error {
 	}
 	return nil
 }
+
+func TestRangeEnd(t *testing.T) {
+	t.Log("Range 10:")
+	s := ""
+	for i := range 10 {
+		s += fmt.Sprintf(" %d", i)
+		if i == 10 {
+			print("Hit 10")
+		}
+	}
+	t.Log(s)
+}
+
 func TestPrintEnum(t *testing.T) {
 	t.Log("printing dscore.OptBoolKeepRepo (v, +v, #v, s maybe):")
-	t.Logf("[%v]", dscore.OptBKeepRepo)
-	t.Logf("[%+v]", dscore.OptBKeepRepo)
-	t.Logf("[%#v]", dscore.OptBKeepRepo)
-	t.Logf("[%#+v]", dscore.OptBKeepRepo)
-	t.Logf("[%x]", dscore.OptBKeepRepo)
+	t.Logf("[%v]", dscore.BoolIgnoreRepo)
+	t.Logf("[%+v]", dscore.BoolIgnoreRepo)
+	t.Logf("[%#v]", dscore.BoolIgnoreRepo)
+	t.Logf("[%#+v]", dscore.BoolIgnoreRepo)
+	t.Logf("[%x]", dscore.BoolIgnoreRepo)
 }
 
 // func TestIndexBrainpower(t *testing.T) {
