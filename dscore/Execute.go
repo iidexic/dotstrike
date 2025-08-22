@@ -3,14 +3,44 @@ package dscore
 import (
 	"fmt"
 
+	"iidexic.dotstrike/config"
 	pops "iidexic.dotstrike/pathops"
 )
 
 //TODO: Make Run command non-persistently modify spec prefs for hard overrides/one-time overrides
 
-func BuildCopyJobs() {
-
+type jobProcessor struct {
+	specs         []*Spec
+	runtimeConfig map[config.OptionKey]bool
 }
+
+type jobSpec struct {
+	*Spec
+	jobs []*pops.CopyJob
+}
+
+var manager = jobProcessor{
+	specs:         make([]*Spec, 0, 3), //arbitrary. Add init function if want to use userdata spec qty
+	runtimeConfig: make(map[config.OptionKey]bool),
+}
+
+func JobManager() *jobProcessor { return &manager }
+
+// Configure applies the preferences provided in prefdata to the jobProcessor
+// Any CopyJob run before processing ends will use these settings - they are prioritized over any other.
+// returns a list of the prefdata keys that were NOT applied (do not match any config option)
+func (J *jobProcessor) Configure(prefdata map[string]bool) []string {
+	notFound := make([]string, 0, len(prefdata))
+	for id, val := range prefdata {
+		if opt := OptionID(id); opt != NotAnOption {
+			J.runtimeConfig[opt] = val
+		} else {
+			notFound = append(notFound, id)
+		}
+	}
+	return notFound
+}
+
 func (S *Spec) RunCopy(hardOverride *prefs) error {
 	//NOTE: Where do jobconfig? within makeCopyJobs?
 	if !S.allInitialized() {
