@@ -79,6 +79,16 @@ type pathComponent struct {
 	Parent  string        //NOTE: INITIALIZE INHERENT
 }
 
+//TODO: Determine fate of rawComponent: either remove the struct, or integrate it into pathComponents.
+
+// rawComponent stores only information relevant to the path itself. Can be turned into a pathComponent and attached to a Spec when needed.
+// Aliases must be unique within the set of all rawComponents, but are not checked for uniqueness against pathComponents.
+type rawComponent struct {
+	Path    string
+	Alias   string
+	Ignores []string
+}
+
 // isInitialized to check pc inherent-initialized. This is performed during startup and should never be false
 func (pc pathComponent) isInitialized() bool { return pc.Parent != "" && pc.Ctype > 0 }
 

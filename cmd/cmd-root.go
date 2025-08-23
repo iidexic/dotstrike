@@ -118,6 +118,7 @@ type pfid int
 var pFlags persistentData
 var version *bool
 
+// TODO: remember what this was for, or remove
 func (p *persistentData) componentFlags() {
 
 }
@@ -139,6 +140,7 @@ Flags to remove:
  - debug
 
 */
+
 func init() {
 	cobra.OnInitialize(dscore.CoreConfig, dscore.InitTempData) // pass all initialization functions here
 	cobra.OnFinalize(dscore.EndEncode)

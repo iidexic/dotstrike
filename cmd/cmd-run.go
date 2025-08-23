@@ -24,6 +24,11 @@ type runner struct {
 
 var mainRun runner
 
+// to handle different run modes/methods
+type runMethod interface {
+	execute() error
+}
+
 // runCmd represents the run command
 var runCmd = &cobra.Command{
 	Use:   "run",
@@ -84,11 +89,26 @@ func (r *runner) makeSpecList() []*dscore.Spec {
 	return specs
 }
 
-func (r *runner) handleFlags() {
+func (r *runner) handleFlags() error {
+	if r.bManual {
 
+	} else if r.bPartial { // partial/manual should not be runing at same time
+		r.processPartial()
+	}
+	if r.bOverrides {
+
+		var overrides map[string]bool = make(map[string]bool, 1)
+		_ = overrides
+	}
+
+	return nil
 }
 
 func (r *runner) prepAndRun() {
+
+}
+
+func (r *runner) processPartial() {
 
 }
 
@@ -122,7 +142,10 @@ func (r *runner) makeCopyJobs() {
 }
 
 func (r *runner) runManualJob() {
+	for _, arg := range *r.flagManualRun {
+		_ = arg
 
+	}
 }
 
 func init() {
@@ -134,7 +157,7 @@ func init() {
 	mainRun.flagNoFiles = runCmd.Flags().BoolP("no-files", "n", false, "Disable filecopy for run. Use for dry runs, or in combination with --all-dir to copy only the directory structure")
 	mainRun.flagAllDir = runCmd.Flags().BoolP("all-dirs", "d", false, "Copy all Source subdirectories, including empty subdirectories. Use with --no-files to only copy the directories themselves.")
 	mainRun.flagRunPartial = runCmd.Flags().StringArray("partial", []string{}, "partial s=2 t=1")
-	mainRun.flagManualRun = runCmd.Flags().StringArray("manual", []string{}, "manual ")
+	mainRun.flagManualRun = runCmd.Flags().StringArray("manual", []string{}, "manual s=`c:\\data`,personalDocs t=d:\\backup")
 
 	// Here you will define your flags and configuration settings.
 

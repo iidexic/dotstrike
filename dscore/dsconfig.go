@@ -38,6 +38,8 @@ type globalData struct {
 	GlobalTargetPath string `toml:"targetpath"`
 	Prefs            prefs  `toml:"prefs"`
 	Specs            []Spec `toml:"specs"`
+
+	//TODO: add []rawComponent/implement rawComponent
 }
 
 func (g *globalData) equal(g2 *globalData) bool {
