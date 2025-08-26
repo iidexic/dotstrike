@@ -66,7 +66,6 @@ If you have multiple specs, you will need to either:
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
-		print("got this far")
 		if *version {
 			cmd.Print("version: ", verstr)
 		}
@@ -77,6 +76,10 @@ If you have multiple specs, you will need to either:
 				cmd.Println(l)
 			}
 		}
+		if !*pFlags.debug && !*pFlags.all && !*pFlags.verbose && !*version {
+			cmd.Print("add --help for usage details")
+		}
+
 	},
 }
 
@@ -90,19 +93,19 @@ func Execute() {
 }
 
 type persistentData struct {
-	verbose, global, all *bool
-	debug                *bool
-	spec, src, tgt       *[]string // source and target currently set as Persistent Flags
-	bspec, bsrc, btgt    bool      //lazy
-	countFlags           int
+	verbose, all, debug *bool
+	//global *bool
+	//spec, src, tgt       *[]string // source and target currently set as Persistent Flags
+	//bspec, bsrc, btgt    bool      //lazy
+	countFlags int
 }
 
 func (p *persistentData) setup() {
-	p.bsrc = len(*p.src) > 0
-	p.bspec = len(*p.spec) > 0
-	p.btgt = len(*p.tgt) > 0
+	// p.bsrc = len(*p.src) > 0
+	// p.bspec = len(*p.spec) > 0
+	// p.btgt = len(*p.tgt) > 0
 	p.countFlags = 0 //just to make sure
-	for _, b := range []bool{*p.verbose, *p.debug, *p.global, p.bspec, p.bsrc, p.btgt} {
+	for _, b := range []bool{*p.verbose, *p.debug /*, *p.global, p.bspec, p.bsrc, p.btgt*/} {
 		if b {
 			p.countFlags++
 		}
@@ -147,11 +150,12 @@ func init() {
 	pFlags = persistentData{
 		verbose: rootCmd.PersistentFlags().BoolP("verbose", "v", false, "shows additional details on execution"),
 		all:     rootCmd.PersistentFlags().BoolP("all", "a", false, "applies command to 'all' applicable items (see command help for more detail)"),
-		global:  rootCmd.PersistentFlags().BoolP("global", "g", false, "target the global group"), //uncertain, overlap with all?
-		spec:    rootCmd.PersistentFlags().StringArrayP("spec", "s", nil, "spec"),
-		src:     rootCmd.PersistentFlags().StringArrayP("source", "o", nil, "src"),
-		tgt:     rootCmd.PersistentFlags().StringArrayP("target", "t", []string{}, "tgt"),
+		//global:  rootCmd.PersistentFlags().BoolP("global", "g", false, "target the global group"), //uncertain, overlap with all?
+		// spec:    rootCmd.PersistentFlags().StringArrayP("spec", "s", nil, "spec"),
+		// src:     rootCmd.PersistentFlags().StringArrayP("source", "o", nil, "src"),
+		// tgt:     rootCmd.PersistentFlags().StringArrayP("target", "t", []string{}, "tgt"),
 		// dev use
+		//WARN: Comment this out before build/release
 		debug: rootCmd.PersistentFlags().Bool("debug", false, "debug"),
 	}
 	pFlags.setup()

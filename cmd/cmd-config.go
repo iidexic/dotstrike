@@ -30,25 +30,38 @@ To modify global config options, use the --global flag`,
 //TODO: This will just be way easier if it's a struct
 
 type cfgOp struct {
-	flagY, flagNoSelect, flagForcedWrite *bool
-	verbose                              bool
-	cmd                                  *cobra.Command
-	args                                 []string
-	specs                                []*dscore.Spec
+	fYes, fNoSelect, fForceWrite, fGlobal *bool
+	fSpec, fSource, fTarget               *[]string
+	verbose                               bool
+	cmd                                   *cobra.Command
+	args                                  []string
+	specs                                 []*dscore.Spec
+}
+
+func init() {
+	rootCmd.AddCommand(configCmd)
+	cfg.fYes = configCmd.Flags().BoolP("confirm", "y", false, "--confirm/-y")
+	cfg.fNoSelect = configCmd.Flags().Bool("noselect", false, "disable all action on selected spec")
+	cfg.fForceWrite = configCmd.Flags().Bool("force-write", false, "force write config to file.")
+	cfg.fSpec = configCmd.Flags().StringSlice("spec", []string{}, `--spec="mySpec1,  mySpec2" to target `)
+	cfg.fSource = configCmd.Flags().StringSlice("src", []string{}, `--src="srcId1,  c:\path" to select/limit sources`)
+	cfg.fTarget = configCmd.Flags().StringSlice("tgt", []string{}, `--tgt="tgtId1,  c:\path" to select/limit targets`)
+	cfg.fGlobal = configCmd.Flags().BoolP("global", "g", false, "Operate on global preferences")
+
 }
 
 var cfg cfgOp
 
 func (c *cfgOp) run(cmd *cobra.Command, args []string) {
 	la := len(args)
-	global := *pFlags.global
+	global := *c.fGlobal
 	c.verbose = *pFlags.verbose
 	if la == 0 {
 		switch {
-		case !global && pFlags.bspec:
+		case !global && len(*c.fSpec) > 0:
 			cfgPrintSelectedSpec(cmd)
-			cfgPrintFlagSpecs(cmd)
-		case *c.flagForcedWrite:
+			c.cfgPrintFlagSpecs(cmd)
+		case *c.fForceWrite:
 			dscore.TempData().Modify()
 		case global:
 			cfgPrintGlobalPrefs(cmd)
@@ -61,7 +74,7 @@ func (c *cfgOp) run(cmd *cobra.Command, args []string) {
 		switch {
 		case global:
 			c.applyToGlobals(cmd, args)
-		case !*c.flagNoSelect:
+		case !*c.fNoSelect:
 			e := c.applyToSpecs(cmd, args)
 			if e != nil {
 				cmd.Print(e)
@@ -97,10 +110,10 @@ func (c *cfgOp) vprintSelected() {
 // return == outcome match user intent;
 func (c *cfgOp) applyToSpecs(cmd *cobra.Command, args []string) error {
 	temp := dscore.TempData()
-	specs := getSpecs(cmd, !*c.flagNoSelect)
+	specs := getSpecs(cmd, !*c.fNoSelect)
 	var confirmUser bool
 	if ls := len(specs); ls > 1 {
-		confirmUser = checkConfirm(fmt.Sprintf("Apply Options (overrides) to %d specs", ls), c.flagY)
+		confirmUser = checkConfirm(fmt.Sprintf("Apply Options (overrides) to %d specs", ls), c.fYes)
 	} else if ls == 1 {
 		confirmUser = true
 	} else if ls == 0 {
@@ -193,9 +206,9 @@ func (c *cfgOp) cfgApplyGlobalTargetCautious(cmd *cobra.Command, newpath string)
 	temp := dscore.TempData()
 	exist, e := pops.PathExists(newpath)
 	if e != nil {
-		y = checkConfirm("Error checking path. Set as Global Target path anyway", c.flagY)
+		y = checkConfirm("Error checking path. Set as Global Target path anyway", c.fYes)
 	} else if !exist {
-		y = checkConfirm("Path does not exist or was not found. Set as Global Target path anyway", c.flagY)
+		y = checkConfirm("Path does not exist or was not found. Set as Global Target path anyway", c.fYes)
 	} else {
 		y = true
 	}
@@ -227,9 +240,9 @@ func cfgPrintSelectedSpec(cmd *cobra.Command) {
 }
 
 // cfgPrintFlagSpecs finds specs from aliases passed via the spec persistent flag, and outputs their override information.
-func cfgPrintFlagSpecs(cmd *cobra.Command) {
-	if pFlags.bspec {
-		for _, arg := range *pFlags.spec {
+func (c *cfgOp) cfgPrintFlagSpecs(cmd *cobra.Command) {
+	if len(c.specs) > 0 {
+		for _, arg := range c.args {
 			if spec := temp.GetSpec(arg); spec != nil {
 				cmd.Printf("Spec %s Override Options:\n	Override Enabled: %t\n", spec.Alias, spec.OverrideOn)
 				cmd.Print(spec.Overrides.Detail())
@@ -262,19 +275,3 @@ func textOptionModified(val string, modified bool) string {
 //
 // 	return outsl
 // }
-
-func init() {
-	rootCmd.AddCommand(configCmd)
-	cfg.flagY = configCmd.Flags().BoolP("confirm", "y", false, "--confirm/-y")
-	cfg.flagNoSelect = configCmd.Flags().Bool("noselect", false, "disable all action on selected spec")
-	cfg.flagForcedWrite = configCmd.Flags().Bool("force-write", false, "force write config to file.")
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// modCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// modCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-}

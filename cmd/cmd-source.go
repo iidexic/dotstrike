@@ -92,8 +92,8 @@ func oneSpecOrUserConfirm(requestText string, specs []*dscore.Spec) bool {
 // getSpecs compiles the list of specs from args of the spec flag
 func getSpecs(cmd *cobra.Command, includeSelected bool) []*dscore.Spec {
 	specs := []*dscore.Spec{}
-	if pFlags.bspec {
-		for _, a := range *pFlags.spec {
+	if len(*srcF.spec) > 0 {
+		for _, a := range *srcF.spec {
 			if s := dscore.TempData().GetSpec(a); s != nil {
 				specs = append(specs, s)
 			} else {
@@ -172,6 +172,7 @@ type compFlags struct {
 	ignore *[]string
 	delete *bool
 	y      *bool
+	spec   *[]string
 }
 
 func init() {
@@ -181,4 +182,5 @@ func init() {
 	srcF.alias = srcCmd.Flags().String("alias", "", "set alias")
 	srcF.delete = srcCmd.Flags().Bool("delete", false, "delete")
 	srcF.y = srcCmd.Flags().BoolP("yes", "y", false, "Auto-confirm on prompt")
+	srcF.spec = srcCmd.Flags().StringSlice("spec", []string{}, `--spec="alias1, alias2"  to target specs provided`)
 }

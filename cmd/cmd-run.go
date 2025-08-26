@@ -11,6 +11,26 @@ import (
 	"iidexic.dotstrike/dscore"
 )
 
+func init() {
+	rootCmd.AddCommand(runCmd)
+	mainRun.flagAll = runCmd.Flags().Bool("all-specs", false, "Run ALL spec copy jobs")
+	mainRun.flagNoSelectedSpec = runCmd.Flags().Bool("no-selected", false, "Disable run of selected spec")
+	mainRun.flagY = runCmd.Flags().BoolP("confirm", "y", false, "Auto-Confirm all prompts during run")
+	mainRun.flagOverrides = runCmd.Flags().StringArray("override", []string{},
+		`Set one-time overrides with a space-separated list of 'prefName value' pairs.
+check spec help for more details on available options.`)
+	mainRun.flagNoFiles = runCmd.Flags().BoolP("no-files", "n", false,
+		"Disable filecopy for run. Use for dry runs, or with --all-dir to copy only the directory structure")
+	mainRun.flagAllDir = runCmd.Flags().BoolP("all-dirs", "d", false,
+		`Copy all Source subdirectories, including empty subdirectories. 
+Use with --no-files to only copy the directories themselves.`)
+	mainRun.flagRunPartial = runCmd.Flags().StringArray("partial", []string{}, "partial")
+	mainRun.flagManualRun = runCmd.Flags().StringArray("manual", []string{},
+		"manual s=`c:\\data`,personalDocs t=d:\\backup")
+	mainRun.flagSources = runCmd.Flags().StringArray("src", []string{}, `--src="path1,path2" (use for partial/manual)`)
+	mainRun.flagTargets = runCmd.Flags().StringArray("tgt", []string{}, "partial ")
+}
+
 type runner struct {
 	*cobra.Command
 	specs                                        []*dscore.Spec
@@ -18,6 +38,7 @@ type runner struct {
 	flagY, flagNoSelectedSpec, flagAll           *bool
 	flagNoFiles, flagAllDir                      *bool
 	flagOverrides, flagRunPartial, flagManualRun *[]string
+	flagSources, flagTargets                     *[]string
 	bOverrides, bManual, bPartial                bool
 	specNames                                    []string
 }
@@ -39,7 +60,6 @@ Modify a run with one-time overrides, perform a partial run, or run a one time m
 }
 
 func (r *runner) run(cmd *cobra.Command, args []string) {
-	//Note: Using args for spec names? Don't need the --spec PersistentFlag then
 	e := r.calculateBools()
 	if e != nil {
 		cmd.PrintErr(e)
@@ -105,6 +125,8 @@ func (r *runner) handleFlags() error {
 }
 
 func (r *runner) prepAndRun() {
+	jm := dscore.JobManager()
+	_ = jm
 
 }
 
@@ -142,30 +164,15 @@ func (r *runner) makeCopyJobs() {
 }
 
 func (r *runner) runManualJob() {
-	for _, arg := range *r.flagManualRun {
-		_ = arg
+	if len(r.args) == 2 {
+		Jp := dscore.JobManager()
+		job, e := Jp.SetupManual([]string{r.args[0]}, []string{r.args[1]})
+		_ = job
+		if e != nil {
+			r.PrintErr(e)
+		} else {
+
+		}
 
 	}
-}
-
-func init() {
-	rootCmd.AddCommand(runCmd)
-	mainRun.flagAll = runCmd.Flags().Bool("all-specs", false, "Run ALL spec copy jobs")
-	mainRun.flagNoSelectedSpec = runCmd.Flags().Bool("no-selected", false, "Disable run of selected spec")
-	mainRun.flagY = runCmd.Flags().BoolP("confirm", "y", false, "Auto-Confirm all prompts during run")
-	mainRun.flagOverrides = runCmd.Flags().StringArray("override", []string{}, `Set one-time overrides with a space-separated list of 'prefName value' pairs; check spec help for more details on available options.`)
-	mainRun.flagNoFiles = runCmd.Flags().BoolP("no-files", "n", false, "Disable filecopy for run. Use for dry runs, or in combination with --all-dir to copy only the directory structure")
-	mainRun.flagAllDir = runCmd.Flags().BoolP("all-dirs", "d", false, "Copy all Source subdirectories, including empty subdirectories. Use with --no-files to only copy the directories themselves.")
-	mainRun.flagRunPartial = runCmd.Flags().StringArray("partial", []string{}, "partial s=2 t=1")
-	mainRun.flagManualRun = runCmd.Flags().StringArray("manual", []string{}, "manual s=`c:\\data`,personalDocs t=d:\\backup")
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// runCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// runCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
