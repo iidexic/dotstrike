@@ -25,7 +25,7 @@ func (J *CopyJob) RunC( /* params */ ) error {
 	// condition paths
 	var e error
 
-	if J.JobSettings.makeRootSubdir && J.parentPathOut == "" { // parentpath check to be safe
+	if J.BPrefs[bRootSubdir] && J.parentPathOut == "" { // parentpath check to be safe
 		J.parentPathOut = J.PathOut
 		J.PathOut = Joinpath(J.PathOut, filepath.Base(J.PathIn))
 	}
@@ -42,7 +42,7 @@ func (J *CopyJob) RunC( /* params */ ) error {
 	}
 
 	//WARNING: WITH THIS STRUCTURE, A WALKDIR ERROR WILL PREVENT MAKING ADDITIONAL DIRS
-	if J.JobSettings.copyAllDirectories {
+	if J.BPrefs[bAllDirs] {
 		for dir := range J.newDirs {
 			e := os.MkdirAll(Joinpath(J.PathOut, dir), 0)
 			J.checkAndLogError(dir, "MakeDirectory", e)
@@ -108,7 +108,7 @@ func (J *CopyJob) WalkC(p string, d DirEntry, e error) error {
 	J.checkAndLogError(p, "GetFileInfo_In", e)
 
 	// 0.3 Return before copy if config requires.
-	if J.JobSettings.noFiles {
+	if J.BPrefs[bNoFiles] {
 		J.addFile(prr, inDE.Size(), 0) // for dry runs
 		return nil
 	}

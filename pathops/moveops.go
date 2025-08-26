@@ -24,19 +24,19 @@ const (
 )
 
 type DirEntry = fs.DirEntry
+type boolConfig = map[config.OptionKey]bool
+type stringConfig = map[config.OptionKey]string
+type PathError = fs.PathError
 
-// here: Based on Actions
-const (
-	NotAnOption      = config.NotAnOption
-	BoolRootSubdir   = config.BoolRootSubdir
-	BoolNoFiles      = config.BoolNoFiles
-	BoolCopyAllDirs  = config.BoolCopyAllDirs
-	BoolIgnoreRepo   = config.BoolIgnoreRepo
-	BoolIgnoreHidden = config.BoolIgnoreHidden
-	BoolUseGlobalOut = config.BoolUseGlobalTarget
+var (
+	GlobalOutDir *string //NOTE: need to be set by dscore?
+	bNoFiles     = config.BoolNoFiles
+	bAllDirs     = config.BoolCopyAllDirs
+	bRootSubdir  = config.BoolRootSubdir
+	bUseGlobal   = config.BoolUseGlobalTarget
+	bNoHidden    = config.BoolIgnoreHidden
+	bNoRepo      = config.BoolIgnoreRepo
 )
-
-var GlobalOutDir string //NOTE: would need to be set by dscore?
 
 // copierMaschine builds and executes CopyJobs
 // Ideally single-instance; use GetCopier to get
@@ -45,9 +45,16 @@ type copierMaschine struct {
 	GlobalOut string
 }
 
-// primary-instance use
 var cmachine copierMaschine = copierMaschine{JobQueue: make(map[string]*CopyJob)}
-var Copier = &cmachine
+
+func Copier() *copierMaschine { return &cmachine }
+
+type JobFrame struct {
+	in, out string
+	name    string
+	bcfg    boolConfig
+	scfg    stringConfig
+}
 
 // CopyJob prepares and executes the copy of all contents of PathIn to PathOut
 type CopyJob struct {
@@ -57,19 +64,41 @@ type CopyJob struct {
 	newDirs         map[string]bool //
 	ignore          IgnoreSet
 	OpErrors        []fs.PathError
-	JobSettings     copyConfig
+	BPrefs          boolConfig
+	SPrefs          stringConfig
 }
 
-// NOTE: unless explicitly stated, copyConfig values do not override ignores
-type copyConfig struct {
-	makeRootSubdir     bool // if true, appends base(PathIn) to PathOut
-	copyAllDirectories bool // copies directories regardless of whether files will be copied
-	noFiles            bool // does not copy files. Use for dry run, or enable copyAllDirectories to only copy directory structure
-	//DRY_RUN bool
+type JobBundle struct {
+	// wait its a map
+	names   []string
+	count   int
+	lastJob *CopyJob
 }
 
-// TODO:(low-refactor) move to function access only
-func GetCopierMaschine() *copierMaschine { return &cmachine }
+// sl{1,2,4,8,12}
+// start=1, count=3
+//sl[1:4] = sl{2,4,8}
+
+func (B *JobBundle) Jobs() []*CopyJob {
+	jobl := make([]*CopyJob, B.count)
+	for i, n := range B.names {
+		jobl[i] = cmachine.GetJob(n)
+	}
+	return jobl
+}
+
+func (B *JobBundle) AddJob(jobName, pathIn, pathOut string, config *boolConfig) {
+	if config != nil {
+	}
+	job := cmachine.NewJob(jobName, pathIn, pathOut)
+	if job != nil {
+		B.names = append(B.names, jobName)
+		B.count++
+	}
+
+}
+
+// TODO: replace with config package/enum
 
 // NewJob creates a new job and adds to the JobQueue; returns a ptr to created job if successful
 // jobName must be unique within the JobQueue; if NewJob is passed an existing jobName,
@@ -111,25 +140,22 @@ func (CM *copierMaschine) RunJob(jobName string) *CopyJob {
 	return nil
 }
 
+func (J *CopyJob) configCheck(opt config.OptionKey) bool {
+	if opt.IsBool() {
+		v, ok := J.BPrefs[opt]
+		return v && ok
+	}
+	if opt.IsString() {
+		v, ok := J.SPrefs[opt]
+		return len(v) > 0 && ok
+	}
+
+	return false
+}
+
 // TODO:  test IgnoreGit  (ALSO Test Global)
 func (J *CopyJob) IgnoreGit() {
 	J.ignore.Patterns = append(J.ignore.Patterns, subptn{ptn: `.git`, matchDir: true})
-}
-
-// JobOptionMakeSubdir - sets CopyJob.JobSettings.makeRootSubdir
-// if true: set PathOut = filepath.Join(PathOut, filepath.Base(PathIn)), store original
-func (J *CopyJob) JobOptionMakeSubdir(makeSubdir bool) {
-	J.JobSettings.makeRootSubdir = makeSubdir
-}
-
-func (J *CopyJob) JobOptionSetBool(optionName string, val bool) {
-	switch optionName {
-	case "makerootsubdir", "subdir", "globaltarget":
-		J.JobSettings.noFiles = val
-	case "nofiles", "no_files", "dryrun", "dry_run":
-		J.JobSettings.noFiles = val
-	case "copydirectories", "copy_dirs":
-	}
 }
 
 // filecopy acts as a record of a single file's copy operation
@@ -163,11 +189,15 @@ func (J *CopyJob) addFile(relpath string, inSize, outSize int64) {
 	J.fstack = append(J.fstack, filecopy{relpath: relpath, inSize: inSize, outSize: outSize})
 }
 
+// Runs the copy. Returns
 func (J *CopyJob) Run( /* params */ ) error {
 	// condition paths
 	var e error
 
-	if J.JobSettings.makeRootSubdir && J.parentPathOut == "" { // parentpath check to be safe
+	if len(J.parentPathOut) > 0 || len(J.newDirs) > 0 {
+		return fmt.Errorf("CopyJob Already Ran")
+	}
+	if J.BPrefs[bRootSubdir] && J.parentPathOut == "" { // parentpath check to be safe
 		J.parentPathOut = J.PathOut
 		J.PathOut = Joinpath(J.PathOut, filepath.Base(J.PathIn))
 	}
@@ -180,8 +210,9 @@ func (J *CopyJob) Run( /* params */ ) error {
 		return e
 	}
 
-	//WARNING: WITH THIS STRUCTURE, A WALKDIR ERROR WILL PREVENT MAKING ADDITIONAL DIRS
-	if J.JobSettings.copyAllDirectories {
+	//warning: WITH THIS STRUCTURE, A WALKDIR ERROR WILL PREVENT MAKING ADDITIONAL DIRS
+	// I don't think this is true
+	if J.BPrefs[bAllDirs] {
 		for dir := range J.newDirs {
 			e := os.MkdirAll(Joinpath(J.PathOut, dir), 0)
 			J.checkAndLogError(dir, "MakeDirectory", e)
@@ -237,7 +268,7 @@ func (J *CopyJob) Walk(p string, d DirEntry, e error) error {
 	J.checkAndLogError(p, "GetFileInfo_In", e)
 
 	// 0.3 Return before copy if config requires.
-	if J.JobSettings.noFiles {
+	if J.BPrefs[bNoFiles] {
 		J.addFile(prr, inDE.Size(), 0) // for dry runs
 		return nil
 	}

@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"iidexic.dotstrike/config"
 )
 
 func TestCleanPaths(t *testing.T) {
@@ -60,9 +62,9 @@ func TestOutputPath(t *testing.T) {
 
 func TestCopyJob(t *testing.T) {
 	cj := CopyJob{
-		PathIn:      "D:/coding/exampleFiles/INPUT",
-		PathOut:     "D:/coding/exampleFiles/OUTPUT",
-		JobSettings: copyConfig{makeRootSubdir: true},
+		PathIn:  "D:/coding/exampleFiles/INPUT",
+		PathOut: "D:/coding/exampleFiles/OUTPUT",
+		BPrefs:  map[config.OptionKey]bool{config.BoolRootSubdir: true},
 	}
 	_ = cj
 }
@@ -108,26 +110,28 @@ FILEPATH.JOIN CLEAN: %s
 }
 func (J *CopyJob) logCopyConfigTest(t *testing.T) {
 	t.Log("Copyjob Config:")
-	if J.JobSettings.noFiles && J.JobSettings.copyAllDirectories {
+	nofiles := J.configCheck(config.BoolCopyAllDirs)
+	alldir := J.configCheck(config.BoolCopyAllDirs)
+	if nofiles && alldir {
 		t.Log("Structure Copy")
-	} else if J.JobSettings.noFiles {
+	} else if nofiles {
 		t.Log("Dry Run")
-	} else if J.JobSettings.copyAllDirectories {
+	} else if alldir {
 		t.Log("Include Empty Dirs")
 	}
-	if J.JobSettings.makeRootSubdir {
+	if J.configCheck(config.BoolRootSubdir) {
 		t.Log("copy to subdirectory")
 	}
 }
 
-func testCopyDir(t *testing.T, srcDir, outDir string, options copyConfig) {
+func testCopyDir(t *testing.T, srcDir, outDir string, bOpt boolConfig) {
 	//NOTE: Testing makeRootSubdir Code; normally just write it out. Path doesn't need to exist
-	cm := GetCopierMaschine()
+	cm := Copier()
 	cm.NewJob("test_examplefiles", srcDir, outDir)
 	tcopy := cm.GetJob("test_examplefiles")
 	t.Logf("CopyJob PathIn:%s, PathOut:%s", tcopy.PathIn, tcopy.PathOut)
 	t.Logf("CopyJob pre-copy:\n%+v", tcopy)
-	tcopy.JobSettings = options
+	tcopy.BPrefs = bOpt
 	tcopy.logCopyConfigTest(t)
 	err := tcopy.Run()
 	if err != nil {
@@ -137,7 +141,7 @@ func testCopyDir(t *testing.T, srcDir, outDir string, options copyConfig) {
 		t.Log("COPY DONE\n")
 	}
 	t.Logf("(# files: %d, # errors: %d)\n--Contents:--\n", len(tcopy.fstack), len(tcopy.OpErrors))
-	if tcopy.JobSettings.noFiles {
+	if tcopy.configCheck(config.BoolNoFiles) {
 		for _, f := range tcopy.fstack {
 			if f.outSize > 0 {
 				t.Errorf("options.noFiles but data present in output (in %d, out %d)", f.inSize, f.outSize)
@@ -167,7 +171,7 @@ func testCopyDir(t *testing.T, srcDir, outDir string, options copyConfig) {
 	}
 	//CLEANUP
 	//TODO: Clean up the dirs too
-	if !tcopy.JobSettings.noFiles {
+	if !tcopy.BPrefs[bNoFiles] {
 		for _, f := range tcopy.fstack {
 			rmfile := filepath.Join(tcopy.PathOut, f.relpath)
 			err = os.Remove(rmfile)
@@ -190,10 +194,10 @@ func testCopyDir(t *testing.T, srcDir, outDir string, options copyConfig) {
 }
 
 var (
-	optionsDefault      = copyConfig{copyAllDirectories: false, noFiles: false, makeRootSubdir: false}
-	optionsDryRun       = copyConfig{copyAllDirectories: false, noFiles: true, makeRootSubdir: false}
-	optionsDirStructure = copyConfig{copyAllDirectories: true, noFiles: true, makeRootSubdir: false}
-	optionsSubdir       = copyConfig{copyAllDirectories: false, noFiles: true, makeRootSubdir: true}
+	optionsDefault      = map[config.OptionKey]bool{bAllDirs: false, bNoFiles: false, bRootSubdir: false}
+	optionsDryRun       = map[config.OptionKey]bool{bAllDirs: false, bNoFiles: true, bRootSubdir: false}
+	optionsDirStructure = map[config.OptionKey]bool{bAllDirs: true, bNoFiles: true, bRootSubdir: false}
+	optionsSubdir       = map[config.OptionKey]bool{bAllDirs: false, bNoFiles: true, bRootSubdir: true}
 )
 
 func TestCopyDirSimple(t *testing.T) {
@@ -212,7 +216,7 @@ func TestCopySimpleDirOnly(t *testing.T) {
 }
 
 func testCopyOnlyDirs(t *testing.T, srcDir, outDir string) {
-	cm := GetCopierMaschine()
+	cm := Copier()
 	job1 := cm.NewJob("test_examplefiles", srcDir, outDir)
 	tcopy := cm.NewJob("test_examplefiles", "", "")
 	if tcopy != nil {
@@ -221,10 +225,10 @@ func testCopyOnlyDirs(t *testing.T, srcDir, outDir string) {
 		tcopy = job1 //
 	}
 	tcopy = cm.GetJob("test_examplefiles")
-	tcopy.JobSettings.copyAllDirectories = true
-	tcopy.JobSettings.noFiles = true
+	tcopy.BPrefs[bAllDirs] = true
+	tcopy.BPrefs[bNoFiles] = true
 	t.Logf("CopyJob PathIn:%s, PathOut:%s", tcopy.PathIn, tcopy.PathOut)
-	t.Logf("Job Settings:\n%+v", tcopy.JobSettings)
+	t.Logf("Prefs:\n%+v", tcopy.BPrefs)
 	err := tcopy.Run()
 	if err != nil {
 		t.Errorf("COPY ERROR: %v", err)
