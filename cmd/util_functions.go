@@ -21,12 +21,6 @@ type runeTypeCount struct {
 	punc, symbols, numeric         int
 }
 
-func checkMakeup(text string) {
-	for i, tc := range text {
-		_, _ = i, tc
-	}
-}
-
 func printNumberedListFiltered(cmd *cobra.Command, textlist []string, filter []bool) {
 	for i, text := range textlist {
 		cmd.Printf(" %d. %s", i, text)

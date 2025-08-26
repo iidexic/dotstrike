@@ -11,7 +11,7 @@ import (
 
 var tgtF = compFlags{}
 
-var tgt cmdWrapper
+//var tgt cmdWrapper
 
 //NOTE: Having a central data structure and building out the command action seems way better than this switch
 //TODO: Refactor source command
@@ -23,7 +23,6 @@ var tgtCmd = &cobra.Command{
 	Long:  `add, modify, and delete source components of selected/specified spec`,
 
 	Run: func(cmd *cobra.Command, args []string) {
-		tgt = cmdWrapper{Command: cmd, args: args} //WIP/FUTURE IMPLEMENTATION
 		affectedSpecs := getSpecs(cmd, true)
 		detail, oneOrMoreExist := detailsIfArgsExist(args, affectedSpecs)
 		numargs, numspecs := len(args), len(affectedSpecs)

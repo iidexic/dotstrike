@@ -18,40 +18,6 @@ const (
 	matchNone
 )
 
-//  pathComponent
-// Path    string   `toml:"path"`
-// Ptype   pathType `toml:"ptype"` //if targetComponent: required to be dirPath
-// Ctype   componentType
-// Abspath string `toml:"abspath"`
-// Ignores []string `toml:"ignores"`
-// Alias   string   `toml:"alias"`
-// }
-
-// type cfg struct {
-// 	Alias     string          `toml:"alias"`     // name, unique
-// 	Sources   []pathComponent `toml:"sources"`   // files or directories marked as origin points
-// 	Targets   []pathComponent `toml:"targets"`   // files or directories marked as destination points
-// 	Ignorepat []string        `toml:"ignores"`   // ignore patterns that apply to all sources
-// 	Overrides prefs           `toml:"overrides"` //map of settings that will be prioritized over global set
-// 	Ctype     componentType
-// }
-
-// type OpMode int
-// const (
-// 	ModifyComponent OpMode = iota
-// 	NewComponent
-// 	DeleteComponent
-// )
-//
-
-// New Approach: maybe just don't put myself in a spot where I have to guess user intent
-
-// SearchConfigs returns an int (tri-state) and string:
-//
-
-// FindSpecExact returns a pointer to the cfg object where alias = aliasP
-// If aliasP not found, returns nil
-
 var symbols = []rune(` !@#$%^&*()_+{}/\|:"'.,;:[]<>?-=~`)
 
 func FindSpecExact(aliasP string) *Spec {
@@ -83,7 +49,9 @@ func SelectSpec(alias string) bool {
 	return false
 }
 
-// Not currently using.
+// performs an exact search and a likeness search.
+// int returned is 1 if exact match found, -1 if there is a 90% likeness, and 0 otherwise
+// string returned is matching spec's alias; otherwise returns 0, ""
 func FindSpec(aliasP string) (int, string) {
 	var matchCount int
 	var foundClose bool
@@ -99,7 +67,7 @@ func FindSpec(aliasP string) (int, string) {
 			return 1, aliasP
 		}
 		// iron out minor spelling mistakes
-		for i := range ls - 1 { //TODO: make sure Go is inclusive start-exclusive end. I forget but 90% sure
+		for i := range ls - 1 {
 			if aliasP[i:i+1] == s.Alias[i:i+1] {
 				matchCount++
 
@@ -120,7 +88,38 @@ func FindSpec(aliasP string) (int, string) {
 
 }
 
-// hardclean exists. idk
+// fuzzysearch checks whether text contains each character in substring, in the same relative character position.
+//
+// returns true if:
+//  1. all runes in sub exist within text
+//  2. each rune @ position n in sub exists at some position i in text such that i(rune[n]) > i(rune[n-1])
+//
+// ex: fuzzySearch("afbcdef", "fdf",false) returns `true`
+func fuzzySearch(text string, sub string, caseSens bool) bool {
+	if len(text) < len(sub) {
+		return false
+	}
+	if !caseSens {
+		text = strings.ToLower(text)
+		sub = strings.ToLower(sub)
+	}
+	subslice := []rune(sub)
+
+	// Pure Text Method
+	for _, l := range subslice {
+		runepos := strings.IndexRune(text, l)
+		if runepos < 0 {
+			return false
+		}
+		lastIndex := len(text) - 1
+		if lastIndex > runepos {
+			text = text[runepos+1:]
+		} else {
+			text = ""
+		}
+	}
+	return true
+}
 
 func stripSymbols(s string) string {
 	rmv := []rune(`

@@ -35,7 +35,6 @@ var srcCmd = &cobra.Command{
 	Long:  `add, modify, and delete source components of selected/specified spec`,
 
 	Run: func(cmd *cobra.Command, args []string) {
-		src = cmdWrapper{Command: cmd, args: args} //WIP/FUTURE IMPLEMENTATION
 		affectedSpecs := getSpecs(cmd, true)
 		detail, oneOrMoreExist := detailsIfArgsExist(args, affectedSpecs)
 		numargs, numspecs := len(args), len(affectedSpecs)
@@ -43,7 +42,6 @@ var srcCmd = &cobra.Command{
 		case numargs > 0 && !oneOrMoreExist:
 			if oneSpecOrUserConfirm("Adding source to Multiple specs", affectedSpecs) {
 				for i := range affectedSpecs {
-					//TODO: standardize modify. (Run in the initial function in dscore performing modify, not end of line)
 					added := affectedSpecs[i].CheckAddMultiplePaths(args, true)
 					cmd.Printf("Spec %s:\n", affectedSpecs[i].Alias)
 					printNumberedListFiltered(cmd, args, added)

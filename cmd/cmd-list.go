@@ -43,7 +43,7 @@ var listCmd = &cobra.Command{
 				cmd.Printf("%d: %v", i, g.CfgData(a))
 			}
 		default:
-			cmd.Println("Specs:")
+			cmd.Println("User Specs:")
 			specs := dscore.TempData().Specs
 			for i := range specs {
 				if dscore.TempData().Selected == i {
