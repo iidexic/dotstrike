@@ -2,5 +2,4 @@ _xtra/
 thingy.go
 slicecaddy
 rt/
-[samplefiles]/*.toml
 dsutil.py
