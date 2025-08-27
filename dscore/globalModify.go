@@ -22,36 +22,11 @@ type Temp interface {
 	GetSpec(string) *Spec
 }
 
-// for reference:
-// type component interface
-// 	getAlias() string
-// 	getCtype() componentType
-// type pathComponent struct
-// 	   string
-// 	Alias, Abspath, Path, Parent -> string
-// 	Ignores -> []string,	Ptype -> pathType,	Ctype -> componentType
-// type cfg struct
-// 	Alias string, Ignorepat []string
-// 	Sources, Targets  []pathComponent
-// 	Overrides prefs, Ctype componentType
+//TODO: standardize modify. Now prefer to put as deep/as close to the actual modify as possible,
+// Intent to avoid write to file as much as possible
 
-// NewSpec creates and adds a spec to globalModify/temp data.
-//
-// If paths are passed, they are added to the spec as sources and targets,
-// depending on the length of the paths slice and the index of each path:
-//
-//   - If paths has exactly 1 item, it is added as a source to the new spec.
-//   - If paths has multiple items, the last path is added as a target,
-//     and every other item in paths is added as a source.
-//
-// # Example:
-//
-//	spec := NewSpec("documents", "C:\foo1", "C:\foo2", "C:\foo3")
-//	len(spec.Sources) == 2 , len(spec.Targets) == 1
-//	spec.Sources[0].Path == "C:\foo1"
-//	spec.Sources[1].Path == "C:\foo2"
-//	spec.Targets[0].Path == "C:\foo3"
-
+// TODO: Replace NewSpec.  The weird sources-target thing with paths is bad.
+// Also, there are flags for that...
 func (gm *globalModify) NewSpec(alias string, paths ...string) (*Spec, error) {
 	s := Spec{Alias: alias, Ctype: specComponent}
 	if !gm.initialized {
@@ -75,6 +50,35 @@ func (s *Spec) addSources(paths ...string) []bool {
 		added[i] = s.CheckAddPath(src, true)
 	}
 	return added
+}
+
+// adds paths as components without causing data to be written to user file
+//
+// NOTE: if another change is made that triggers tempData.Modified(), these will still be written if not manually corrected.
+// This includes all public functions/methods that make user data changes.
+func (s *Spec) temporaryComponents(isSource bool, paths ...string) error {
+	etext := make([]string, 0, len(paths))
+	if isSource {
+		for _, p := range paths {
+			if !s.IsPathChild(p) {
+				s.Sources = append(s.Sources, *newPathComponent(p, sourceComponent))
+			} else {
+				etext = append(etext, p)
+			}
+		}
+	} else {
+		for _, p := range paths {
+			if !s.IsPathChild(p) {
+				s.Sources = append(s.Sources, *newPathComponent(p, sourceComponent))
+			} else {
+				etext = append(etext, p)
+			}
+		}
+	}
+	if numer := len(etext); numer > 0 {
+		return fmt.Errorf("Failed to add %d paths\n(%s)", numer, strings.Join(etext, ", "))
+	}
+	return nil
 }
 
 // GetModifiableSpec returns a pointer to a spec that will be encoded when the program exits
@@ -247,6 +251,14 @@ func (gd *globalData) findAliasIndex(alias string) int {
 		}
 	}
 	return -1
+}
+
+func (gm *globalModify) CountComponents() int {
+	count := len(gm.Specs)
+	for i := range gm.Specs {
+		count += len(gm.Specs[i].Sources) + len(gm.Specs[i].Targets)
+	}
+	return count
 }
 
 // setOptMap will modify all prefs/overrides with a key assigned in mpref.

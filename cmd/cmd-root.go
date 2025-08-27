@@ -4,12 +4,10 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"log/slog"
 	"os"
 
 	"github.com/spf13/cobra"
 	"iidexic.dotstrike/dscore"
-	pops "iidexic.dotstrike/pathops"
 )
 
 const verstr string = "0.0.1"
@@ -20,15 +18,15 @@ func ce(e error) {
 	}
 }
 
-// TODO:(low-implement) SET UP LOGGING
-func initLogging() {
-	lf, e := pops.MakeOpenFileF("dslog.txt")
-	if e != nil {
-		panic(e)
-	}
-	logger := slog.NewTextHandler(lf, nil)
-	_ = logger
-}
+// // TODO:(low-implement) SET UP LOGGING
+// func initLogging() {
+// 	lf, e := pops.MakeOpenFileF("dslog.txt")
+// 	if e != nil {
+// 		panic(e)
+// 	}
+// 	logger := slog.NewTextHandler(lf, nil)
+// 	_ = logger
+// }
 
 type cmdWrapper struct {
 	*cobra.Command

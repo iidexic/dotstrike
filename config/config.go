@@ -19,6 +19,7 @@ const (
 	BoolCopyAllDirs
 	BoolUseGlobalTarget // Spec Bools
 	BoolOverrideOn
+	//MaxJobCopyError  // Int (eww)
 	StringGlobalTargetPath // String
 	NumberOfOptions        // Count
 )
