@@ -13,6 +13,7 @@ type lildeq[T any] struct {
 
 func getdeq[T any](s []T) lildeq[T] { return lildeq[T]{s} }
 
+// I think popback/front N can be improved by just slicing instead of loop
 func (d *lildeq[T]) popbackN(n int) []T {
 	ct := len(d.d)
 	if n <= 0 || ct <= 0 {

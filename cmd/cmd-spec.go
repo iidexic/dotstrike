@@ -78,10 +78,13 @@ func specRun(cmd *cobra.Command, args []string) {
 			cmd.PrintErr(err)
 		}
 	case len(specOps.existingSpecs) > 0:
-		if *specOps.flags.delete {
+		if *specOps.flags.delete { //TEST: MULTI-SPEC DELETE
 			for i := range specOps.existingSpecs {
-				deleted := specOps.specDelete(specOps.existingSpecs[i].Alias)
-				if !deleted {
+				specToDelete := specOps.existingSpecs[i].Alias
+				deleted := specOps.specDelete(specToDelete)
+				if deleted {
+					cmd.Printf("spec %s deleted", specToDelete)
+				} else {
 					cmd.Printf("delete %s failed.", specOps.existingSpecs[i].Alias)
 				}
 			}
@@ -129,6 +132,7 @@ func (op *specOpData) specNew() error {
 	if err != nil || spec == nil {
 		return fmt.Errorf("error in op.specNew(): %w, from NewSpec: %w", ErrSpecNotMade, err)
 	}
+	op.cmd.Printf("spec %s created", spec.Alias)
 
 	return nil
 }

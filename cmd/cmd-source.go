@@ -61,9 +61,9 @@ var srcCmd = &cobra.Command{
 			}
 		case *pFlags.all && len(args) == 0:
 			cmd.Print(detailAllComponentFrom(affectedSpecs, true))
-		case len(args) > 0:
+		case numargs > 0:
 			cmd.Print(detail)
-		case len(args) == 0 && pFlags.countFlags == 0:
+		case numargs == 0 && pFlags.countFlags == 0:
 			cmd.Help()
 		}
 
@@ -90,6 +90,9 @@ func oneSpecOrUserConfirm(requestText string, specs []*dscore.Spec) bool {
 // getSpecs compiles the list of specs from args of the spec flag
 func getSpecs(cmd *cobra.Command, includeSelected bool) []*dscore.Spec {
 	specs := []*dscore.Spec{}
+	if includeSelected {
+		specs = append(specs, dscore.TempData().SelectedSpec())
+	}
 	if len(*srcF.spec) > 0 {
 		for _, a := range *srcF.spec {
 			if s := dscore.TempData().GetSpec(a); s != nil {
@@ -99,9 +102,6 @@ func getSpecs(cmd *cobra.Command, includeSelected bool) []*dscore.Spec {
 			}
 		}
 	}
-	if includeSelected {
-		specs = append(specs, dscore.TempData().SelectedSpec())
-	}
 	return specs
 }
 
@@ -110,6 +110,7 @@ func detailsIfArgsExist(args []string, specs []*dscore.Spec) (string, bool) {
 		return "", false
 	}
 	//TODO: un-bad this function
+	// This is completely unreadable
 
 	// Functionality:
 	// 1. collects details of the specs passed, prints them directly
@@ -166,11 +167,12 @@ func detailAllComponentFrom(specs []*dscore.Spec, isSource bool) string {
 }
 
 type compFlags struct {
-	alias  *string
-	ignore *[]string
-	delete *bool
-	y      *bool
-	spec   *[]string
+	alias        *string
+	ignore       *[]string
+	delete       *bool
+	y            *bool
+	spec         *[]string
+	useSelection *bool
 }
 
 func init() {
@@ -181,4 +183,5 @@ func init() {
 	srcF.delete = srcCmd.Flags().Bool("delete", false, "delete")
 	srcF.y = srcCmd.Flags().BoolP("yes", "y", false, "Auto-confirm on prompt")
 	srcF.spec = srcCmd.Flags().StringSlice("spec", []string{}, `--spec="alias1, alias2"  to target specs provided`)
+	srcF.useSelection = srcCmd.Flags().Bool("useSelected", true, "--useSelected=false to disable operating on selected spec")
 }
