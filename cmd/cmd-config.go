@@ -55,7 +55,7 @@ var cfg cfgOp
 func (c *cfgOp) run(cmd *cobra.Command, args []string) {
 	la := len(args)
 	global := *c.fGlobal
-	c.verbose = *pFlags.verbose
+	c.verbose = *persistentFlags.verbose
 	if la == 0 {
 		switch {
 		case !global && len(*c.fSpec) > 0:

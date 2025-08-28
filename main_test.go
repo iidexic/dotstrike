@@ -71,6 +71,14 @@ func TestRangeEnd(t *testing.T) {
 	t.Log(s)
 }
 
+func TestNiler(t *testing.T) {
+	var e error
+	err2 := fmt.Errorf("e equals %w", e)
+
+	t.Log(err2)
+	t.Log(err2.Error())
+}
+
 func TestPrintEnum(t *testing.T) {
 	t.Log("printing dscore.OptBoolKeepRepo (v, +v, #v, s maybe):")
 	t.Logf("[%v]", dscore.BoolIgnoreRepo)

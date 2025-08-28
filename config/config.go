@@ -15,25 +15,35 @@ const (
 	BoolIgnoreRepo
 	BoolIgnoreHidden
 	BoolRootSubdir
+	BoolSourceSubdirs
 	BoolNoFiles
 	BoolCopyAllDirs
 	BoolUseGlobalTarget // Spec Bools
+	BoolKillGlobalTarget
 	BoolOverrideOn
-	//MaxJobCopyError  // Int (eww)
 	StringGlobalTargetPath // String
 	NumberOfOptions        // Count
+	//MaxJobCopyError  // Int - requires implementation
 )
 
 type ValueType byte
 
 const (
-	TypeBool ValueType = iota
-	TypeString
+	_ ValueType = iota
+	Tbool
+	Tstring
+	TstringSlice
 )
 
-var OptionsBoolFileOp = []OptionKey{0, 1, 2, 3, 4}
-var OptionsBoolSpec = []OptionKey{5, 6}
-var OptionsStringGlobal = []OptionKey{7}
+/*
+WARNING: As is, adding new options requires
+1. Adding to OptionKey Enum
+2. AllOptions; with an option containing all required option info
+*/
+
+// var OptionsBoolFileOp = []OptionKey{0, 1, 2, 3, 4}
+// var OptionsBoolSpec = []OptionKey{5, 6}
+// var OptionsStringGlobal = []OptionKey{7}
 
 var ErrDecodeOptionKey = fmt.Errorf("Error finding OptionKey from decoded text")
 
@@ -45,6 +55,9 @@ func AllOptionIDs() []OptionKey {
 	return opts
 }
 
+// option spec contains required information for each option.
+// includes name, type, use/purpose, and lookup string slices
+// LookupSubstrings uses `|` to indicate separate values that can be used in the same place
 type option struct {
 	Type             ValueType
 	LookupSubstrings []string
@@ -56,48 +69,59 @@ type option struct {
 
 var AllOptions = map[OptionKey]option{
 	BoolIgnoreRepo: {
-		Type: TypeBool, NameText: "IgnoreRepo", ForFileOp: true,
+		Type: Tbool, NameText: "IgnoreRepo", ForFileOp: true,
 		LookupSubstrings: []string{"ignore|no", "repo|git"},
 	},
 	BoolIgnoreHidden: {
-		Type: TypeBool, NameText: "IgnoreHidden", ForFileOp: true,
+		Type: Tbool, NameText: "IgnoreHidden", ForFileOp: true,
 		LookupSubstrings: []string{"ignore|no", "hidden"},
 	},
 	BoolRootSubdir: {
-		Type: TypeBool, NameText: "MakeRootSubdir", ForFileOp: true,
+		Type: Tbool, NameText: "MakeRootSubdir", ForFileOp: true,
 		LookupSubstrings: []string{"root|make", "sub"},
+	},
+	BoolSourceSubdirs: {
+		Type: Tbool, NameText: "SourceSubdirs", ForFileOp: true,
+		LookupSubstrings: []string{"source|src", "sub|dirs"},
 	},
 	BoolNoFiles: {
 
-		Type: TypeBool, NameText: "CopyNoFiles", ForFileOp: true,
+		Type: Tbool, NameText: "CopyNoFiles", ForFileOp: true,
 		LookupSubstrings: []string{"no", "files|copy"},
 	},
 	BoolCopyAllDirs: {
-		Type: TypeBool, NameText: "CopyAllDirs", ForFileOp: true,
+		Type: Tbool, NameText: "CopyAllDirs", ForFileOp: true,
 		LookupSubstrings: []string{"copy|all", "all|", "dir"},
 	},
 	BoolUseGlobalTarget: {
-		Type: TypeBool, NameText: "UseGlobalTarget", ForSpec: true,
+		Type: Tbool, NameText: "UseGlobalTarget", ForSpec: true,
 		LookupSubstrings: []string{"use", "global", "target|tgt|"},
 	},
+	BoolKillGlobalTarget: {
+		Type: Tbool, NameText: "DisableGlobalTarget", ForSpec: true,
+		LookupSubstrings: []string{"kill|disable", "global", "target|tgt|"},
+	},
 	BoolOverrideOn: {
-		Type: TypeBool, NameText: "OverrideOn", ForSpec: true,
+		Type: Tbool, NameText: "OverrideOn", ForSpec: true,
 		LookupSubstrings: []string{"override", "on|enable|"},
 	},
 	StringGlobalTargetPath: {
-		Type: TypeString, NameText: "GlobalTargetPath", ForRun: true,
-		LookupSubstrings: []string{"global|glob", "target|tgt", "path|dir"},
+		Type: Tstring, NameText: "GlobalTargetPath", ForRun: true,
+		LookupSubstrings: []string{"set", "glob|glb", "target|tgt|dest", "path|dir"},
 	},
 }
 
-func (o OptionKey) String() string { return AllOptions[o].NameText }
+// TODO: Figure out if really want to make this a val, error return or just make 100% SURE tests get run
 
-func (o OptionKey) IsRealOption() bool {
-	if slices.Contains(AllOptionIDs(), o) {
-		return true
+func (o OptionKey) String() string {
+	_, ok := AllOptions[o]
+	if ok {
+		return AllOptions[o].NameText
 	}
-	return false
+	return "FAILURE_OPTION_NOT_FOUND_IN_ALLOPTIONS"
 }
+
+func (o OptionKey) IsRealOption() bool { return slices.Contains(AllOptionIDs(), o) }
 
 func (o OptionKey) MarshalTOML() ([]byte, error) {
 	return toml.Marshal(o.String())
@@ -134,8 +158,8 @@ func OptFrom(optionName string) OptionKey {
 	return NotAnOption
 }
 
-func (o OptionKey) IsBool() bool   { return AllOptions[o].Type == TypeBool }
-func (o OptionKey) IsString() bool { return AllOptions[o].Type == TypeString }
+func (o OptionKey) IsBool() bool   { return AllOptions[o].Type == Tbool }
+func (o OptionKey) IsString() bool { return AllOptions[o].Type == Tstring }
 
 // TODO: (mid-fix) maybe count up the number of matches to ensure only 1? Would require other changes
 func LookupOption(input string) OptionKey {
@@ -150,6 +174,15 @@ func LookupOption(input string) OptionKey {
 		}
 	}
 	return NotAnOption
+}
+
+// Returns 1 key for each string. If string does not match, returns NotAnOption
+func GetOptionKeys(searches []string) []OptionKey {
+	found := make([]OptionKey, len(searches))
+	for i, s := range searches {
+		found[i] = LookupOption(s)
+	}
+	return found
 }
 func SimplestSearchString(opt OptionKey) string {
 	return strings.Join(firstsubs(AllOptions[opt].LookupSubstrings), "")

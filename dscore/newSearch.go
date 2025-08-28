@@ -128,11 +128,12 @@ func stripSymbols(s string) string {
 	for _, v := range rmv {
 		s = strings.ReplaceAll(s, string(v), "")
 	}
-	return quickclean(s)
+	return QuickClean(s)
 }
 func hasSymbols(s string) bool { return strings.ContainsAny(s, string(symbols)) }
 
-func quickclean(s string) string { return strings.TrimSpace(strings.ToLower(s)) }
+// QuickClean performs some string standardization to improve matching and lookups for dscore functions
+func QuickClean(s string) string { return strings.TrimSpace(strings.ToLower(s)) }
 
 /* func checkmatch(lookup string, record string, mode matchMode) int {
 	switch mode {
@@ -172,7 +173,7 @@ func quickclean(s string) string { return strings.TrimSpace(strings.ToLower(s)) 
 func (g *globalData) FFindSpec(aliasP string) (string, matchMode) {
 	for _, s := range g.Specs {
 		ls := len(s.Alias)
-		if quickclean(aliasP) == quickclean(s.Alias) {
+		if QuickClean(aliasP) == QuickClean(s.Alias) {
 			return aliasP, matchExact
 		}
 		// iron out minor spelling mistakes

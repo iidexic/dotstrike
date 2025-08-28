@@ -40,3 +40,20 @@ func TestLookupSelf(t *testing.T) {
 		}
 	}
 }
+
+func TestAllOptions(t *testing.T) {
+	nfails := 0
+	for i, k := range AllOptionIDs() {
+		opt, ok := AllOptions[k]
+		if !ok {
+			t.Errorf("FAILURE: Option [%v] NOT A KEY IN AllOptions", k)
+			nfails++
+
+		} else {
+			t.Logf("AllOption[%d]=%d;  name = %s", i, k, opt.NameText)
+		}
+	}
+	if nfails > 0 {
+		t.Logf("%d FAILING OptionKeys", nfails)
+	}
+}

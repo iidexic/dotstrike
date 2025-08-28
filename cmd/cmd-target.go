@@ -41,18 +41,18 @@ var tgtCmd = &cobra.Command{
 				for i := range affectedSpecs {
 					runDelete(affectedSpecs[i], args, false)
 				}
-			} else if (*pFlags.all || numspecs == 1) &&
+			} else if (*persistentFlags.all || numspecs == 1) &&
 				checkConfirm(fmt.Sprintf("Delete ALL targets - %d specs", numspecs), tgtF.y) {
 				for i := range affectedSpecs {
 					affectedSpecs[i].WipeComponentList(false)
 				}
 			}
-		case *pFlags.all && len(args) == 0:
+		case *persistentFlags.all && len(args) == 0:
 			cmd.Print(detailAllComponentFrom(affectedSpecs, false))
 
 		case len(args) > 0:
 			cmd.Print(detail)
-		case len(args) == 0 && pFlags.countFlags == 0:
+		case len(args) == 0 && persistentFlags.countFlags == 0:
 			cmd.Help()
 		}
 

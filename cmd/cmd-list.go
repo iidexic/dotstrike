@@ -27,14 +27,14 @@ var listCmd = &cobra.Command{
 		case e != nil:
 			panic(fmt.Errorf("globals failed:%v", e))
 
-		case len(args) == 0 && *pFlags.debug:
+		case len(args) == 0 && *persistentFlags.debug:
 			cmd.Print("USER DATA ---------\n")
 			cmd.Print("using datafile: ", g.WhatConfigPath(), "\n")
-			printsl := g.DetailAllUserData(*pFlags.verbose)
+			printsl := g.DetailAllUserData(*persistentFlags.verbose)
 			for _, p := range printsl {
 				cmd.Print(p, "\n")
 			}
-		case *pFlags.verbose:
+		case *persistentFlags.verbose:
 			cmd.Print(g.Detail())
 		case len(args) > 0 && slices.Contains(argstrSource, args[0]):
 			cmd.Print(listComponents(dscore.TempData().Specs, true))

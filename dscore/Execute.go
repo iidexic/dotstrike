@@ -101,6 +101,15 @@ func (J *jobProcessor) Configure(prefdata map[string]bool) []string {
 	}
 	return notFound
 }
+
+// NOTE: Directly overwrites JobProcessor runtime config;
+// These will apply to everything in the run!
+// Remove any unnecessary key/value pairs before calling RuntimeConfigure
+func (J *jobProcessor) RuntimeConfigure(opts *map[ConfigOption]bool) {
+	maps.Copy(J.runtimeConfig, *opts)
+
+}
+
 func (J *jobProcessor) SetupManual(sourcePaths, targetPaths []string) (*jobSpec, error) {
 	s := Spec{Alias: "@manual@"}
 	var e error

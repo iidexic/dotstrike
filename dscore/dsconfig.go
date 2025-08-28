@@ -74,8 +74,10 @@ const (
 	BoolIgnoreHidden       = config.BoolIgnoreHidden
 	BoolRootSubdir         = config.BoolRootSubdir
 	BoolNoFiles            = config.BoolNoFiles
+	BoolSourceSubdirs      = config.BoolSourceSubdirs
 	BoolCopyAllDirs        = config.BoolCopyAllDirs
 	BoolUseGlobalTarget    = config.BoolUseGlobalTarget
+	BoolKillGlobalTarget   = config.BoolKillGlobalTarget
 	BoolOverrideOn         = config.BoolOverrideOn
 	StringGlobalTargetPath = config.StringGlobalTargetPath
 	NotAnOption            = config.NotAnOption
@@ -85,8 +87,8 @@ const (
 var optionCount = int(config.NumberOfOptions)
 var OptionID = config.LookupOption
 
-func OptionIsBool(opt ConfigOption) bool   { return config.AllOptions[opt].Type == config.TypeBool }
-func OptionIsString(opt ConfigOption) bool { return config.AllOptions[opt].Type == config.TypeString }
+func OptionIsBool(opt ConfigOption) bool   { return config.AllOptions[opt].Type == config.Tbool }
+func OptionIsString(opt ConfigOption) bool { return config.AllOptions[opt].Type == config.Tstring }
 
 var GetOption = config.OptFrom
 

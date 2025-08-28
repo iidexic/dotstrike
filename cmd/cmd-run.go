@@ -5,11 +5,15 @@ package cmd
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"iidexic.dotstrike/dscore"
 )
+
+var allFlagNames []string
 
 func init() {
 	// Use Overrides? Or make flags for all?
@@ -17,26 +21,34 @@ func init() {
 		fOverridesUsage := `Set one-time overrides with a space-separated list of 'prefName value' pairs.
 		check spec help for more details on available options.`
 	*/
+	mainRun.rtPrefs = make(map[dscore.ConfigOption]*bool)
 	fNoFileUsage := "Disable filecopy for run. Use for dry runs, or with --all-dir to copy only the directory structure"
 	fAllDirUsage := `Copy all Source subdirectories, including empty subdirectories. 
 Use with --no-files to only copy the directories themselves.`
 	fManualUsage := `--manual --src="srcpath,[additional paths]" --tgt="tgtpath,[additional paths]"
 Use to run a one-time copy job. REQUIRES use of src and tgt flags to input paths to copy from/to. 
 	Use override flag to set run configuration; by default current global prefs will be used. `
-	fPartialUsage := `--partial="s(1,n),t(2,n)"
-provides ability to copy a subset of a given spec's sources and targets. To use, include indices or dir names of sources and targets as shown`
+	fPartialUsage := `--partial="s(1,n),t(2,n)" 
+Use to copy a selected subset of a given spec's sources and targets. To use, include indices, dir names, or aliases of sources and targets as shown`
+	fGlobalTgtUsage := `Use "--GlobalTarget" to enable write to Global Target for all specs in run.
+	Use --GlobalTarget="off" to forcibly disable write to GlobalTarget for full run, including specs that exclusively target the Global Target.`
 	rootCmd.AddCommand(runCmd)
 	mainRun.flagAll = runCmd.Flags().Bool("all-specs", false, "Run ALL spec copy jobs")
 	mainRun.flagNoSelectedSpec = runCmd.Flags().Bool("no-selected", false, "Disable run of selected spec")
 	mainRun.flagY = runCmd.Flags().BoolP("confirm", "y", false, "Auto-Confirm all prompts during run")
 	//mainRun.flagOverrides = runCmd.Flags().StringArray("override", []string{}, fOverridesUsage)
-	mainRun.fOptNoFiles = runCmd.Flags().BoolP("no-files", "n", false, fNoFileUsage)
-	mainRun.fOptAllDirs = runCmd.Flags().BoolP("all-dirs", "d", false, fAllDirUsage)
-	mainRun.fOptGlobalTarget = runCmd.Flags().Bool("globaltarget", false, "'--globaltarget=false' to disable write to global target")
-	mainRun.fOptNoRepo = runCmd.Flags().Bool("ignore-repo", false, "add git repo to global ignores; Disables copying .git dir/repo dir")
-	mainRun.fOptNoHidden = runCmd.Flags().Bool("ignore-hidden", false, "add hidden paths  to global ignores; Disables copy of paths that begin with `_` or `.`")
+	mainRun.rtPrefs[dscore.BoolNoFiles] = runCmd.Flags().BoolP("no-files", "n", false, fNoFileUsage)
+	mainRun.rtPrefs[dscore.BoolCopyAllDirs] = runCmd.Flags().BoolP("all-dirs", "d", false, fAllDirUsage)
+	mainRun.rtPrefs[dscore.BoolRootSubdir] = runCmd.Flags().Bool("make-subdir", false, "Makes a new dir in target folder to copy a spec into.\nDir is named with spec's alias if possible else numbers will be added")
+	mainRun.rtPrefs[dscore.BoolSourceSubdirs] = runCmd.Flags().Bool("separate-sources", false, "Copies each source into a separate subdir; name is source's alias or source path's dir name.")
+
+	mainRun.fOptGlobalTarget = runCmd.Flags().String("global-target", "", fGlobalTgtUsage)
+	runCmd.Flag("global-target").NoOptDefVal = "on"
+
+	mainRun.rtPrefs[dscore.BoolIgnoreRepo] = runCmd.Flags().Bool("ignore-repo", false, "add git repo to global ignores; Disables copying the .git dir")
+	mainRun.rtPrefs[dscore.BoolIgnoreHidden] = runCmd.Flags().Bool("ignore-hidden", false, "add hidden paths to global ignores; Disables copy of paths that begin with `_` or `.`")
 	mainRun.flagRunPartial = runCmd.Flags().StringArray("partial", []string{}, fPartialUsage)
-	mainRun.fOptManualRun = runCmd.Flags().Bool("manual", false, fManualUsage)
+	mainRun.fManualRun = runCmd.Flags().Bool("manual", false, fManualUsage)
 	mainRun.flagSources = runCmd.Flags().StringArray("src", []string{}, `--src="path1,path2" (for partial/manual)`)
 	mainRun.flagTargets = runCmd.Flags().StringArray("tgt", []string{}, `--tgt="path1,path2" (for partial/manual)`)
 
@@ -44,17 +56,26 @@ provides ability to copy a subset of a given spec's sources and targets. To use,
 
 type runner struct {
 	*cobra.Command
-	specs                              []*dscore.Spec
-	args                               []string
-	flagY, flagNoSelectedSpec, flagAll *bool
+	specs []*dscore.Spec
+	args  []string
+	set   *pflag.FlagSet
 
-	fOptNoFiles, fOptAllDirs, fOptRootSubdir, fOptManualRun *bool
-	fOptNoHidden, fOptNoRepo, fOptGlobalTarget              *bool
+	flagY, flagNoSelectedSpec, flagAll *bool
+	rtPrefs                            map[dscore.ConfigOption]*bool
+	realPrefs                          map[dscore.ConfigOption]bool
+	fManualRun                         *bool
+	fOptGlobalTarget                   *string
 
 	flagOverrides, flagRunPartial *[]string
 	flagSources, flagTargets      *[]string
 	bOverrides, bPartial          bool
+	manualMode, partialMode       bool
 	specNames                     []string
+	flagNames                     flagCatcher
+}
+
+type flagCatcher struct {
+	used []string
 }
 
 var mainRun runner
@@ -77,12 +98,13 @@ func (r *runner) run(cmd *cobra.Command, args []string) {
 	// 1. check flags
 	// 1a:
 	// 1-2. make spec list
-	e := r.calculateBools()
+	e := r.findFlags() //NOTE: Combine with handleFlags
 	if e != nil {
 		cmd.PrintErr(e)
 		cmd.Print("\nearly terminate")
 		return // no val func break
 	}
+
 	r.Command = cmd
 	r.args = args
 
@@ -103,8 +125,17 @@ func (r *runner) run(cmd *cobra.Command, args []string) {
 	}
 }
 
+func (r *runner) prepAndRun() {
+	jm := dscore.JobManager()
+	_ = jm
+
+}
+
+func (r *runner) processPartial() {
+
+}
+
 func (r *runner) makeSpecList() []*dscore.Spec {
-	r.calculateBools()
 	// reason for not writing directly to r.specs??
 	specs := make([]*dscore.Spec, 0, len(r.args)+1)
 	r.specNames = make([]string, 0, len(r.args))
@@ -126,12 +157,14 @@ func (r *runner) makeSpecList() []*dscore.Spec {
 	return specs
 }
 
+// ── Flag/Config Logic ───────────────────────────────────────────────
 func (r *runner) handleFlags() error {
-	// if r.bOverrides {
-	//
-	// 	var overrides map[string]bool = make(map[string]bool, 1)
-	// }
-	if *r.fOptManualRun {
+	//nflags := r.set.NFlag() - len(r.rtPrefs)
+	if len(r.rtPrefs) > 0 {
+		r.processOptions()
+	}
+
+	if *r.fManualRun {
 
 	} else if r.bPartial { // partial/manual should not be runing at same time
 		r.processPartial()
@@ -140,24 +173,46 @@ func (r *runner) handleFlags() error {
 	return nil
 }
 
-func (r *runner) prepAndRun() {
-	jm := dscore.JobManager()
-	_ = jm
+// must be run for option use elsewhere.
+// makes realPrefs (deref map)
+func (r *runner) processOptions() {
+	for k, v := range r.rtPrefs {
+		r.realPrefs[k] = *v
+	}
 
+	// make globaltarget option from flag
+	if optGT := *r.fOptGlobalTarget; optGT != "" {
+		if toBool := dscore.StringToBool(optGT); toBool != nil {
+			if *toBool {
+				r.realPrefs[dscore.BoolUseGlobalTarget] = true
+			} else if !*toBool { // this is 100% the only possibility but feel the need to be sure
+				r.realPrefs[dscore.BoolKillGlobalTarget] = true
+			}
+		}
+	}
 }
 
-func (r *runner) processPartial() {
-
+func (r *runner) trimPrefs() {
+	maps.DeleteFunc(r.realPrefs, r.keep)
 }
+
+func (r *runner) keep(k dscore.ConfigOption, v bool) bool { return k.IsRealOption() && k.IsBool() }
+
+// ──────────────────────────────────────────────────────────────────────
 
 // calculates bManual, bPartial, bOverrides.
 // Errors on unusable combination of flags/args
-func (r *runner) calculateBools() error {
-	estr := ""
 
-	if prtLen := len(*r.flagRunPartial); prtLen > 0 && !*r.fOptManualRun {
-		r.bPartial = true
-	} else if prtLen > 0 {
+func (r *runner) findFlags() error {
+	estr := ""
+	if !r.set.HasFlags() {
+		return nil
+	}
+	r.set.Visit(r.flagNames.collect)
+
+	if prtLen := len(*r.flagRunPartial); prtLen > 0 && !*r.fManualRun {
+		r.bPartial = true // probably delete
+	} else if prtLen > 0 { //if Partial flag + Manual flag?
 		estr += "Partial flag and Manual flag are mutually exclusive\n"
 	}
 
@@ -170,6 +225,11 @@ func (r *runner) calculateBools() error {
 		return fmt.Errorf("%s", estr)
 	}
 }
+
+func (fc *flagCatcher) collect(f *pflag.Flag) {
+	fc.used = append(fc.used, f.Name)
+}
+
 func (r *runner) makeCopyJobs() {
 
 }

@@ -67,14 +67,14 @@ If you have multiple specs, you will need to either:
 		if *version {
 			cmd.Print("version: ", verstr)
 		}
-		if *pFlags.debug {
+		if *persistentFlags.debug {
 			cmd.Printf("DEBUG")
 			gdump := dscore.DumpGlobals()
 			for _, l := range gdump {
 				cmd.Println(l)
 			}
 		}
-		if !*pFlags.debug && !*pFlags.all && !*pFlags.verbose && !*version {
+		if !*persistentFlags.debug && !*persistentFlags.all && !*persistentFlags.verbose && !*version {
 			cmd.Print("add --help for usage details")
 		}
 
@@ -115,8 +115,8 @@ type pfid int
 
 //func (p *persistentData) checkAddData() { }
 
-// pFlags is the persistentData var that stores all persistent flag values
-var pFlags persistentData
+// persistentFlags is the persistentData var that stores all persistent flag values
+var persistentFlags persistentData
 var version *bool
 
 // TODO: remember what this was for, or remove
@@ -145,7 +145,7 @@ Flags to remove:
 func init() {
 	cobra.OnInitialize(dscore.CoreConfig, dscore.InitTempData) // pass all initialization functions here
 	cobra.OnFinalize(dscore.EndEncode)
-	pFlags = persistentData{
+	persistentFlags = persistentData{
 		verbose: rootCmd.PersistentFlags().BoolP("verbose", "v", false, "shows additional details on execution"),
 		all:     rootCmd.PersistentFlags().BoolP("all", "a", false, "applies command to 'all' applicable items (see command help for more detail)"),
 		//global:  rootCmd.PersistentFlags().BoolP("global", "g", false, "target the global group"), //uncertain, overlap with all?
@@ -156,7 +156,7 @@ func init() {
 		//WARN: Comment this out before build/release
 		debug: rootCmd.PersistentFlags().Bool("debug", false, "debug"),
 	}
-	pFlags.setup()
+	persistentFlags.setup()
 	// version is not default
 	version = rootCmd.Flags().Bool("version", false, "print application version")
 }

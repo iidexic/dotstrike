@@ -53,17 +53,17 @@ var srcCmd = &cobra.Command{
 				for i := range affectedSpecs {
 					runDelete(affectedSpecs[i], args, true)
 				}
-			} else if (*pFlags.all || numspecs == 1) &&
+			} else if (*persistentFlags.all || numspecs == 1) &&
 				checkConfirm(fmt.Sprintf("Deletion of ALL sources for %d specs", numspecs), srcF.y) {
 				for i := range affectedSpecs {
 					affectedSpecs[i].WipeComponentList(true)
 				}
 			}
-		case *pFlags.all && len(args) == 0:
+		case *persistentFlags.all && len(args) == 0:
 			cmd.Print(detailAllComponentFrom(affectedSpecs, true))
 		case numargs > 0:
 			cmd.Print(detail)
-		case numargs == 0 && pFlags.countFlags == 0:
+		case numargs == 0 && persistentFlags.countFlags == 0:
 			cmd.Help()
 		}
 

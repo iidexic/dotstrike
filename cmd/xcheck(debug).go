@@ -81,7 +81,7 @@ func (c *checkCmdFlags) oldDefaultBehavior(cmd *cobra.Command, args []string) {
 		}
 
 	}
-	if pFlags.countFlags > 0 {
+	if persistentFlags.countFlags > 0 {
 
 	}
 	if td := dscore.TempData(); td != nil && *checkf.temp && td.Modified {

@@ -1,12 +1,14 @@
 package dscore
 
+//NOTE: Cobra already does this inherently for some flags. Figure out if it can be used for args
+
 // StringToBool tries to get a bool from string
 // if succeeds, returns found value (*true or *false)
 // if fails to match with any option, returns nil
 func StringToBool(text string) *bool {
 	var t bool = true
 	var f bool = false
-	text = quickclean(text)
+	text = QuickClean(text)
 	switch text {
 	case "true", "1", "yes", "t", "y", "on", "enabled":
 		return &t
