@@ -8,15 +8,12 @@ func testInput() map[string]OptionKey {
 		"ignorehidden":       BoolIgnoreHidden,
 		"useglobal":          BoolUseGlobalTarget,
 		"baddabingbaddaboom": NotAnOption,
-		"globaltarget":       NotAnOption, //TODO: fix this, will probably get annoying
-
-		//BUG: Points to both IgnoreHidden and IgnoreRepo. Whichever is first  is it.
-		//	Code defines IgnoreRepo first in the map
-		//	EDIT: OUTCOME IS UNCERTAIN. MAY NEED AN IMPROVED LOOKUP
-		"nohiddenrepo": BoolIgnoreRepo,
-		//BUG: same bug as above (UseGlobalTarget/GlobalTargetPath)
-		"useglobaltgtdir": BoolUseGlobalTarget,
-		"override":        BoolOverrideOn,
+		"globaltarget":       NotAnOption,         //TODO: fix this, will probably get annoying
+		"nohiddenrepo":       BoolIgnoreRepo,      //BUG: Outcome is UNCERTAIN! Points to both IgnoreHidden and IgnoreRepo.
+		"useglobaltgtdir":    BoolUseGlobalTarget, //BUG: same bug as above (UseGlobalTarget/GlobalTargetPath)
+		"override":           BoolOverrideOn,
+		"killglobal":         BoolKillGlobalTarget,
+		"killglobaltarget":   BoolKillGlobalTarget,
 	}
 }
 

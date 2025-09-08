@@ -5,7 +5,7 @@ package cmd
 
 import (
 	"fmt"
-	"maps"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -13,45 +13,81 @@ import (
 	"iidexic.dotstrike/dscore"
 )
 
-var allFlagNames []string
+var (
+	// ── config.OptionKeys: ──────────────────────────
+	NotAnOption               = dscore.NotAnOption
+	bNoRepo, bNoHidden        = dscore.BoolIgnoreRepo, dscore.BoolIgnoreHidden
+	bRootSubdir               = dscore.BoolRootSubdir
+	bSeparate                 = dscore.BoolSeparateSources
+	bNoFiles, bAllDirs        = dscore.BoolNoFiles, dscore.BoolCopyAllDirs
+	bUseGlobTgt, bKillGlobTgt = dscore.BoolUseGlobalTarget, dscore.BoolKillGlobalTarget
+	configIDs                 = []dscore.ConfigOption{bNoRepo, bNoHidden, bRootSubdir, bSeparate, bNoFiles, bAllDirs}
+
+	// ── Non-config pkg flags: ───────────────────────
+	flagnameAll        = "all-specs"
+	flagnameSelected   = "selected"
+	flagnameY          = "confirm"
+	flagnamePartial    = "partial"
+	flagnameManual     = "manual"
+	flagnameSrc        = "src"
+	flagnameTgt        = "tgt"
+	flagnameGlobTgt    = "global-target"
+	flagnameNoRunDebug = "setup-only-debug"
+)
+
+var (
+	ErrMultiMode          = fmt.Errorf("cannot run multiple modes at once (standard, manual, or partial)")
+	ErrMissModeDependency = fmt.Errorf("Missing Required flags/args for the mode selected!")
+)
+
+func flagOptKey(flagName string) dscore.ConfigOption {
+	for _, opt := range configIDs {
+		if flagName == opt.NameFlag() {
+			return opt
+		}
+	}
+	return dscore.NotAnOption
+}
 
 func init() {
-	// Use Overrides? Or make flags for all?
-	/*
-		fOverridesUsage := `Set one-time overrides with a space-separated list of 'prefName value' pairs.
-		check spec help for more details on available options.`
-	*/
+	//TODO:(mid) A lot of these flag names need to be fixed - check all commands
 	mainRun.rtPrefs = make(map[dscore.ConfigOption]*bool)
-	fNoFileUsage := "Disable filecopy for run. Use for dry runs, or with --all-dir to copy only the directory structure"
-	fAllDirUsage := `Copy all Source subdirectories, including empty subdirectories. 
-Use with --no-files to only copy the directories themselves.`
-	fManualUsage := `--manual --src="srcpath,[additional paths]" --tgt="tgtpath,[additional paths]"
-Use to run a one-time copy job. REQUIRES use of src and tgt flags to input paths to copy from/to. 
-	Use override flag to set run configuration; by default current global prefs will be used. `
-	fPartialUsage := `--partial="s(1,n),t(2,n)" 
-Use to copy a selected subset of a given spec's sources and targets. To use, include indices, dir names, or aliases of sources and targets as shown`
-	fGlobalTgtUsage := `Use "--GlobalTarget" to enable write to Global Target for all specs in run.
-	Use --GlobalTarget="off" to forcibly disable write to GlobalTarget for full run, including specs that exclusively target the Global Target.`
+	mainRun.set = runCmd.Flags()
 	rootCmd.AddCommand(runCmd)
-	mainRun.flagAll = runCmd.Flags().Bool("all-specs", false, "Run ALL spec copy jobs")
-	mainRun.flagNoSelectedSpec = runCmd.Flags().Bool("no-selected", false, "Disable run of selected spec")
-	mainRun.flagY = runCmd.Flags().BoolP("confirm", "y", false, "Auto-Confirm all prompts during run")
-	//mainRun.flagOverrides = runCmd.Flags().StringArray("override", []string{}, fOverridesUsage)
-	mainRun.rtPrefs[dscore.BoolNoFiles] = runCmd.Flags().BoolP("no-files", "n", false, fNoFileUsage)
-	mainRun.rtPrefs[dscore.BoolCopyAllDirs] = runCmd.Flags().BoolP("all-dirs", "d", false, fAllDirUsage)
-	mainRun.rtPrefs[dscore.BoolRootSubdir] = runCmd.Flags().Bool("make-subdir", false, "Makes a new dir in target folder to copy a spec into.\nDir is named with spec's alias if possible else numbers will be added")
-	mainRun.rtPrefs[dscore.BoolSourceSubdirs] = runCmd.Flags().Bool("separate-sources", false, "Copies each source into a separate subdir; name is source's alias or source path's dir name.")
+	//fPartialUsage := `--partial="s(1,n),t(2,n)"
+	// Use to copy a selected subset of a given spec's sources and targets. To use, include indices, dir names, or aliases of sources and targets as shown`
 
-	mainRun.fOptGlobalTarget = runCmd.Flags().String("global-target", "", fGlobalTgtUsage)
+	fManualUsage := `--manual --src="srcpath,[additional paths]" --tgt="tgtpath,[additional paths]"
+ Use to run a one-time copy job. REQUIRES use of src and tgt flags to input paths to copy from/to.
+Use override flag to set run configuration; by default current global prefs will be used. `
+
+	mainRun.flagAll = runCmd.Flags().Bool(flagnameAll, false, "Run ALL spec copy jobs")
+	mainRun.flagSelected = runCmd.Flags().Bool(flagnameSelected, false, "Add selected spec to the run (if not already included)")
+	mainRun.flagY = runCmd.Flags().BoolP(flagnameY, "y", false, "Auto-Confirm all prompts during run")
+	mainRun.fPartialRun = runCmd.Flags().Bool(flagnamePartial, false, "Run a partial-spec copy. requires src + tgt flags to provide source/target selection")
+	mainRun.fManualRun = runCmd.Flags().Bool(flagnameManual, false, fManualUsage)
+	mainRun.flagSources = runCmd.Flags().StringArray(flagnameSrc, []string{}, `--src="path1,path2" for manual run;  --src="0,1,alias" for partial run (source index, alias, or dirname)`)
+
+	mainRun.flagTargets = runCmd.Flags().StringArray(flagnameTgt, []string{}, `--tgt="path1,path2" for manual run;  --tgt="0,1,alias" for partial run (target index, alias, or dirname)`)
+	mainRun.fOptGlobalTarget = runCmd.Flags().String(flagnameGlobTgt, "", bUseGlobTgt.RunUsage())
+	mainRun.fSetupDebug = runCmd.Flags().Bool(flagnameNoRunDebug, false, "")
+	mainRun.set.MarkHidden(flagnameNoRunDebug)
+
 	runCmd.Flag("global-target").NoOptDefVal = "on"
+	// ── ConfigOption Flags ──────────────────────────────────────────────
+	initConfigFlags()
 
-	mainRun.rtPrefs[dscore.BoolIgnoreRepo] = runCmd.Flags().Bool("ignore-repo", false, "add git repo to global ignores; Disables copying the .git dir")
-	mainRun.rtPrefs[dscore.BoolIgnoreHidden] = runCmd.Flags().Bool("ignore-hidden", false, "add hidden paths to global ignores; Disables copy of paths that begin with `_` or `.`")
-	mainRun.flagRunPartial = runCmd.Flags().StringArray("partial", []string{}, fPartialUsage)
-	mainRun.fManualRun = runCmd.Flags().Bool("manual", false, fManualUsage)
-	mainRun.flagSources = runCmd.Flags().StringArray("src", []string{}, `--src="path1,path2" (for partial/manual)`)
-	mainRun.flagTargets = runCmd.Flags().StringArray("tgt", []string{}, `--tgt="path1,path2" (for partial/manual)`)
+}
 
+// creates all flags in configIDs. Data is stored in config package for now.
+func initConfigFlags() {
+	for _, opt := range configIDs {
+		if ns := opt.NameFshort(); ns != "" && len(ns) == 1 {
+			mainRun.rtPrefs[opt] = mainRun.set.BoolP(opt.NameFlag(), ns, false, opt.RunUsage())
+			continue
+		}
+		mainRun.rtPrefs[opt] = mainRun.set.Bool(opt.NameFlag(), false, opt.RunUsage())
+	}
 }
 
 type runner struct {
@@ -60,25 +96,51 @@ type runner struct {
 	args  []string
 	set   *pflag.FlagSet
 
-	flagY, flagNoSelectedSpec, flagAll *bool
-	rtPrefs                            map[dscore.ConfigOption]*bool
-	realPrefs                          map[dscore.ConfigOption]bool
-	fManualRun                         *bool
-	fOptGlobalTarget                   *string
+	rtPrefs                      map[dscore.ConfigOption]*bool
+	FinalConfig                  map[dscore.ConfigOption]bool
+	flagY, flagSelected, flagAll *bool   // checked where used
+	fManualRun, fPartialRun      *bool   // check first to toggle operation
+	fOptGlobalTarget             *string // must convert into FinalConfig if used
+	fSetupDebug                  *bool
+	dbg                          bool
 
-	flagOverrides, flagRunPartial *[]string
-	flagSources, flagTargets      *[]string
-	bOverrides, bPartial          bool
-	manualMode, partialMode       bool
-	specNames                     []string
-	flagNames                     flagCatcher
-}
-
-type flagCatcher struct {
-	used []string
+	//flagOverrides, flagRunPartial *[]string
+	flagSources, flagTargets *[]string
+	manualMode, partialMode  bool
+	specNames                []string
+	flagsPassed              []string
 }
 
 var mainRun runner
+
+func detailMainRun() string {
+	detail := make([]string, 0, 32)
+	hpref := "----[  PREFS: ]----\n-- RT bools --"
+	rtp := ""
+	for k, v := range mainRun.rtPrefs {
+		rtp += fmt.Sprintf("(%s) = %t\n", k.String(), *v)
+	}
+	sep := "--------"
+	hoflag := fmt.Sprintf("-- Other Flags --")
+	detail = append(detail, hpref, sep, rtp, hoflag)
+	for i, f := range mainRun.flagsPassed {
+		detail = append(detail, fmt.Sprintf("[%d] flag: %s", i, f))
+	}
+	// oo := ""
+	//
+	// runCmd.Flags().Visit(func(f *pflag.Flag) {
+	// 	oo = "VISITED A FLAG"
+	// 	oo += fmt.Sprintf("(%s: %v)", f.Name, f.Value)
+	//
+	// 	if len(oo)%3 == 0 {
+	// 		oo += "\n"
+	// 	}
+	// })
+	// detail = append(detail, hoflag, oo, sep, "--Specs--")
+	// detail = append(detail, mainRun.specNames...)
+	//
+	return strings.Join(detail, "\n")
+}
 
 // to handle different run modes/methods
 type runMethod interface {
@@ -90,61 +152,135 @@ var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Run spec copy job(s)",
 	Long: `Run copy jobs for one or more specs.
-Modify a run with one-time overrides, perform a partial run, or run a one time manually-entered run`,
-	Run: mainRun.run,
+Modify a run with one-time overrides, perform a partial run, or run a one-time, manually-entered run`,
+	RunE: mainRun.run,
 }
 
-func (r *runner) run(cmd *cobra.Command, args []string) {
-	// 1. check flags
-	// 1a:
-	// 1-2. make spec list
-	e := r.findFlags() //NOTE: Combine with handleFlags
-	if e != nil {
-		cmd.PrintErr(e)
-		cmd.Print("\nearly terminate")
-		return // no val func break
-	}
-
+func (r *runner) run(cmd *cobra.Command, args []string) error {
+	//Intended to prevent risk of destroying user data with an accidental encode/write to file
+	defer func() { dscore.TempData().Modified = false }()
+	r.dbg = *r.fSetupDebug
 	r.Command = cmd
 	r.args = args
+	JM := dscore.JobManager()
+	_ = JM
+	e := r.makeRuntimeConfig() //always returns nil error for now.
 
-	// if r.bManual {
-	// 	r.runManualJob()
-	// 	return
-	// }
-
-	r.specs = r.makeSpecList()
-	if len(r.specs) == 0 {
-		cmd.Print("0 specs to run")
-		return
+	if e != nil {
+		return e
 	}
 
-	conf := oneSpecOrUserConfirm("Run copy job for Specs ("+strings.Join(r.specNames, ", "), r.specs)
+	if r.dbg {
+		cmd.Println("Running run's run function")
+		cmd.Println("Runner pre-flag:")
+		cmd.Printf("%s", r.dbgOut())
+	}
+	r.handleFlags()
+	e = r.checkFlagProblems()
+	if e != nil {
+		return e
+	}
+	if r.dbg {
+		cmd.Printf("Runner post-flag:\n%s", r.dbgOut())
+	}
+
+	if r.manualMode {
+		e = r.runManualJob()
+		// Need to do anything at the end?
+		return e
+	} else {
+		r.specs = r.makeSpecList()
+	}
+
+	switch {
+	case len(r.specs) == 0:
+		cmd.Println("0 specs to run")
+		return fmt.Errorf("No specs to run")
+	case r.partialMode:
+		if r.dbg {
+			cmd.Println("Running Partial")
+		}
+		e := r.processPartial()
+		if e != nil {
+			return e
+		}
+	default:
+		if r.dbg {
+			cmd.Println("adding specs to JobManager")
+		}
+		dscore.JobManager().AddSpecs(r.specs...) // load specs
+	}
+
+	//jobDetail:= dscore.JobManager.MakeDetail()
+	//conf := oneSpecOrUserConfirm("Run copy job for Specs ("+strings.Join(r.specNames, ", "), r.specs)
+	conf := r.jobDetailUserConfirm()
 	if conf {
-		r.prepAndRun()
+		if r.dbg {
+			cmd.Println("prepping and running")
+		}
+		err := r.prepAndRun()
+		if err != nil {
+			return fmt.Errorf("in prepAndRun(): %w", err)
+		}
+	}
+	return nil
+}
+
+func (r *runner) ps(ss ...string) {
+	if len(ss) > 0 {
+		for _, s := range ss {
+			r.Println("|" + s)
+		}
+	} else {
+		r.Print("~")
+	}
+
+}
+
+func (r *runner) jobDetailUserConfirm() bool {
+	ls := len(r.specs)
+	requestText := dscore.JobManager().WriteJobDetail()
+	return ls == 1 || (ls > 1 && checkConfirm(requestText, r.flagY))
+
+}
+
+func (r *runner) prepAndRun() error {
+	jm := dscore.JobManager()
+	jm.RuntimeConfigure(r.FinalConfig)
+	jm.AddSpecs(r.specs...)
+	if r.dbg {
+		r.Printf("JobManager: added specs, set runtimeConfig:\n%v\n", r.FinalConfig)
+		r.Printf("JobManager Current State:\n%+v\n", *jm)
+	}
+
+	if r.dbg {
+		r.Println("running setup only")
+		jm.SetupOnly()
+		return nil
+	} else {
+		err := jm.SetupAndRunAll(true)
+		return err
 	}
 }
 
-func (r *runner) prepAndRun() {
-	jm := dscore.JobManager()
-	_ = jm
-
-}
-
-func (r *runner) processPartial() {
-
+func (r *runner) processPartial() error {
+	J := dscore.JobManager()
+	J.RuntimeConfigure(r.FinalConfig)
+	for _, s := range r.specs {
+		// keepSources := s.GetMatching(*r.flagSources, true) //keepTargets := s.GetMatching(*r.flagTargets, false)
+		e := J.AddAsPartial(s, *r.flagSources, *r.flagTargets)
+		if e != nil {
+			return e
+		}
+	}
+	return nil
 }
 
 func (r *runner) makeSpecList() []*dscore.Spec {
 	// reason for not writing directly to r.specs??
 	specs := make([]*dscore.Spec, 0, len(r.args)+1)
-	r.specNames = make([]string, 0, len(r.args))
+	r.specNames = make([]string, 0, len(r.args)+1)
 	temp := dscore.TempData()
-	if !*r.flagNoSelectedSpec {
-		s := temp.SelectedSpec()
-		specs = append(specs, s)
-		r.specNames = append(r.specNames, s.Alias)
-	}
 	for _, alias := range r.args {
 		s := temp.GetSpec(alias)
 		if s != nil {
@@ -154,88 +290,74 @@ func (r *runner) makeSpecList() []*dscore.Spec {
 			r.Printf("Spec '%s' not found\n", alias)
 		}
 	}
+
+	if ss := temp.SelectedSpec(); (*r.flagSelected || len(r.args) == 0) && !slices.Contains(specs, ss) {
+		specs = append(specs, ss)
+		r.specNames = append(r.specNames, ss.Alias)
+	}
+	if r.dbg {
+		r.Printf("Specs pulled:\n,")
+		for i := range specs {
+			fmt.Printf("	[%d] %s", i, specs[i].Alias)
+		}
+	}
 	return specs
 }
 
 // ── Flag/Config Logic ───────────────────────────────────────────────
-func (r *runner) handleFlags() error {
-	//nflags := r.set.NFlag() - len(r.rtPrefs)
-	if len(r.rtPrefs) > 0 {
-		r.processOptions()
-	}
 
-	if *r.fManualRun {
-
-	} else if r.bPartial { // partial/manual should not be runing at same time
-		r.processPartial()
-	}
-
-	return nil
-}
-
-// must be run for option use elsewhere.
-// makes realPrefs (deref map)
-func (r *runner) processOptions() {
-	for k, v := range r.rtPrefs {
-		r.realPrefs[k] = *v
-	}
-
-	// make globaltarget option from flag
-	if optGT := *r.fOptGlobalTarget; optGT != "" {
-		if toBool := dscore.StringToBool(optGT); toBool != nil {
-			if *toBool {
-				r.realPrefs[dscore.BoolUseGlobalTarget] = true
-			} else if !*toBool { // this is 100% the only possibility but feel the need to be sure
-				r.realPrefs[dscore.BoolKillGlobalTarget] = true
-			}
-		}
-	}
-}
-
-func (r *runner) trimPrefs() {
-	maps.DeleteFunc(r.realPrefs, r.keep)
-}
-
-func (r *runner) keep(k dscore.ConfigOption, v bool) bool { return k.IsRealOption() && k.IsBool() }
-
-// ──────────────────────────────────────────────────────────────────────
-
-// calculates bManual, bPartial, bOverrides.
-// Errors on unusable combination of flags/args
-
-func (r *runner) findFlags() error {
-	estr := ""
+func (r *runner) makeRuntimeConfig() error {
 	if !r.set.HasFlags() {
 		return nil
 	}
-	r.set.Visit(r.flagNames.collect)
+	r.set.Visit(r.process)
+	return nil
+}
 
-	if prtLen := len(*r.flagRunPartial); prtLen > 0 && !*r.fManualRun {
-		r.bPartial = true // probably delete
-	} else if prtLen > 0 { //if Partial flag + Manual flag?
-		estr += "Partial flag and Manual flag are mutually exclusive\n"
-	}
-
-	if len(*r.flagOverrides) > 0 {
-		r.bOverrides = true
-	}
-	if estr == "" {
-		return nil
-	} else {
-		return fmt.Errorf("%s", estr)
+// Processes flags and finds names.
+// will make realPrefs only keeping input flags
+func (r *runner) process(f *pflag.Flag) {
+	r.flagsPassed = append(r.flagsPassed, f.Name)
+	if key := flagOptKey(f.Name); key.IsBool() {
+		r.FinalConfig[key] = *r.rtPrefs[key]
 	}
 }
 
-func (fc *flagCatcher) collect(f *pflag.Flag) {
-	fc.used = append(fc.used, f.Name)
+//TODO:(mid) Take a step back; determine if there is a way besides loop Visit({get names}) then loop(names){if = loop(flagOptIDs) then add 2 finalconfig}
+
+// handleFlags applies the remainder of flags that aren't checked in-process.
+// Flags not handled by handleFlags+makeRuntimeConfig: All, NoSelect, Src, Tgt, Y
+func (r *runner) handleFlags() {
+	if optGT := *r.fOptGlobalTarget; optGT != "" {
+		if toBool := dscore.StringToBool(optGT); toBool != nil {
+			if *toBool {
+				r.FinalConfig[dscore.BoolUseGlobalTarget] = true
+			} else {
+				r.FinalConfig[dscore.BoolKillGlobalTarget] = true
+			}
+		}
+	}
+	r.manualMode = *r.fManualRun
+	r.partialMode = *r.fPartialRun
 }
 
-func (r *runner) makeCopyJobs() {
-
+func (r *runner) checkFlagProblems() error {
+	if r.manualMode && r.partialMode {
+		return ErrMultiMode
+	}
+	if r.manualMode || r.partialMode {
+		if len(r.args) != 2 && (len(*r.flagSources) == 0 || len(*r.flagTargets) == 0) {
+			return ErrMissModeDependency
+		}
+	}
+	return nil
 }
 
-func (r *runner) runManualJob() {
+// ──────────────────────────────────────────────────────────────────────
 
+func (r *runner) runManualJob() error {
+
+	// do we actually want operation using args in manualMode
 	if len(r.args) == 2 {
 		jobmgr := dscore.JobManager()
 		job, e := jobmgr.SetupManual([]string{r.args[0]}, []string{r.args[1]})
@@ -243,9 +365,47 @@ func (r *runner) runManualJob() {
 		if e != nil {
 			r.PrintErr(e)
 		} else {
-
+			jobmgr.RuntimeConfigure(r.FinalConfig)
 		}
 
 	}
 
+	return nil
+}
+
+// *cobra.Command
+// specs []*dscore.Spec
+// args  []string
+// set   *pflag.FlagSet
+//
+// rtPrefs                      map[dscore.ConfigOption]*bool
+// FinalConfig                  map[dscore.ConfigOption]bool
+// flagY, flagSelected, flagAll *bool   // checked where used
+// fManualRun, fPartialRun      *bool   // check first to toggle operation
+// fOptGlobalTarget             *string // must convert into FinalConfig if used
+// fSetupDebug                  *bool
+// dbg                          bool
+//
+// //flagOverrides, flagRunPartial *[]string
+// flagSources, flagTargets *[]string
+// manualMode, partialMode  bool
+// specNames                []string
+// flagsPassed              []string
+
+func (r *runner) dbgOut() string {
+	d := "[Runner]\n"
+	d += fmt.Sprintf("args:'%s'\n", r.args)
+	if len(r.specs) > 0 {
+		d += fmt.Sprintf("specs:\n")
+		for i := range r.specs {
+			d += fmt.Sprintf("	%s\n", r.specs[i].Alias)
+		}
+	}
+	if len(r.flagsPassed) > 0 {
+		d += fmt.Sprintf("flags passed:\n")
+		for _, f := range r.flagsPassed {
+			d += fmt.Sprintf("	%s\n", f)
+		}
+	}
+	return d
 }

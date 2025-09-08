@@ -15,13 +15,27 @@ var (
 	tstrings flagtype = config.TstringSlice
 )
 
-type flagdata struct {
-	name, short, usage string
-	isP, isOption      bool
-	datatype           flagtype
-	defaultValue       any
-	actualValue        any
+type fflag interface {
+	valType() flagtype
+	boolDefaultVal() *bool
+	boolVal() *bool
+	stringDefaultVal() *string
+	stringVal() *string
+	stringSliceDefaultVal() *[]string
+	stringSliceVal() *[]string
 }
+
+type flagdata struct {
+	*pflag.Flag
+	optionkey    config.OptionKey
+	datatype     flagtype
+	defaultValue any
+	actualValue  any
+}
+
+func (f *flagdata) valType() flagtype { return f.datatype }
+
+func (f *flagdata) isConfigOption() bool { return f.optionkey.IsRealOption() }
 
 func (f *flagdata) boolDefaultVal() *bool {
 	val, ok := f.defaultValue.(*bool)

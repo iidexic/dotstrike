@@ -55,13 +55,18 @@ func AllOptionIDs() []OptionKey {
 	return opts
 }
 
+//TODO:(HIGHEST) REPLACE LOOKUPS WITH DEFINED FLAGS WHEREVER THEY ARE HAPPENING
+
 // option spec contains required information for each option.
 // includes name, type, use/purpose, and lookup string slices
 // LookupSubstrings uses `|` to indicate separate values that can be used in the same place
 type option struct {
 	Type             ValueType
 	LookupSubstrings []string
+	LookupExacts     []string
 	NameText         string
+	fName, fshort    string
+	runUsage         string
 	ForFileOp        bool
 	ForRun           bool
 	ForSpec          bool
@@ -69,45 +74,62 @@ type option struct {
 
 var AllOptions = map[OptionKey]option{
 	BoolIgnoreRepo: {
-		Type: Tbool, NameText: "IgnoreRepo", ForFileOp: true,
-		LookupSubstrings: []string{"ignore|no", "repo|git"},
+		Type: Tbool, NameText: "IgnoreRepo", fName: "ignore-repo",
+		runUsage:  "Disables copy of the .git repo by adding to global ignores.",
+		ForFileOp: true, LookupSubstrings: []string{"ignore|no", "repo|git"},
+		LookupExacts: []string{"nore"},
 	},
 	BoolIgnoreHidden: {
-		Type: Tbool, NameText: "IgnoreHidden", ForFileOp: true,
-		LookupSubstrings: []string{"ignore|no", "hidden"},
+		Type: Tbool, NameText: "IgnoreHidden", fName: "ignore-hidden",
+		runUsage:  `Add hidden paths to global ignores; Disables copy of dir/file names that begin with '_' or '.'`,
+		ForFileOp: true, LookupSubstrings: []string{"ignore|no", "hidden"}, LookupExacts: []string{"nohi"},
 	},
 	BoolRootSubdir: {
-		Type: Tbool, NameText: "MakeRootSubdir", ForFileOp: true,
-		LookupSubstrings: []string{"root|make", "sub"},
+		Type: Tbool, NameText: "MakeRootSubdir", fName: "make-subdir",
+		runUsage: `Makes a new dir in target folder to copy a spec into.
+Dir is named with spec's alias if possible, else numbers will be added`,
+		ForFileOp: true, LookupSubstrings: []string{"root|make", "root|sub", "dir"},
+		LookupExacts: []string{"mrsd"},
 	},
 	BoolSourceSubdirs: {
-		Type: Tbool, NameText: "SourceSubdirs", ForFileOp: true,
-		LookupSubstrings: []string{"source|src", "sub|dirs"},
+		Type: Tbool, NameText: "SourceSubdirs", fName: "separate-sources",
+		runUsage:  "Copies each source into a separate subdir; name is source's alias or source path's dir name.",
+		ForFileOp: true, LookupSubstrings: []string{"source|src", "sub|dirs"},
+		LookupExacts: []string{"ssep"},
 	},
 	BoolNoFiles: {
-
-		Type: Tbool, NameText: "CopyNoFiles", ForFileOp: true,
-		LookupSubstrings: []string{"no", "files|copy"},
+		Type: Tbool, NameText: "CopyNoFiles", fName: "no-files", fshort: "n",
+		runUsage:  "Disable filecopy for run. Use for dry runs, or with --all-dir to copy only the directory structure",
+		ForFileOp: true, LookupSubstrings: []string{"no", "files|copy"}, LookupExacts: []string{"dryrun", "dry"},
 	},
 	BoolCopyAllDirs: {
-		Type: Tbool, NameText: "CopyAllDirs", ForFileOp: true,
-		LookupSubstrings: []string{"copy|all", "all|", "dir"},
+		Type: Tbool, NameText: "CopyAllDirs", fName: "all-dirs", fshort: "d",
+		runUsage: `Copy all Source subdirectories, including empty subdirectories. 
+Use with --no-files to only copy the directories themselves.`,
+		ForFileOp: true, LookupSubstrings: []string{"copy|all", "all|", "dir"}, LookupExacts: []string{"alldirs", "aldr"},
 	},
 	BoolUseGlobalTarget: {
-		Type: Tbool, NameText: "UseGlobalTarget", ForSpec: true,
-		LookupSubstrings: []string{"use", "global", "target|tgt|"},
+		Type: Tbool, NameText: "UseGlobalTarget", fName: "use-global-target",
+		runUsage: `Use "--GlobalTarget" to enable write to Global Target for all specs in run.
+Use --GlobalTarget="off" to forcibly disable write to GlobalTarget for full run, including specs that exclusively target the Global Target.`,
+		ForSpec: true, LookupSubstrings: []string{"use|all|force", "global|glb|gtg", "target|tgt|"}, LookupExacts: []string{"usegt", "allgt", "agtg"},
 	},
 	BoolKillGlobalTarget: {
-		Type: Tbool, NameText: "DisableGlobalTarget", ForSpec: true,
-		LookupSubstrings: []string{"kill|disable", "global", "target|tgt|"},
+		Type: Tbool, NameText: "DisableGlobalTarget", fName: "kill-global-target",
+		runUsage: `--GlobalTarget=off`,
+		ForSpec:  true, LookupSubstrings: []string{"kill|disable|no", "glob|glb|gtg", "target|tgt|"},
+		LookupExacts: []string{"nogt", "gtoff", "gtgoff"},
 	},
 	BoolOverrideOn: {
-		Type: Tbool, NameText: "OverrideOn", ForSpec: true,
-		LookupSubstrings: []string{"override", "on|enable|"},
+		Type: Tbool, NameText: "OverrideOn", fName: "use-override",
+		runUsage: ``,
+		ForSpec:  true, LookupSubstrings: []string{"|use", "override", "on|enable|"}, LookupExacts: []string{"over", "esor"},
 	},
 	StringGlobalTargetPath: {
-		Type: Tstring, NameText: "GlobalTargetPath", ForRun: true,
-		LookupSubstrings: []string{"set", "glob|glb", "target|tgt|dest", "path|dir"},
+		Type: Tstring, NameText: "GlobalTargetPath", fName: "set-global-target-path",
+		runUsage: ``, ForRun: true,
+		LookupSubstrings: []string{"set", "glob|glb", "target|tgt|dest", "path|dir|"},
+		LookupExacts:     []string{"gtpath", "globaltarget", "gtpath"},
 	},
 }
 
@@ -120,7 +142,9 @@ func (o OptionKey) String() string {
 	}
 	return "FAILURE_OPTION_NOT_FOUND_IN_ALLOPTIONS"
 }
-
+func (o OptionKey) RunUsage() string   { return AllOptions[o].runUsage }
+func (o OptionKey) NameFlag() string   { return AllOptions[o].fName }
+func (o OptionKey) NameFshort() string { return AllOptions[o].fshort }
 func (o OptionKey) IsRealOption() bool { return slices.Contains(AllOptionIDs(), o) }
 
 func (o OptionKey) MarshalTOML() ([]byte, error) {
@@ -175,6 +199,23 @@ func LookupOption(input string) OptionKey {
 	}
 	return NotAnOption
 }
+
+func LookupOptionExact(input string) (OptionKey, error) {
+	input = strings.TrimSpace(strings.ToLower(input))
+	for id, opt := range AllOptions {
+		if slices.Contains(opt.LookupExacts, input) {
+			return id, nil
+		}
+	}
+	return NotAnOption, nil
+}
+
+// func div(num, divis int) float32 {
+// 	if divis != 0 {
+// 		return float32(num) / float32(divis)
+// 	}
+// 	return -0
+// }
 
 // Returns 1 key for each string. If string does not match, returns NotAnOption
 func GetOptionKeys(searches []string) []OptionKey {

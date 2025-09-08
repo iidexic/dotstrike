@@ -2,23 +2,13 @@ package dscore
 
 import (
 	"fmt"
+	"maps"
 	"slices"
+	"strconv"
 	"strings"
 
 	pops "iidexic.dotstrike/pathops"
 )
-
-// TODO: What is this. Make this an error or get rid of it
-func recoverReturn(explainer string) bool {
-	if r := recover(); r != nil {
-		fmt.Printf("FAILED [%s]. ERROR", explainer)
-		fmt.Println(r)
-		return true
-	}
-	return false
-}
-
-//TODO: Replace overrides with map/maps?
 
 // Primary user data structure; contains info required to perform a dircopy operation
 // Methods:
@@ -289,6 +279,23 @@ func (S *Spec) removeTargetByIndex(index int) {
 
 // ── Modifying Spec Data ─────────────────────────────────────────────
 
+// TODO: Replace CheckAddPath with S.AddSource!
+func (S *Spec) AddSource(path string, ignorelist ...string) error {
+	if !S.IsPathChild(path) {
+		tempData.Modify()
+		abs := pops.MakeAbs(path)
+		S.Sources = append(S.Sources,
+			pathComponent{
+				Path:    path,
+				Abspath: abs,
+				Ctype:   sourceComponent,
+				Parent:  S.Alias,
+			})
+		return nil
+	}
+	echild := S.GetIfChild(path)
+	return fmt.Errorf("path `%s` is already in spec %s as a %s!", path, S.Alias, echild.getCtype().String())
+}
 func (S *Spec) AddIgnores(ignores []string) {
 	S.Ignorepat = append(S.Ignorepat, ignores...)
 }
@@ -343,6 +350,68 @@ func (S *Spec) DeleteIfChild(identifier string, isSource bool, singleDelete bool
 	}
 	return count
 }
+func (S *Spec) GetMatching(ids []string, isSource bool) []int {
+	imap := make(map[int]bool, len(ids))
+	for _, id := range ids {
+		if i := S.textMatchesComponent(id, isSource); i >= 0 {
+			imap[i] = false
+		}
+	}
+	indices := make([]int, len(imap))
+	n := 0
+	for k := range imap {
+		indices[n] = k
+		n++
+	}
+	return indices
+}
+
+// TextMatchesComponent identifies first source/target where s matches and returns its index
+// The matches tried are:
+//   - sv as an integer index in the slice (ie S.Sources[int(sv)])
+//   - sv match to source/target alias (ie clean(sv) == source.Alias)
+//   - sv match full path or base name (ie clean(sv) == filepath.Base(source.Path))
+func (S *Spec) textMatchesComponent(xid string, isSource bool) int {
+	var oplist []pathComponent
+	if isSource {
+		oplist = S.Sources
+	} else {
+		oplist = S.Targets
+	}
+
+	index, e := strconv.Atoi(xid)
+	if e == nil && index < len(oplist) {
+		return index
+	}
+	// now for the other ones
+	xid = QuickClean(xid)
+	for i := range oplist {
+		if oplist[i].MatchesID(xid) {
+			return i
+		}
+	}
+	return -1
+}
+
+func (s *Spec) cloneSelf() *Spec {
+	new := &Spec{Alias: s.Alias, OverrideOn: s.OverrideOn, Ctype: specComponent}
+	copy(new.Sources, s.Sources)
+	copy(new.Targets, s.Targets)
+	if len(s.Ignorepat) > 0 {
+		copy(new.Ignorepat, s.Ignorepat)
+	}
+	if len(s.Overrides.Bools) > 0 {
+		maps.Copy(new.Overrides.Bools, s.Overrides.Bools)
+	}
+	return new
+}
+
+func (S *Spec) getComponentList(isSource bool) *[]pathComponent {
+	if isSource {
+		return &S.Sources
+	}
+	return &S.Targets
+}
 
 // WipeComponentList deletes everything from Sources if isSource, or Targets if !isSource
 func (S *Spec) WipeComponentList(isSource bool) {
@@ -353,6 +422,36 @@ func (S *Spec) WipeComponentList(isSource bool) {
 
 		S.Targets = make([]pathComponent, 0)
 	}
+}
+
+func (s *Spec) sourcePaths() []string {
+	paths := make([]string, len(s.Sources))
+	for i, src := range s.Sources {
+		if src.Abspath != "" {
+			paths[i] = src.Abspath
+		} else {
+			paths[i] = src.Path
+		}
+	}
+	return paths
+}
+
+func (s *Spec) targetPaths() []string {
+	paths := make([]string, len(s.Targets))
+	for i, tgt := range s.Targets {
+		if tgt.Abspath != "" {
+			paths[i] = tgt.Abspath
+		} else {
+			paths[i] = tgt.Path
+		}
+	}
+	return paths
+}
+
+func (S *Spec) stripComponentList(ikeep []int, isSource bool) {
+	oplist := S.getComponentList(isSource)
+	newlist := KeepIndices(*oplist, ikeep)
+	oplist = &newlist
 }
 
 // CheckAddMultiplePaths adds paths to spec.Sources if isSource, spec.Targets if !isSource

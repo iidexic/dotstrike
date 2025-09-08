@@ -71,6 +71,28 @@ func TestRangeEnd(t *testing.T) {
 	t.Log(s)
 }
 
+func TestNumFormat(t *testing.T) {
+	n := 1
+	t.Logf("%02d", n)
+	t.Logf("%03d", n+32)
+	t.Logf("%0xd", n)
+}
+
+func TestWeirdKeys(t *testing.T) {
+	m := make(map[string]bool)
+
+	m["bringo"] = true
+	m[""] = false
+	m["\\\b\abro\vng\r\fo"] = true
+	m["%d"] = false
+	m[`
+
+	`] = true
+	for k, v := range m {
+		t.Logf("key[%s] == %t", k, v)
+	}
+}
+
 func TestNiler(t *testing.T) {
 	var e error
 	err2 := fmt.Errorf("e equals %w", e)
@@ -103,6 +125,19 @@ func TestIndexString(t *testing.T) {
 	text := lesstext
 	for i := range text {
 		t.Logf("[%d] - %s", i, string(text[i]))
+	}
+}
+
+func TestStructMapInitty(t *testing.T) {
+	type wm struct {
+		name string
+		m    map[string]bool
+	}
+	v := wm{name: "bill"}
+	if v.m == nil {
+		t.Log("map in struct is nilly")
+	} else {
+		t.Logf("%+v", v.m)
 	}
 }
 
@@ -216,4 +251,32 @@ func TestPathSplit(t *testing.T) {
 	for i, s := range seg {
 		t.Logf("%d. %s", i, s)
 	}
+}
+
+type varErr struct {
+	str     string
+	fmtvals []any
+}
+
+func (ve varErr) Error() string {
+	return fmt.Sprintf(ve.str, ve.fmtvals...)
+}
+
+type lookupErr struct {
+	varErr
+	searchfor, returned string
+	match               bool
+}
+
+func (l lookupErr) Error() string {
+	return ":)"
+}
+
+func TestStructNestFunc(t *testing.T) {
+	ve := varErr{str: "var = %v", fmtvals: []any{"Bringo!"}}
+	le := lookupErr{varErr: ve, searchfor: "one", returned: "almost one", match: false}
+	t.Log("logging: 1. varErr, 2.lookupErr")
+	t.Logf("1: %v", ve.Error())
+	t.Logf("2. %v", le.Error())
+	t.Logf("3. %v", le.varErr.Error())
 }

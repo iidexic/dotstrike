@@ -3,36 +3,27 @@ package dscore
 import (
 	"fmt"
 	"maps"
+	"strings"
 
 	"iidexic.dotstrike/config"
 	pops "iidexic.dotstrike/pathops"
 )
 
-//TODO: Make Run command non-persistently modify spec prefs for hard overrides/one-time overrides
+//TODO: (hi-postrelease) Move job/execute code to pops package?
+//	For the copy running, dscore is exclusively acting as middle man from cmd to pops
+//	At the very least, find what makes more sense in pops and pull it over there.
 
-//todo list
-// - finish hard overrides
-// - implement manual runs
-// - implement partial runsneovid
-// - implement all flags
+var (
+	ErrNotMade      = fmt.Errorf("Error: Spec Copy Jobs did not get made")
+	ErrNoSpecConfig = fmt.Errorf("Error: Config not applied to spec")
+)
 
-// Hard overrides;  what's  the joke (keeping this, was basically asleep when I wrote it)
-// think thru hard override implementation:
-/*
+var Copier = pops.Copier()
 
- */
-
-type jobProcessor struct {
+type jobProcessor struct { // uses gd/TempData() for global prefs and global target
 	specs         map[string]*jobSpec
 	runtimeConfig map[config.OptionKey]bool
-}
-
-type jobSpec struct {
-	*Spec
-	config                  map[config.OptionKey]bool
-	jobs                    []*pops.CopyJob
-	manualRun               bool
-	configApplied, madeJobs bool
+	setupComplete bool
 }
 
 var manager = jobProcessor{
@@ -40,189 +31,136 @@ var manager = jobProcessor{
 	runtimeConfig: make(map[config.OptionKey]bool),
 }
 
-func (J *jobProcessor) AddSpecs(s []*Spec) {
-	//Preference priority hierarchy:
-	/* lower prio to higher prio;
-	0. program defaults
-	1. global pref
-	2. spec overrides.
-	3. runtime flags/hard override
-	In order for this to work:
-	- Do not write global prefs to overrides. ENSURE THIS IS REMOVED
-	- Do not write global prefs to runtime config. (remove, somewhere in this file)
-	- There should be no reason to first write program defaults if init has occured correctly
+// Adds specs as partial specs by stripping any source/target
+// paths that don't match with the IDs passed.
+//
+// The current implementation clones the specs, but will probably change
+// to using specs directly from gd in the future.
+func (J *jobProcessor) AddAsPartial(s *Spec, sourceIDs []string, targetIDs []string) error {
+	// TODO: determine if we can just use specs direct from globalData as to not bloat things.
+	isources := s.GetMatching(sourceIDs, true)
+	itargets := s.GetMatching(targetIDs, false)
+	ns := s.cloneSelf()
+	ns.stripComponentList(isources, true)
+	ns.stripComponentList(itargets, false)
+	J.specs[ns.Alias] = &jobSpec{Spec: ns}
+	return nil
+}
 
-	Order of Operations:
-	1. directly apply global pref
-	2. maps.Copy() spec overrides IF they are on
-	3. maps.Copy() runtimeOverride if populated
-	*/
-	for _, spec := range s {
-		J.specs[spec.Alias] = &jobSpec{Spec: spec}
-		maps.Copy(J.specs[spec.Alias].config, gd.data.Prefs.Bools)
-		if spec.OverrideOn {
-			maps.Copy(J.specs[spec.Alias].config, spec.Overrides.Bools)
+func (J *jobProcessor) AddSpecs(s ...*Spec) {
+	for i := range s {
+		J.specs[s[i].Alias] = &jobSpec{Spec: s[i]}
+	}
+}
+
+func (J *jobProcessor) SetupAndRunAll(abortOnError bool) error {
+	// if confirmHaveRuntimeConfig && (J.runtimeConfig == nil || len(J.runtimeConfig) == 0) {
+	// 	return fmt.Errorf("Run terminated: No runtime config (confirmHaveRuntimeConfig on)")
+	// }
+	var runErr error
+	for i := range J.specs {
+		J.specs[i].applyConfigsPrioritized(gd.data.Prefs.Bools, J.runtimeConfig)
+		J.specs[i].group = Copier.NewJobGroup(J.specs[i].groupExport())
+		J.setupComplete = true
+		e := J.specs[i].group.RunAll(abortOnError)
+		if e != nil {
+			if abortOnError {
+				return fmt.Errorf("Problem with run of group %s: %w", J.specs[i].Alias, e)
+			}
+			if runErr == nil {
+				runErr = fmt.Errorf("Group Fails: (GRP-%s - %w)", J.specs[i].Alias, e)
+			} else {
+				runErr = fmt.Errorf("%w (GRP-%s - %w})", runErr, J.specs[i].Alias, e)
+			}
 		}
-		if len(J.runtimeConfig) > 0 {
-			maps.Copy(J.specs[spec.Alias].config, J.runtimeConfig)
+
+	}
+	return runErr
+}
+
+func (J *jobProcessor) SetupOnly() {
+	// if confirmHaveRuntimeConfig && (J.runtimeConfig == nil || len(J.runtimeConfig) == 0) {
+	// 	return fmt.Errorf("Run terminated: No runtime config (confirmHaveRuntimeConfig on)")
+	// }
+
+	for i := range J.specs {
+		J.specs[i].applyConfigsPrioritized(gd.data.Prefs.Bools, J.runtimeConfig)
+		J.specs[i].group = Copier.NewJobGroup(J.specs[i].groupExport())
+	}
+
+}
+
+// TODO: (LOW-later) re-do configs so a priority can be attached (then only need to write overrides at spec-level)
+
+// Performs necessary process of applying all priority levels of configuration to all individual specs
+// Don't think this is needed anymore
+func (J *jobProcessor) applySpecConfigs() {
+	for i := range J.specs {
+		//1. apply global config. Handles both defaults + globals
+		maps.Copy(J.specs[J.specs[i].Alias].config, gd.data.Prefs.Bools)
+		if J.specs[i].OverrideOn { //2. apply spec overrides where enabled
+			maps.Copy(J.specs[J.specs[i].Alias].config, J.specs[i].Overrides.Bools)
 		}
+		if len(J.runtimeConfig) > 0 { // 3. apply runtimeConfig if populated
+			maps.Copy(J.specs[J.specs[i].Alias].config, J.runtimeConfig)
+		}
+		J.specs[i].configApplied = true
+	} // At this point, all specs have their configuration
+
+}
+
+func (J *jobProcessor) makeJobGroups() {
+	for i := range J.specs {
+		alias := J.specs[i].Alias
+		J.specs[i].group = Copier.NewJobGroup(alias,
+			J.specs[i].sourcePaths(),
+			J.specs[i].targetPaths(),
+			J.specs[i].config)
+		J.specs[i].madeJobs = true
 	}
 }
 
 func JobManager() *jobProcessor {
 	//1. sort out config as is
-	manager.applyConfig(gd.data.Prefs.Bools)
+	maps.Copy(manager.runtimeConfig, gd.data.Prefs.Bools)
 	return &manager
 }
 
-// applyConfig directly overwrites job processor's runtime config, no checks are done beforehand
-// Any configuring must be done before specs are loaded into jobProcessor
-func (J *jobProcessor) applyConfig(bools map[config.OptionKey]bool) {
-	maps.Copy(J.runtimeConfig, bools)
-}
-
-func (J *jobProcessor) SetupCopyJobs() {
-	for k := range J.specs {
-		J.specs[k].makeCopyJobs()
-	}
-}
-
-// Configure applies the preferences provided in prefdata to the jobProcessor
-// Any CopyJob run before processing ends will use these settings - they are prioritized over any other.
-// returns a list of the prefdata keys that were NOT applied (do not match any config option)
-func (J *jobProcessor) Configure(prefdata map[string]bool) []string {
-	notFound := make([]string, 0, len(prefdata))
-	for id, val := range prefdata {
-		if opt := OptionID(id); opt != NotAnOption {
-			J.runtimeConfig[opt] = val
-		} else {
-			notFound = append(notFound, id)
-		}
-	}
-	return notFound
-}
-
-// NOTE: Directly overwrites JobProcessor runtime config;
-// These will apply to everything in the run!
-// Remove any unnecessary key/value pairs before calling RuntimeConfigure
-func (J *jobProcessor) RuntimeConfigure(opts *map[ConfigOption]bool) {
-	maps.Copy(J.runtimeConfig, *opts)
-
+// RuntimeConfigure Directly overwrites JobProcessor runtime config.
+// This is the highest priority set of
+// Remove any unnecessary key/value pairs before calling RuntimeConfigure.
+func (J *jobProcessor) RuntimeConfigure(opts map[ConfigOption]bool) {
+	maps.Copy(J.runtimeConfig, opts)
 }
 
 func (J *jobProcessor) SetupManual(sourcePaths, targetPaths []string) (*jobSpec, error) {
 	s := Spec{Alias: "@manual@"}
 	var e error
 	ersrc := s.temporaryComponents(true, sourcePaths...)
-	ertgt := s.temporaryComponents(true, sourcePaths...)
+	ertgt := s.temporaryComponents(false, targetPaths...)
 	if ersrc != nil || ertgt != nil {
 		e = fmt.Errorf("path add failures:\nsources:%w\ntargets:%w", ersrc, ertgt)
 	}
 	return &jobSpec{Spec: &s}, e
 }
 
-func (js *jobSpec) editOverrides(runtimeConfig map[config.OptionKey]bool) {
-	for k, v := range runtimeConfig {
-		if k.IsBool() {
-			js.OverrideOn = true
-			js.Overrides.Bools[k] = v
-		}
+// func (J *jobProcessor) RunAll(stopOnError bool) { pops.Copier().RunAll(stopOnError) }
+
+func (J *jobProcessor) WriteJobDetail() string {
+	//len==
+	dtl := make([]string, len(J.runtimeConfig)+len(J.specs)+2)
+	i := 0
+	dtl[i] = "COPIER\nConfig  for Copy Jobs:"
+	i++
+	// J.runtimeConfig should have Everything in it before now;
+	for k, v := range J.runtimeConfig {
+		dtl[i] = fmt.Sprintf("[%s] = %t", k.String(), v)
+		i++
 	}
-}
-func (js *jobSpec) makeCopyJobs() {
-	for i, src := range js.Sources {
-		for j, tgt := range js.Targets {
-			nm := fmt.Sprintf("%s/%d/%d", js.Alias, i, j)
-			js.jobs = append(js.jobs, pops.Copier().NewJob(nm, src.Path, tgt.Path))
-		}
+	dtl[i] = "Job Specs:"
+	i++
+	for _, js := range J.specs {
+		dtl[i] = js.briefDetail()
 	}
-
-}
-func (js *jobSpec) RunJobs(continueOnError bool) error {
-	if !js.madeJobs || !js.configApplied {
-		return fmt.Errorf("jobs not initialized: (jobsMade=%t,configApplied=%t)",
-			js.madeJobs, js.configApplied)
-	}
-	var ecopy []error
-	for i := range js.jobs {
-		e := js.jobs[i].Run()
-		if e != nil && !continueOnError {
-			return fmt.Errorf("err: copy from %s to %s\n%w", js.jobs[i].PathIn, js.jobs[i].PathOut, e)
-		} else if e != nil {
-			ecopy = append(ecopy, e)
-		}
-		//what to do here?
-	}
-	if len(ecopy) == 0 {
-		return nil
-	}
-	e := fmt.Errorf("Copy errors: %d", len(ecopy))
-	for i := range ecopy {
-		e = fmt.Errorf("%w\n%w", e, ecopy[i])
-	}
-	return e
-}
-
-func (S *Spec) makeJobConfig() *prefs {
-	return nil
-}
-
-// TODO: COMPLETELY RE-WRITE
-func (S *Spec) applyJobConfig(job *pops.CopyJob) *pops.CopyJob {
-	var runPrefs prefs
-	if S.OverrideOn {
-		runPrefs = S.Overrides
-	} else {
-		runPrefs = gd.data.Prefs
-	}
-	if runPrefs.Bools[BoolUseGlobalTarget] {
-		//MakeSubdir
-	}
-	if runPrefs.Bools[BoolIgnoreRepo] {
-		job.IgnoreGit()
-	}
-
-	return job
-}
-
-func (S *Spec) newCopyJob(isrc, itgt int) *pops.CopyJob {
-	return pops.Copier().NewJob(
-		S.jobName(isrc, itgt),
-		S.Sources[isrc].Abspath,
-		S.Targets[itgt].Abspath,
-	)
-
-}
-
-func (S *Spec) jobName(isrc, itgt int) string {
-	return fmt.Sprintf("%s.src-%d.tgt-%d", S.Alias, isrc, itgt)
-}
-
-type runtimeOverride struct {
-	//*prefs //just add only changed to map
-	options map[ConfigOption]bool
-	on      bool
-}
-
-var hardOverrides = runtimeOverride{options: make(map[ConfigOption]bool), on: false} //unnecessary initialize?
-// For runtime override flag use.
-// var hardCopyOverride *prefs = &prefs{}
-// var useHardOverride bool = false
-//
-// var overrideWhat []bool = make([]bool, len(BoolOptions))
-//
-// func MakeHardOverride() *prefs {
-// 	// Add all options to the map, with their existing values in global (or spec if overrides already on)
-// 	useHardOverride = true
-// 	return hardCopyOverride
-// }
-
-// TODO:(NOW) - Re-write to use option.ValType IsBool
-func SetHardOverride(boolOpt ConfigOption, value bool) bool {
-	if boolOpt.IsBool() {
-		hardOverrides.options[boolOpt] = value
-		return true
-	}
-
-	return false
+	return strings.Join(dtl, "\n")
 }

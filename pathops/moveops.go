@@ -7,22 +7,24 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 
 	"iidexic.dotstrike/config"
 )
 
-// TODO: Document this (i dont remember what it's for)
-type esource = byte
-
-const (
-	_ esource = iota
-	esInfileOPEN
-	esOutfileMAKEOPEN
-	esCOPY
-	es
-)
-
+// // TODO: Document this (i dont remember what it's for)
+// type esource = byte
+//
+// const (
+//
+//	_ esource = iota
+//	esInfileOPEN
+//	esOutfileMAKEOPEN
+//	esCOPY
+//	es
+//
+// )
 type DirEntry = fs.DirEntry
 type boolConfig = map[config.OptionKey]bool
 type stringConfig = map[config.OptionKey]string
@@ -42,63 +44,166 @@ var (
 // Ideally single-instance; use GetCopier to get
 type copierMaschine struct {
 	JobQueue  map[string]*CopyJob
+	JobGroups map[string]*JobGroup
 	GlobalOut string
 }
 
-var cmachine copierMaschine = copierMaschine{JobQueue: make(map[string]*CopyJob)}
+var cmachine copierMaschine = copierMaschine{
+	JobQueue:  make(map[string]*CopyJob),
+	JobGroups: make(map[string]*JobGroup),
+}
 
 func Copier() *copierMaschine { return &cmachine }
 
-type JobFrame struct {
-	in, out string
-	name    string
-	bcfg    boolConfig
-	scfg    stringConfig
+type JobGroup struct {
+	pathSet
+	groupName   string
+	jobNames    []string
+	jobPtrs     []*CopyJob
+	bcfg        boolConfig
+	scfg        stringConfig
+	initialized bool
+}
+
+type pathSet struct {
+	ins  []string
+	outs []string
+}
+
+// type jobConfig struct {
+// 	bcfg boolConfig
+// 	scfg stringConfig
+// }
+
+// TODO: finish RunAll
+
+func (CM *copierMaschine) RunAll(stopOnError bool) {
+	for name, job := range CM.JobQueue {
+		_ = job
+		_ = name
+	}
+}
+
+func (CM *copierMaschine) Detail() []string {
+	d := make([]string, len(CM.JobQueue)+2)
+	return d
+}
+
+func (g *JobGroup) Detail() string {
+	sd := make([]string, len(g.jobPtrs)+len(g.bcfg)+len(g.scfg)+2)
+	sd[0] = fmt.Sprintf("-[Group: %s] %d jobs", g.groupName, len(g.jobPtrs))
+	i := 1
+	if len(g.jobPtrs) > 0 {
+		sd[i] = "-- JOBS --"
+		i++
+		for _, j := range g.jobPtrs {
+			sd[i+1] = fmt.Sprintf("---[%d] ", i) + j.DetailLine() + "\n"
+			i++
+		}
+	}
+	if len(g.scfg)+len(g.bcfg) > 0 {
+		sd[i] = "-- GROUP CONFIG --"
+		i++
+		for k, bv := range g.bcfg {
+			sd[i] = fmt.Sprintf("--- %s: %t", k.String(), bv)
+			i++
+		}
+		for k, v := range g.scfg {
+			sd[i] = fmt.Sprintf("--- %s: '%s'", k.String(), v)
+		}
+	} else {
+		sd = slices.Clip(sd)
+	}
+
+	return strings.Join(sd, "\n")
+}
+
+// TODO:(low) finish full CopyJob Detail
+func (J *CopyJob) Detail() []string {
+	d := make([]string, 4+len(J.fstack)+len(J.ignore.Patterns), +len(J.BPrefs)+len(J.BPrefs))
+	d[0] = fmt.Sprintf("in:'%s' out: %s | ", J.PathIn, J.PathOut)
+
+	return d
+}
+
+func (J *CopyJob) DetailLine() string {
+	d := fmt.Sprintf("in:'%s' | out: %s ", J.PathIn, J.PathOut)
+	if len(J.ignore.Patterns) > 0 {
+		d += fmt.Sprintf("| #ignores:%d", len(J.ignore.Patterns))
+	}
+	if J.jobRan {
+		d += fmt.Sprintf("| ran (%d file, %d newdir, %d errors)", len(J.fstack), J.DirsMade(), len(J.OpErrors))
+	}
+	return d
+}
+
+// NewJobGroup takes all required data for a group of related Copy Jobs, and returns a JobGroup ptr.
+//
+// It also automatically creates all copy jobs, and stores the job names in JobGroup.jobNames.
+// Job names are created as (name-[job#])
+
+func (CM *copierMaschine) NewJobGroup(name string, inPaths []string, outPaths []string, bools boolConfig) *JobGroup {
+	numJobs := len(inPaths) * len(outPaths)
+	group := &JobGroup{groupName: name, bcfg: bools,
+		jobNames: make([]string, numJobs),
+		jobPtrs:  make([]*CopyJob, numJobs),
+		pathSet:  pathSet{ins: inPaths, outs: outPaths},
+	}
+	group.makeJobs()
+	group.initialized = true
+	key := group.groupName
+	_, ok := CM.JobGroups[key]
+	if ok {
+		n := 1
+		for {
+			key += fmt.Sprintf("%2d", n)
+		}
+	}
+	CM.JobGroups[group.groupName] = group
+	return group
+}
+
+func (g *JobGroup) makeJobs() {
+	for x, in := range g.ins {
+		for y, out := range g.outs {
+			i := x*len(g.outs) + y
+			jname := fmt.Sprintf("%s.in-%d.out-%d", g.groupName, x, y)
+			g.jobPtrs[i] = cmachine.NewJob(jname, in, out)
+			g.jobNames[i] = jname
+		}
+	}
+
+}
+
+func (g *JobGroup) RunAll(abortOnError bool) error {
+	var outError error
+	for i := range g.jobPtrs {
+		e := g.jobPtrs[i].Run()
+		if e != nil && abortOnError {
+			return e
+		} else if e != nil {
+			if outError == nil {
+				outError = fmt.Errorf("Copy Errors: %w", e)
+			} else {
+				outError = fmt.Errorf("%w\n%w", outError, e)
+			}
+		}
+	}
+	return outError
 }
 
 // CopyJob prepares and executes the copy of all contents of PathIn to PathOut
 type CopyJob struct {
-	PathIn, PathOut string          // Root of copy source and destination (*or destination parent)
-	parentPathOut   string          // unused. populated on run if JobSettings.makeRootSubdir = true
-	fstack          []filecopy      // record of files copied
+	PathIn, PathOut string     // Root of copy source and destination (*or destination parent)
+	parentPathOut   string     // unused. populated on run if JobSettings.makeRootSubdir = true
+	fstack          []filecopy // record of files copied
+	jobRan          bool
 	newDirs         map[string]bool //
 	ignore          IgnoreSet
 	OpErrors        []fs.PathError
 	BPrefs          boolConfig
-	SPrefs          stringConfig
+	SPrefs          stringConfig //* Currently Unused
 }
-
-type JobBundle struct {
-	// wait its a map
-	names   []string
-	count   int
-	lastJob *CopyJob
-}
-
-// sl{1,2,4,8,12}
-// start=1, count=3
-//sl[1:4] = sl{2,4,8}
-
-func (B *JobBundle) Jobs() []*CopyJob {
-	jobl := make([]*CopyJob, B.count)
-	for i, n := range B.names {
-		jobl[i] = cmachine.GetJob(n)
-	}
-	return jobl
-}
-
-func (B *JobBundle) AddJob(jobName, pathIn, pathOut string, config *boolConfig) {
-	if config != nil {
-	}
-	job := cmachine.NewJob(jobName, pathIn, pathOut)
-	if job != nil {
-		B.names = append(B.names, jobName)
-		B.count++
-	}
-
-}
-
-// TODO: replace with config package/enum
 
 // NewJob creates a new job and adds to the JobQueue; returns a ptr to created job if successful
 // jobName must be unique within the JobQueue; if NewJob is passed an existing jobName,
@@ -112,6 +217,15 @@ func (CM *copierMaschine) NewJob(jobName, pathIn, pathOut string) *CopyJob {
 }
 
 func (CM *copierMaschine) jobExists(jobName string) bool {
+	for k := range CM.JobQueue {
+		if k == jobName {
+			return true
+		}
+	}
+	return false
+}
+
+func (CM *copierMaschine) groupExists(jobName string) bool {
 	for k := range CM.JobQueue {
 		if k == jobName {
 			return true
@@ -193,15 +307,21 @@ func (J *CopyJob) addFile(relpath string, inSize, outSize int64) {
 func (J *CopyJob) Run( /* params */ ) error {
 	// condition paths
 	var e error
+	for k, bval := range J.BPrefs {
+		if bval {
+			_ = k
+		}
 
-	if len(J.parentPathOut) > 0 || len(J.newDirs) > 0 {
+	}
+
+	if J.jobRan {
 		return fmt.Errorf("CopyJob Already Ran")
 	}
 	if J.BPrefs[bRootSubdir] && J.parentPathOut == "" { // parentpath check to be safe
 		J.parentPathOut = J.PathOut
 		J.PathOut = Joinpath(J.PathOut, filepath.Base(J.PathIn))
 	}
-
+	J.jobRan = true
 	// ── Walk ────────────────────────────────────────────────────────────
 	e = filepath.WalkDir(J.PathIn, J.Walk)
 
@@ -231,7 +351,15 @@ func (J *CopyJob) logDir(dir string, copied bool) {
 	if !exists {
 		J.newDirs[dir] = copied
 	}
-
+}
+func (J *CopyJob) DirsMade() int {
+	n := 0
+	for _, v := range J.newDirs {
+		if v {
+			n++
+		}
+	}
+	return n
 }
 
 // ╭─────────────────────────────────────────────────────────╮

@@ -77,6 +77,7 @@ func specRun(cmd *cobra.Command, args []string) {
 		if err != nil {
 			cmd.PrintErr(err)
 		}
+
 	case len(specOps.existingSpecs) > 0:
 		if *specOps.flags.delete { //TEST: MULTI-SPEC DELETE
 			for i := range specOps.existingSpecs {
@@ -124,6 +125,7 @@ func (op *specOpData) specNew() error {
 	tempdat := dscore.TempData()
 	var spec *dscore.Spec
 	var err error
+	// TODO: (Hi) Remove the weird system of adding paths and just use flags for paths + make multiple specs on multi-arg in
 	if op.argcount > 1 {
 		spec, err = tempdat.NewSpec(op.args[0], op.args[1:]...)
 	} else {
@@ -132,8 +134,8 @@ func (op *specOpData) specNew() error {
 	if err != nil || spec == nil {
 		return fmt.Errorf("error in op.specNew(): %w, from NewSpec: %w", ErrSpecNotMade, err)
 	}
-	op.cmd.Printf("spec %s created", spec.Alias)
-
+	tempdat.SelectPtr(spec)
+	op.cmd.Printf("spec %s created and selected\n", spec.Alias)
 	return nil
 }
 

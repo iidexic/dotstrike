@@ -28,6 +28,9 @@ var src cmdWrapper
 //NOTE: src is the main/master command, tgt is nearly a duplicate. Vars and functions required to run the command are stored here. In the future, they may be combined.
 //NOTE: Having a central data structure and building out the command action seems better than this switch
 
+//BUG: Adding new source Always shows only that src, as `0. srcPath`.
+//	This should be the full list of sources
+
 // srcCmd represents the src command
 var srcCmd = &cobra.Command{
 	Use:   "src path ...",

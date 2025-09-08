@@ -56,6 +56,7 @@ func (s *Spec) addSources(paths ...string) []bool {
 //
 // NOTE: if another change is made that triggers tempData.Modified(), these will still be written if not manually corrected.
 // This includes all public functions/methods that make user data changes.
+// IF NEED THIS TO NOT HAPPEN: Need a new component struct OR break out path components into types
 func (s *Spec) temporaryComponents(isSource bool, paths ...string) error {
 	etext := make([]string, 0, len(paths))
 	if isSource {
@@ -122,9 +123,15 @@ func (gm *globalModify) GetSpec(alias string) *Spec {
 	}
 	return nil
 }
+
+// DeleteSpec deletes the spec *sptr (persistent).
 func (gm *globalModify) DeleteSpec(sptr *Spec) bool {
 	for i := range gm.Specs {
-		if &gm.Specs[i] == sptr {
+		if spec := &gm.Specs[i]; spec == sptr {
+			gm.Modify()
+			if isLastAndSelectedSpec(i) {
+				ResetSpecSelection()
+			}
 			// Does this cause a problem if given
 			gm.Specs = slices.Delete(gm.Specs, i, i+1)
 			return true
@@ -133,17 +140,25 @@ func (gm *globalModify) DeleteSpec(sptr *Spec) bool {
 	return false
 }
 
+func isLastAndSelectedSpec(i int) bool { return i+1 == len(tempData.Specs) && i == tempData.Selected }
+
+// ResetSpecSelection Resets the selected spec to 0 (persistent).
+func ResetSpecSelection() { tempData.Modify(); tempData.Selected = 0 }
+
 func (gm *globalModify) Modify() { gm.Modified = true }
 
-// SetOptionBool sets selected configOption opt to newValue.
+/* Unused
+// SetNamedOptionBool performs option lookup and sets selected configOption opt to newValue (persistent).
 // Returns true if a config value was changed, false otherwise
-func (gm *globalModify) SetNamedOptionBool(optName string, newValue bool) bool {
+ func (gm *globalModify) SetNamedOptionBool(optName string, newValue bool) bool {
+	//BUG panics on optName->NotAnOption
 	return gm.SetOptionBool(OptionID(strings.ToLower(strings.TrimSpace(optName))), newValue)
 }
 
 func (gm *globalModify) SetNamedOptionString(optName string, newValue string) error {
 	return gm.SetOptionString(OptionID(strings.ToLower(strings.TrimSpace(optName))), newValue)
 }
+*/
 
 func (gm *globalModify) SetOptionBool(opt ConfigOption, newValue bool) bool {
 	val, exist := gm.Prefs.Bools[opt]
@@ -158,7 +173,8 @@ func (gm *globalModify) SetOptionBool(opt ConfigOption, newValue bool) bool {
 	return false
 }
 
-// SetOptionString
+// SetOptionString sets global prefs[opt] to newValue
+// Returns an error if opt is not a string option
 func (gm *globalModify) SetOptionString(opt ConfigOption, newValue string) error {
 	switch opt {
 	case StringGlobalTargetPath:

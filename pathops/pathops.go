@@ -399,7 +399,7 @@ var CleanPath = filepath.Clean
 // map keys are paths of existing filesystem objects
 // value bool indicates whether or not that object is a directory
 // it returns nil if - dir doesn't exist, path is not a dir, any os.Stat error, any WalkDir error
-func dirContents(dirpath string) *map[string]bool {
+func DirContents(dirpath string) *map[string]bool {
 	dirstat, e := os.Stat(dirpath)
 	if e != nil || !dirstat.IsDir() {
 		// no reason to check IsNotExists; we can only return nil

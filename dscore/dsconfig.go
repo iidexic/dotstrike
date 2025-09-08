@@ -74,7 +74,7 @@ const (
 	BoolIgnoreHidden       = config.BoolIgnoreHidden
 	BoolRootSubdir         = config.BoolRootSubdir
 	BoolNoFiles            = config.BoolNoFiles
-	BoolSourceSubdirs      = config.BoolSourceSubdirs
+	BoolSeparateSources    = config.BoolSourceSubdirs
 	BoolCopyAllDirs        = config.BoolCopyAllDirs
 	BoolUseGlobalTarget    = config.BoolUseGlobalTarget
 	BoolKillGlobalTarget   = config.BoolKillGlobalTarget
@@ -187,6 +187,9 @@ func InitTempData() {
 //   - removes spaces, tabs, newlines, backslash and forwardslash, and at signs
 //   - converts all alphabetic to lower-case
 func standardizeAlias(alias string) string {
+	//TODO:(hi) Check that this cleans shit up well
+	//	Switch this to trim characters from the entire string
+	//	Trim all escape sequences
 	return strings.ToLower(strings.Trim(alias, "\\/		\n@"))
 }
 
