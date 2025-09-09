@@ -55,3 +55,23 @@ func (js *jobSpec) applyConfigsPrioritized(lowPriority, highPriority map[ConfigO
 func (js *jobSpec) groupExport() (string, []string, []string, map[ConfigOption]bool) {
 	return js.Alias, js.sourcePaths(), js.targetPaths(), js.config
 }
+func (js *jobSpec) AddGlobalTarget() {
+	if globTarget := tempData.GlobalTargetPath; !js.IsPathChild(globTarget) {
+		js.addSources(globTarget)
+	}
+	//TODO:(low) make this function more flexible
+
+}
+
+// TODO: Finish RemoveGlobalTarget
+//
+//	 Just do a for lookp thru components, dw bout this other shit.
+//	But I am also drunk right now so take with a grain o salt
+func (js *jobSpec) RemoveGlobalTarget() {
+	if globTarget := tempData.GlobalTargetPath; js.IsPathChild(globTarget) {
+		if js.IsPathSource(globTarget) {
+
+		}
+	}
+
+}

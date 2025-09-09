@@ -48,6 +48,7 @@ var gd = globals{
 				BoolIgnoreHidden:    false,
 				BoolIgnoreRepo:      false,
 				BoolUseGlobalTarget: true,
+				BoolSeparateSources: true,
 				BoolCopyAllDirs:     false,
 				BoolNoFiles:         false,
 			},

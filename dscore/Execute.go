@@ -58,9 +58,21 @@ func (J *jobProcessor) SetupAndRunAll(abortOnError bool) error {
 	// 	return fmt.Errorf("Run terminated: No runtime config (confirmHaveRuntimeConfig on)")
 	// }
 	var runErr error
-	for i := range J.specs {
-		J.specs[i].applyConfigsPrioritized(gd.data.Prefs.Bools, J.runtimeConfig)
-		J.specs[i].group = Copier.NewJobGroup(J.specs[i].groupExport())
+	for i, s := range J.specs {
+
+		s.applyConfigsPrioritized(gd.data.Prefs.Bools, J.runtimeConfig)
+		//HANDLE UseGlobalTarget, KillGlobalTarget before groups made
+
+		switch {
+		case s.config[BoolUseGlobalTarget] && s.config[BoolKillGlobalTarget]:
+			return fmt.Errorf("Confligting config options; UseGlobal, KillGlobal both true")
+		case s.config[BoolUseGlobalTarget]:
+
+		case s.conig[BoolKillGlobalTarget]:
+
+		}
+
+		s.group = Copier.NewJobGroup(J.specs[i].groupExport())
 		J.setupComplete = true
 		e := J.specs[i].group.RunAll(abortOnError)
 		if e != nil {

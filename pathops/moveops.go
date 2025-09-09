@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -26,12 +27,19 @@ import (
 //
 // )
 type DirEntry = fs.DirEntry
-type boolConfig = map[config.OptionKey]bool
+type boolConfig map[config.OptionKey]bool
+
+func (b boolConfig) IsOn(k config.OptionKey) bool { v, ok := b[k]; return ok && v }
+
+func (b *boolConfig) CopyMap(m map[config.OptionKey]bool) {
+	maps.Copy(*b, m)
+}
+
 type stringConfig = map[config.OptionKey]string
 type PathError = fs.PathError
 
 var (
-	GlobalOutDir *string //NOTE: need to be set by dscore?
+	globalOutDir *string //NOTE: Using  copierMaschine GlobalOut instead
 	bNoFiles     = config.BoolNoFiles
 	bAllDirs     = config.BoolCopyAllDirs
 	bRootSubdir  = config.BoolRootSubdir
@@ -43,9 +51,10 @@ var (
 // copierMaschine builds and executes CopyJobs
 // Ideally single-instance; use GetCopier to get
 type copierMaschine struct {
-	JobQueue  map[string]*CopyJob
-	JobGroups map[string]*JobGroup
-	GlobalOut string
+	JobQueue     map[string]*CopyJob
+	JobGroups    map[string]*JobGroup
+	globalOut    string
+	setglobalOut bool
 }
 
 var cmachine copierMaschine = copierMaschine{
@@ -82,6 +91,10 @@ func (CM *copierMaschine) RunAll(stopOnError bool) {
 		_ = job
 		_ = name
 	}
+}
+
+func (CM *copier) SetGlobalOutDir(globalOut string) {
+
 }
 
 func (CM *copierMaschine) Detail() []string {
@@ -149,6 +162,7 @@ func (CM *copierMaschine) NewJobGroup(name string, inPaths []string, outPaths []
 		jobPtrs:  make([]*CopyJob, numJobs),
 		pathSet:  pathSet{ins: inPaths, outs: outPaths},
 	}
+	//TODO: Must process UseGlobal+KillGlobal now
 	group.makeJobs()
 	group.initialized = true
 	key := group.groupName
@@ -303,14 +317,27 @@ func (J *CopyJob) addFile(relpath string, inSize, outSize int64) {
 	J.fstack = append(J.fstack, filecopy{relpath: relpath, inSize: inSize, outSize: outSize})
 }
 
-// Runs the copy. Returns
+// ── Performing CopyJob ──────────────────────────────────────────────
+
+// Run the copy. Returns
 func (J *CopyJob) Run( /* params */ ) error {
 	// condition paths
 	var e error
-	for k, bval := range J.BPrefs {
-		if bval {
-			_ = k
-		}
+	// Prefs that need to be processed here
+	//TODO: CHECK WHETHER OR NOT BPREFS ALWAYS CONTAINS ALL OF THESE VALUES
+	//	IF NOT MUST ADD CHECK FOR KEY EXIST TO EVERYTHING
+	/*
+	   bNoFiles
+	   bAllDirs
+	   bRootSubdir
+	   bUseGlobal
+	   bNoHidden
+	   bNoRepo
+	*/
+	if J.BPrefs.IsOn(bNoRepo) {
+
+	}
+	if J.BPrefs.IsOn(bNoHidden) {
 
 	}
 
@@ -331,11 +358,12 @@ func (J *CopyJob) Run( /* params */ ) error {
 	}
 
 	//warning: WITH THIS STRUCTURE, A WALKDIR ERROR WILL PREVENT MAKING ADDITIONAL DIRS
-	// I don't think this is true
+	// why would I do this separately?
+	// Technically it works.. but I don't see a reason not to have this in the walk
 	if J.BPrefs[bAllDirs] {
-		for dir := range J.newDirs {
-			e := os.MkdirAll(Joinpath(J.PathOut, dir), 0)
-			J.checkAndLogError(dir, "MakeDirectory", e)
+		for relDir := range J.newDirs {
+			e := os.MkdirAll(Joinpath(J.PathOut, relDir), 0)
+			J.checkAndLogError(relDir, "MakeDirectory", e)
 		}
 	}
 	return nil
@@ -368,16 +396,16 @@ func (J *CopyJob) DirsMade() int {
 
 func (J *CopyJob) Walk(p string, d DirEntry, e error) error {
 	// make relative path first; used for dirs & files
-	prr := J.stripRoot(p) //	!INFO: panics on error; error is unexpected
+	rootRelativePath := J.stripRoot(p) //	!INFO: panics on error; error is unexpected
 
 	// DIRECTORIES:
 	if d.IsDir() {
 		// check ignore + prevent recursion (if PathOut is a subdir of PathIn)
 		if J.ignore.isIgnored(p, true) || strings.HasPrefix(p, J.PathOut) {
-			J.logDir(prr, false)
+			J.logDir(rootRelativePath, false)
 			return fs.SkipDir
 		}
-		J.logDir(prr, true)
+		J.logDir(rootRelativePath, true)
 		return nil
 	} else { // File Ignore
 		if J.ignore.isIgnored(p, false) {
@@ -386,7 +414,7 @@ func (J *CopyJob) Walk(p string, d DirEntry, e error) error {
 	}
 
 	// ── 0.1 make filepath out ─────────────────────────────────
-	pto := Joinpath(J.PathOut, prr)
+	pto := Joinpath(J.PathOut, rootRelativePath)
 	if !filepath.IsAbs(pto) {
 		pto = absNoE(pto) //	!INFO: panics on error; error is unexpected
 	}
@@ -397,7 +425,7 @@ func (J *CopyJob) Walk(p string, d DirEntry, e error) error {
 
 	// 0.3 Return before copy if config requires.
 	if J.BPrefs[bNoFiles] {
-		J.addFile(prr, inDE.Size(), 0) // for dry runs
+		J.addFile(rootRelativePath, inDE.Size(), 0) // for dry runs
 		return nil
 	}
 
@@ -419,7 +447,7 @@ func (J *CopyJob) Walk(p string, d DirEntry, e error) error {
 	J.checkAndLogError(pto, "CopyError_Out", e)
 
 	// check size original matches new copied
-	J.addFile(prr, inDE.Size(), wb)
+	J.addFile(rootRelativePath, inDE.Size(), wb)
 	return nil
 }
 
