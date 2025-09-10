@@ -3,6 +3,7 @@ package dscore
 import (
 	"fmt"
 	"maps"
+	"strings"
 	"testing"
 
 	pops "iidexic.dotstrike/pathops"
@@ -68,15 +69,15 @@ func testSpec() *Spec {
 	}
 }
 
+// Runs initForTest then adds 1 or 2 specs; adds testSpec() and if useSelected then adds selected spec
 func fullTestSetupLazy(t *testing.T, useSelected bool) *jobProcessor {
 	td := initForTest(t)
 	jm := JobManager()
 	jm.RuntimeConfigure(testConfig())
 	if useSelected {
 		jm.AddSpecs(td.SelectedSpec())
-	} else {
-		jm.AddSpecs(testSpec())
 	}
+	jm.AddSpecs(testSpec())
 	return jm
 }
 
@@ -118,8 +119,11 @@ func TestJobSpecConfig(t *testing.T) {
 
 func TestManagerToCopier(t *testing.T) {
 	mgr := fullTestSetupLazy(t, false)
+	mgr.SetupOnly()
 	t.Logf("%+v", mgr)
 	// groups := pops.Copier().JobGroups
 	// _ = groups
-	t.Logf("Copier Detail:\n%s", pops.Copier().Detail())
+	sstr := pops.Copier().Detail()
+	jstr := strings.Join(sstr, "\n")
+	t.Logf("Copier Detail:\n%s", jstr)
 }

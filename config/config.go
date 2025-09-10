@@ -26,7 +26,9 @@ BoolSourceSubdirs
 BoolNoFiles
 BoolCopyAllDirs
 
-BoolUseGlobalTarget // Spec Bools
+TODO: GlobalTargets are not triggering an error as they should.
+	Also need protection from recording both as on in global/local prefs.
+BoolUseGlobalTarget
 BoolKillGlobalTarget
 
 BoolOverrideOn
@@ -71,6 +73,40 @@ WARNING: As is, adding new options requires
 // var OptionsStringGlobal = []OptionKey{7}
 
 var ErrDecodeOptionKey = fmt.Errorf("Error finding OptionKey from decoded text")
+
+// Option Errors
+type ConfigError struct {
+	subjects                    []OptionKey
+	process, varname, errdetail string
+}
+
+func (ce ConfigError) Error() string {
+	et := "ConfigError"
+	if ce.process != "" {
+		et += fmt.Sprintf(" during %s", ce.process)
+	}
+	if ce.varname != "" {
+		et += fmt.Sprintf(", var %s", ce.varname)
+	}
+	if ce.errdetail != "" {
+		et += fmt.Sprintf(": %s", ce.errdetail)
+	}
+
+	if len(ce.subjects) == 0 {
+		et += " (missing option!"
+	} else {
+		et += "effecting options: ("
+		for i, opt := range ce.subjects {
+			if i == 0 {
+				et += opt.String()
+			} else {
+				et += ", " + opt.String()
+			}
+		}
+	}
+	et += ")"
+	return et
+}
 
 func AllOptionIDs() []OptionKey {
 	opts := make([]OptionKey, int(NumberOfOptions))

@@ -102,7 +102,7 @@ type runner struct {
 	fManualRun, fPartialRun      *bool   // check first to toggle operation
 	fOptGlobalTarget             *string // must convert into FinalConfig if used
 	fSetupDebug                  *bool
-	dbg                          bool
+	runTriggered, dbg            bool
 
 	//flagOverrides, flagRunPartial *[]string
 	flagSources, flagTargets *[]string
@@ -255,12 +255,24 @@ func (r *runner) prepAndRun() error {
 
 	if r.dbg {
 		r.Println("running setup only")
-		jm.SetupOnly()
+		e := jm.SetupOnly()
+		if e != nil {
+			return e
+		}
 		return nil
 	} else {
+		r.runTriggered = true
+		// TODO: Now that there are Spec Setup Errors, split those into a different function.
+		//	Then will be able to react to  spec failures
 		err := jm.SetupAndRunAll(true)
 		return err
 	}
+}
+
+func (r *runner) finishRun() error {
+	r.runTriggered = true
+	err := dscore.JobManager().SetupAndRunAll(true)
+	return err
 }
 
 func (r *runner) processPartial() error {

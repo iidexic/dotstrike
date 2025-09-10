@@ -90,16 +90,30 @@ func (J *jobProcessor) SetupAndRunAll(abortOnError bool) error {
 	return runErr
 }
 
-func (J *jobProcessor) SetupOnly() {
+func (J *jobProcessor) SetupOnly() error {
 	// if confirmHaveRuntimeConfig && (J.runtimeConfig == nil || len(J.runtimeConfig) == 0) {
 	// 	return fmt.Errorf("Run terminated: No runtime config (confirmHaveRuntimeConfig on)")
 	// }
-
+	var specErrors error
+	errcount := 0
 	for i := range J.specs {
-		J.specs[i].applyConfigsPrioritized(gd.data.Prefs.Bools, J.runtimeConfig)
+		e := J.specs[i].applyConfigsPrioritized(gd.data.Prefs.Bools, J.runtimeConfig)
+		if e != nil {
+			errcount++
+			if specErrors == nil {
+				specErrors = fmt.Errorf("((  %w", e)
+			} else {
+				specErrors = fmt.Errorf("%w, %w", specErrors, e)
+			}
+		}
 		J.specs[i].group = Copier.NewJobGroup(J.specs[i].groupExport())
 	}
 
+	if specErrors != nil {
+		specErrors = fmt.Errorf("%d SPEC SETUP ERRORS: %w", errcount, specErrors)
+		return specErrors
+	}
+	return nil
 }
 
 // TODO: (LOW-later) re-do configs so a priority can be attached (then only need to write overrides at spec-level)

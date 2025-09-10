@@ -99,36 +99,51 @@ func (CM *copierMaschine) SetGlobalOutDir(globalOut string) {
 }
 
 func (CM *copierMaschine) Detail() []string {
-	d := make([]string, len(CM.JobQueue)+2)
+	dtlength := max(len(CM.JobQueue), len(CM.JobGroups)) + 2
+	if dtlength == 2 {
+		dtlength = 6 //safety
+	}
+	d := make([]string, dtlength)
+	d[0] = "|[Copier State]---------------------|"
+	n := 1
+	for _, g := range CM.JobGroups {
+		if n < len(d) {
+			d[n] = g.Detail()
+		} else {
+			d = append(d, g.Detail())
+		}
+		n++
+	}
+	d[n] = "|-----------------------------------|"
+	d = slices.Clip(d)
 	return d
 }
 
 func (g *JobGroup) Detail() string {
-	sd := make([]string, len(g.jobPtrs)+len(g.bcfg)+len(g.scfg)+2)
-	sd[0] = fmt.Sprintf("-[Group: %s] %d jobs", g.groupName, len(g.jobPtrs))
+	sd := make([]string, len(g.jobPtrs)+len(g.bcfg)+len(g.scfg)+3)
+	sd[0] = fmt.Sprintf("|[Group: %s] %d jobs", g.groupName, len(g.jobPtrs))
 	i := 1
 	if len(g.jobPtrs) > 0 {
-		sd[i] = "-- JOBS --"
+		sd[i] = "|--- JOBS:"
 		i++
-		for _, j := range g.jobPtrs {
-			sd[i+1] = fmt.Sprintf("---[%d] ", i) + j.DetailLine() + "\n"
+		for ijp, j := range g.jobPtrs {
+			detailText := fmt.Sprintf("|---	[%d] ", ijp) + j.DetailLine()
+			sd[i] = detailText
 			i++
 		}
 	}
 	if len(g.scfg)+len(g.bcfg) > 0 {
-		sd[i] = "-- GROUP CONFIG --"
+		sd[i] = "|-- GROUP CONFIG:"
 		i++
 		for k, bv := range g.bcfg {
-			sd[i] = fmt.Sprintf("--- %s: %t", k.String(), bv)
+			sd[i] = fmt.Sprintf("|---	%s: %t", k.String(), bv)
 			i++
 		}
 		for k, v := range g.scfg {
-			sd[i] = fmt.Sprintf("--- %s: '%s'", k.String(), v)
+			sd[i] = fmt.Sprintf("|---	%s: '%s'", k.String(), v)
 		}
-	} else {
-		sd = slices.Clip(sd)
 	}
-
+	sd = slices.Clip(sd)
 	return strings.Join(sd, "\n")
 }
 

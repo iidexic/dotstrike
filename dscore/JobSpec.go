@@ -48,6 +48,21 @@ func (js *jobSpec) applyConfigsPrioritized(lowPriority, highPriority map[ConfigO
 		maps.Copy(js.config, js.Overrides.Bools)
 	}
 	maps.Copy(js.config, highPriority)
+
+	e := js.configCheckContradicting()
+	if e != nil {
+		return fmt.Errorf("Config Error: %w", e)
+	}
+	return nil
+}
+
+func (js *jobSpec) configCheckContradicting() error {
+	useval, useok := js.config[BoolUseGlobalTarget]
+	killval, killok := js.config[BoolKillGlobalTarget]
+
+	if useok && killok && useval && killval {
+		return fmt.Errorf("Conflicting Options enabled: UseGlobalTarget, KillGlobalTarget")
+	}
 	return nil
 }
 
