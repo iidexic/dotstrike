@@ -53,7 +53,7 @@ var (
 type copierMaschine struct {
 	JobQueue     map[string]*CopyJob
 	JobGroups    map[string]*JobGroup
-	globalOut    string
+	globalOut    string //NOTE: This is being handled before data is loaded to this package. Needed?
 	setglobalOut bool
 }
 
@@ -93,8 +93,9 @@ func (CM *copierMaschine) RunAll(stopOnError bool) {
 	}
 }
 
-func (CM *copier) SetGlobalOutDir(globalOut string) {
-
+func (CM *copierMaschine) SetGlobalOutDir(globalOut string) {
+	CM.globalOut = globalOut
+	CM.setglobalOut = true
 }
 
 func (CM *copierMaschine) Detail() []string {

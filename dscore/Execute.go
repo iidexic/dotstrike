@@ -67,9 +67,9 @@ func (J *jobProcessor) SetupAndRunAll(abortOnError bool) error {
 		case s.config[BoolUseGlobalTarget] && s.config[BoolKillGlobalTarget]:
 			return fmt.Errorf("Confligting config options; UseGlobal, KillGlobal both true")
 		case s.config[BoolUseGlobalTarget]:
-
-		case s.conig[BoolKillGlobalTarget]:
-
+			s.addGlobalTarget()
+		case s.config[BoolKillGlobalTarget]:
+			s.removeGlobalTarget()
 		}
 
 		s.group = Copier.NewJobGroup(J.specs[i].groupExport())

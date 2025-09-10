@@ -270,6 +270,23 @@ func (S *Spec) removeSourceByIndex(index int) {
 		S.Sources = slices.Delete(S.Sources, index, index+1)
 	}
 }
+
+// Loops through component list and deletes all matching given ID
+func (S *Spec) runtimeRemoveMatching(id string, isSource bool) {
+	if isSource {
+		for i, t := range S.Sources {
+			if t.MatchesID(id) {
+				S.Sources = slices.Delete(S.Sources, i, i+1)
+			}
+		}
+	} else {
+		for i, t := range S.Targets {
+			if t.MatchesID(id) {
+				S.Targets = slices.Delete(S.Targets, i, i+1)
+			}
+		}
+	}
+}
 func (S *Spec) removeTargetByIndex(index int) {
 	tempData.Modify()
 	if index < len(S.Targets) {
@@ -300,6 +317,7 @@ func (S *Spec) AddIgnores(ignores []string) {
 	S.Ignorepat = append(S.Ignorepat, ignores...)
 }
 
+// WARNING: Non-Persistent
 func (S *Spec) CheckAddPath(path string, isSource bool) bool {
 	if !S.IsPathChild(path) {
 		if isSource {
@@ -310,6 +328,7 @@ func (S *Spec) CheckAddPath(path string, isSource bool) bool {
 	}
 	return false
 }
+
 func (S *Spec) AliasIfChild(alias string, identifier string, isSource bool) bool {
 	tempData.Modify()
 	if pc := S.GetIfChild(identifier); pc != nil {

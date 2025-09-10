@@ -8,6 +8,31 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+/* ── NOTES: Where are options being handled in Run Operations? ───────
+
+
+BoolIgnoreRepo
+	- moveOps.CopyJob.Run() -> right before go into the walk
+BoolIgnoreHidden
+BoolRootSubdir
+TODO: CHECK IF CAN MOVE PROCESSING OF ROOTSUBDIR AND SOURCESUBDIRS
+	FROM COPYJOB.RUN TO JOB CREATION.
+	I think all required information to make this happen is already ready there
+	Plus it is best to have the copy run op be as clean and separated from other pieces as I can make it
+
+	- moveOps.CopyJob.Run() -> right before go into the walk
+BoolSourceSubdirs
+	- Not yet implemented (same as rootsubdir)
+BoolNoFiles
+BoolCopyAllDirs
+
+BoolUseGlobalTarget // Spec Bools
+BoolKillGlobalTarget
+
+BoolOverrideOn
+
+*/
+
 type OptionKey int
 
 const (
