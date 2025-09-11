@@ -35,7 +35,9 @@ func (js *jobSpec) briefDetail() string {
 
 }
 
-func (js *jobSpec) applyConfigsPrioritized(lowPriority, highPriority map[ConfigOption]bool) error {
+// Applies configs AND performs contradiction check
+// The only error that can be returned is from contradiction; currently kill/useglobal
+func (js *jobSpec) applyAndCheckConfigs(lowPriority, highPriority map[ConfigOption]bool) error {
 	if js.config == nil {
 		mlen := len(lowPriority) + len(highPriority)
 		if js.OverrideOn {

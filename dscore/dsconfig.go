@@ -115,9 +115,9 @@ Globals Log (instance):
 
 func (p prefs) Detail() string {
 	if len(p.Bools) == 0 {
-		return "0 override options set"
+		return "0 options set"
 	}
-	out := fmt.Sprintf("%d override options set", len(p.Bools))
+	out := fmt.Sprintf("%d options set", len(p.Bools))
 	for k, v := range p.Bools {
 		out = fmt.Sprintf("%s\n%s:%t", out, k.String(), v)
 	}

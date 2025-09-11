@@ -2,25 +2,12 @@ package dscore
 
 import (
 	"testing"
-
-	pops "iidexic.dotstrike/pathops"
 )
 
 var tspec = Spec{
 	Alias:   "testfiles",
 	Sources: []pathComponent{{Path: "C:/dev/github/testfiles-in", Ctype: sourceComponent}},
 	Targets: []pathComponent{{Path: "C:/dev/github/testfiles-out"}},
-}
-
-var sftest Spec = Spec{
-	Alias: "tilde_dotconfig",
-	Sources: []pathComponent{
-		{
-			Alias:   "Source1",
-			Path:    "~/.config/",
-			Abspath: pops.HomeDirtyJoin(".config/"),
-		},
-	},
 }
 
 func TestInherent(t *testing.T) {

@@ -127,3 +127,8 @@ func TestManagerToCopier(t *testing.T) {
 	jstr := strings.Join(sstr, "\n")
 	t.Logf("Copier Detail:\n%s", jstr)
 }
+
+func TestRunCopy(t *testing.T) {
+	mgr := fullTestSetupLazy(t, false)
+	_ = mgr
+}

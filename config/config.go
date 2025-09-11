@@ -74,6 +74,11 @@ WARNING: As is, adding new options requires
 
 var ErrDecodeOptionKey = fmt.Errorf("Error finding OptionKey from decoded text")
 
+var ErrConflictingGlobalTarget = ConfigError{
+	subjects:  []OptionKey{BoolUseGlobalTarget, BoolKillGlobalTarget},
+	errdetail: "conflicting options: global target is both forcibly enabled and forcibly disabled",
+}
+
 // Option Errors
 type ConfigError struct {
 	subjects                    []OptionKey
