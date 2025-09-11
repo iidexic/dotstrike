@@ -73,6 +73,8 @@ const globalsFilename = "dotstrikeData.toml"
 const globalPathHomeRelative = ".config/dotstrike/dotstrikeData.toml"
 const globalDirHomeRelative = ".config/dotstrike"
 
+var ErrorFindMakeToml = fmt.Errorf(`Failed writing default config to file; User data file not found and could not be made.`)
+
 func globalsFilepath() string {
 	gpath, e := pops.HomeJoin(globalPathHomeRelative)
 	if e != nil {
@@ -141,11 +143,8 @@ func (G *globals) GetConfig(dirpath string) bool {
 // ?TODO: If no config file exists, create one and encode gd defaults
 // TODO: require vars be passed (globalDir)?
 func (G *globals) makeCfgPath(suffix string) string {
-	if !pops.HaveHome() {
-		e := pops.GetHomeDir()
-		if e != nil {
-			panic(fmt.Errorf("Failed to get home path:%w", e))
-		}
+	if !pops.HaveHome() && pops.ErrGetHomedir == nil && pops.ErrGetConfigdir == nil {
+		pops.GetSysDirs()
 	}
 	return pops.HomeJoinC(suffix)
 }
@@ -156,13 +155,11 @@ func resolveHomeSubpath(path string) string {
 	}
 	return absP
 }
-func CoreConfig() {
+func CoreConfig() error {
 	if pops.HomePath == nil {
-		e := pops.GetHomeDir()
-		if e != nil {
-			panic(fmt.Errorf("failed to get home: %w", e))
-		}
+		pops.GetSysDirs()
 	}
+
 	//TODO: clean up this homepath/GlobalTargetPath solution
 	cfgdir := gd.makeCfgPath(globalDirHomeRelative)
 	gd.data.GlobalTargetPath = resolveHomeSubpath(gd.data.GlobalTargetPath)
@@ -195,6 +192,7 @@ User data file not found and could not be made.`, ee))
 		}
 
 	}
+	return nil
 
 }
 

@@ -1,6 +1,7 @@
 package dscore
 
 import (
+	"fmt"
 	"slices"
 )
 
@@ -45,6 +46,23 @@ func KeepIndices[A any](s []A, ikeep []int) []A {
 	}
 	out = out[0 : len(ikeep)-offset]
 	return out
+}
+
+func ExtendErr(errs ...error) error {
+	var eout error
+	if le := len(errs); le == 0 {
+		return nil
+	} else if le == 1 && errs[0] != nil {
+		return errs[0]
+	}
+	eout = errs[0]
+	errs = errs[1:]
+	for _, e := range errs {
+		if e != nil {
+			eout = fmt.Errorf("%w, %w", eout, e)
+		}
+	}
+	return eout
 }
 
 // TODO: clean up; no use for these I can think of.

@@ -21,8 +21,12 @@ const (
 	AbsFilePath
 )
 
-var HomePath *string = nil
+var (
+	HomePath  *string = nil
+	DirConfig *string = nil
+)
 
+// is this used? just use path errors or whatever
 type errCtr struct {
 	etext string
 	err   error
@@ -35,15 +39,18 @@ func (e *errCtr) Error() string {
 	return e.etext
 }
 
-var ErrGetHome = errCtr{etext: "Failed to retrieve user homedir"}
-var ErrEmptyHome = fmt.Errorf("Home path is empty string")
-var ErrNilInfo = fmt.Errorf("nil os.FileInfo")
+var (
+	ErrGetHomedir   error
+	ErrGetConfigdir error
+	ErrEmptyHome    = fmt.Errorf("Home path is empty string")
+	ErrNilInfo      = fmt.Errorf("nil os.FileInfo")
+)
 
-var Open = os.Open
-var BaseName = filepath.Base
-
-// Joinpath aliases filepath.Join (no longer necessary)
-var Joinpath = filepath.Join
+var (
+	Open     = os.Open
+	BaseName = filepath.Base
+	Joinpath = filepath.Join
+)
 
 func ce(e error, msg ...string) {
 	if e != nil {
@@ -98,19 +105,19 @@ func (f failureType) Detail() string {
 	switch f {
 	//TODO: check later to see if I actually ever use the fmt.Sprintf
 	case None:
-		rstr = fmt.Sprintf("Path Operation successful")
+		rstr = "Path Operation successful"
 	case BadPattern:
 		rstr = "bad pattern provided"
 	case DirNotExist:
 		rstr = "directory does not exist"
 	case FileNotExist:
-		rstr = fmt.Sprintf("file does not exist")
+		rstr = "file does not exist"
 	case FileExist:
-		rstr = fmt.Sprintf("file already exists")
+		rstr = "file already exists"
 	case FailedOpen:
-		rstr = fmt.Sprintf("file seems to exist, but failed to open")
+		rstr = "file seems to exist, but failed to open"
 	case Error:
-		rstr = fmt.Sprintf("General Error")
+		rstr = "General Error"
 	}
 	return rstr
 
@@ -154,22 +161,31 @@ func HomeJoinC(suffix string) string { return Joinpath(*HomePath, suffix) }
 
 // HomeDirtyJoin retrieves abs homedir path, adds suffix to the end, and returns.
 // errors will panic
-func HomeDirtyJoin(suffix string) string {
-	home, e := os.UserHomeDir()
-	ce(e)
-	return filepath.Join(home, suffix)
-}
-func GetHomeDir() error {
+// func HomeDirtyJoin(suffix string) string {
+// 	home, e := os.UserHomeDir()
+// 	return filepath.Join(home, suffix)
+// }
+
+func GetSysDirs() {
 	home, e := os.UserHomeDir()
 	if e != nil {
-		ErrGetHome.err = e
-		return &ErrGetHome
+		ErrGetHomedir = e
+	} else if home == "" {
+		ErrGetHomedir = fmt.Errorf("os gave empty string for homedir (exists in sys env but is empty)")
 	}
-	if home != "" {
-		HomePath = &home
-		return nil
+
+	// It doesn't make sense to need to check whether the HomePath is an empty string
+	// But for some reason it also feels weird not doing it
+	HomePath = &home
+	cdir, e := os.UserConfigDir()
+	if e != nil {
+		ErrGetConfigdir = e
+	} else if cdir == "" {
+		ErrGetConfigdir = fmt.Errorf("os gave empty string for config dir (exists in sys env but is empty)")
 	}
-	return ErrEmptyHome
+	if DirConfig == nil || *DirConfig == "" {
+		DirConfig = &cdir
+	}
 }
 
 func HaveHome() bool {
@@ -179,17 +195,17 @@ func HaveHome() bool {
 	return false
 }
 
-// TildeDirty replaces a leading ~ with home path using HomeDirtyJoin
-// errors will panic.
-func TildeDirty(ospath string) string {
-	// tilde code: 126
-	if c1 := ospath[0]; c1 == tilde && *HomePath != "" {
-		return HomeJoinC(ospath[0:])
-	} else if c1 == tilde {
-		return HomeDirtyJoin(ospath[0:])
-	}
-	return ospath
-}
+// // TildeDirty replaces a leading ~ with home path using HomeDirtyJoin
+// // errors will panic.
+// func TildeDirty(ospath string) string {
+// 	// tilde code: 126
+// 	if c1 := ospath[0]; c1 == tilde && *HomePath != "" {
+// 		return HomeJoinC(ospath[0:])
+// 	} else if c1 == tilde {
+// 		return HomeDirtyJoin(ospath[0:])
+// 	}
+// 	return ospath
+// }
 
 func TildeFix(ospath string) (string, error) {
 	// tilde code: 126
@@ -260,7 +276,9 @@ var Abs = filepath.Abs
 func MakeOpenFileF(fpath string) (*os.File, error) {
 	// makedir->create+open|if exists->open
 	e := os.MkdirAll(filepath.Dir(fpath), os.ModeDir)
-	ce(e)
+	if e != nil {
+		return nil, e
+	}
 	file, e := os.OpenFile(fpath, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o666)
 	if os.IsExist(e) {
 		file, e = os.OpenFile(fpath, os.O_RDWR, 0)

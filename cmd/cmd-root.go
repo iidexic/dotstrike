@@ -124,26 +124,15 @@ func (p *persistentData) componentFlags() {
 
 }
 
-//
-//
-/*
-TODO:(HIGH-Refactor) REMOVE FLAGS THAT ARE NOT TRUE PERSISTENT, ADD TO COMMANDS WHERE USED.
-	-> Actually, probably just remove every persistent flag (except verbose)
-Reasons:
-all: can't provide details of functionality from individual functions (I think?)
-global: only maaybe used in spec or list or something
-spec: doesn't work with current intent for run command
-src/tgt: prob not useable for source/target commands
-Flags to remove:
- - all
- - global
- - spec
- - debug
-
-*/
+func configLoadInit() {
+	e := dscore.CoreConfig()
+	if e != nil {
+		panic(e)
+	}
+}
 
 func init() {
-	cobra.OnInitialize(dscore.CoreConfig, dscore.InitTempData) // pass all initialization functions here
+	cobra.OnInitialize(configLoadInit, dscore.InitTempData) // pass all initialization functions here
 	cobra.OnFinalize(dscore.EndEncode)
 	persistentFlags = persistentData{
 		verbose: rootCmd.PersistentFlags().BoolP("verbose", "v", false, "shows additional details on execution"),
