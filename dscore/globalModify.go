@@ -27,17 +27,43 @@ type Temp interface {
 
 // TODO: Replace NewSpec.  The weird sources-target thing with paths is bad.
 // Also, there are flags for that...
-func (gm *globalModify) NewSpec(alias string, paths ...string) (*Spec, error) {
+
+func (gm *globalModify) NewSpecEmpty(alias string) (*Spec, error) {
+	cAlias, err := uniqueSpecAlias(alias)
+	if err != nil {
+		return nil, err
+	}
+	gm.Modify()
+	gm.Specs = append(gm.Specs, Spec{Alias: cAlias, Ctype: specComponent})
+	return &gm.Specs[len(gm.Specs)-1], nil
+}
+
+func uniqueSpecAlias(alias string) (string, error) {
+	if tempData.GetSpec(alias) != nil {
+		n := 1
+		for {
+			ainc := fmt.Sprintf("%s%d", alias, n)
+			if tempData.GetSpec(ainc) == nil {
+				return ainc, nil
+			}
+			if n > 9 {
+				return "", fmt.Errorf("spec '%s' + incrementals already exist", alias)
+			}
+		}
+	}
+	return alias, nil
+}
+
+func (gm *globalModify) NewSpec(alias string, src, tgt []string) (*Spec, error) {
 	s := Spec{Alias: alias, Ctype: specComponent}
 	if !gm.initialized {
 		return nil, ErrNoInit
 	}
-	switch {
-	case len(paths) > 1:
-		s.CheckAddPath(paths[len(paths)-1], false)
-		s.addSources(paths[:len(paths)-1]...)
-	case len(paths) == 1:
-		s.CheckAddPath(paths[0], true)
+	if len(src) > 0 {
+		s.addSources(src...)
+	}
+	if len(tgt) > 0 {
+		s.CheckAddMultiplePaths(tgt, false)
 	}
 	gm.Specs = append(gm.Specs, s)
 	newSpecPtr := &gm.Specs[len(gm.Specs)-1] //works
@@ -116,6 +142,7 @@ func (gm *globalModify) GetModifiableSpec(alias string) (*Spec, error) {
 //
 // The lookup is exact to the passed alias string
 func (gm *globalModify) GetSpec(alias string) *Spec {
+	alias = standardizeAlias(alias)
 	for i := range gm.Specs {
 		if gm.Specs[i].Alias == alias {
 			return &gm.Specs[i]

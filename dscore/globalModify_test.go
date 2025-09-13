@@ -9,7 +9,7 @@ import (
 	pops "iidexic.dotstrike/pathops"
 )
 
-var testTOMLpath = `D:\coding\github\dotstrike\[samplefiles]\test_dotstrikeData.toml`
+var testTOMLpath = `D:\coding\github\dotstrike\_xtra\[samplefiles]\test_dotstrikeData.toml`
 
 // ── Error logging ───────────────────────────────────────────────────
 func tLogErr(context string, e error, t *testing.T) {
@@ -70,7 +70,7 @@ func encodeToBuffer(data *globalData) (bytes.Buffer, error) {
 // test making new spec and adding details. Unnecessary as is covered by TestEditEncode
 func TestNewSpec(t *testing.T) {
 	temp := initForTest(t)
-	snew, e := temp.NewSpec("testnew")
+	snew, e := temp.NewSpecEmpty("testnew")
 	if e != nil {
 		t.Logf("NewSpec Error: %s", e.Error())
 	}
@@ -118,12 +118,12 @@ func TestGlobalEncodeSoftAssign(t *testing.T) {
 	InitTempData()
 	t.Log("Performed Init")
 	tmp := TempData()
-	st1, err := tmp.NewSpec("gamer", "C:\\users\\derek\\appdata\\local\\nvim")
+	st1, err := tmp.NewSpec("gamer", []string{"C:\\users\\derek\\appdata\\local\\nvim"}, []string{})
 	if err != nil {
 		t.Error(err)
 	}
 
-	failed, e := st1.Overrides.setOptMap(map[string]bool{"globaltarget": true})
+	failed, e := st1.Overrides.setOptMap(map[string]bool{"useglobaltarget": true})
 	if len(failed) > 0 {
 		t.Error("failed set option globaltarget")
 		if e != nil {
@@ -190,7 +190,7 @@ func TestSetOverridesMap(t *testing.T) {
 // test edit and encode; encodes to buffer and prints before manually writing to file
 func TestEncodeToBuffer(t *testing.T) {
 	temp := initForTest(t)
-	snew, e := temp.NewSpec("testEditEncodeSpec")
+	snew, e := temp.NewSpecEmpty("testEditEncodeSpec")
 	if e != nil {
 		t.Logf("NewSpec Errored: %s", e.Error())
 	}
@@ -237,7 +237,7 @@ func TestEncodeToBuffer(t *testing.T) {
 
 func TestEditEncode(t *testing.T) {
 	temp := initForTest(t)
-	snew, e := temp.NewSpec("testEditEncodeSpec")
+	snew, e := temp.NewSpecEmpty("testEditEncodeSpec")
 	if e != nil {
 		t.Logf("NewSpec Errored: %s", e.Error())
 	}

@@ -42,12 +42,17 @@ func init() {
 		delete:   specCmd.Flags().Bool("delete", false, "delete spec"),
 		yconfirm: specCmd.Flags().BoolP("autoconfirm user y/n prompts", "y", false, "yes"),
 		alias:    specCmd.Flags().String("set-alias", "", "set-alias ALIAS"),
+		src: specCmd.Flags().StringSlice("src", make([]string, 0, 2),
+			`--src="c:\srcPath1\, .\path2"`),
+		tgt: specCmd.Flags().StringSlice("tgt", make([]string, 0, 2),
+			`--tgt="c:\target\path1, .\tpath2"`),
 	}
 }
 
 type specFlags struct {
 	yconfirm, delete *bool
 	alias            *string
+	src, tgt         *[]string
 }
 
 var ErrSpecNotMade = errors.New("No spec created; received nil pointer")
@@ -55,11 +60,11 @@ var ErrSpecNotMade = errors.New("No spec created; received nil pointer")
 var flagDataSpec specFlags
 var specOps = specOpData{flags: &flagDataSpec}
 
-// TODO: source/target flags
 // TODO: Use SelectedSpec for 0-arg edits
+
 func specRun(cmd *cobra.Command, args []string) {
-	temp = dscore.TempData()
-	specOps.args = args
+	td := dscore.TempData()
+	specOps.args = sliceUniques(args)
 	specOps.argcount = len(args)
 	specOps.cmd = cmd
 	specOps.argExists = make([]bool, len(args))
@@ -77,7 +82,6 @@ func specRun(cmd *cobra.Command, args []string) {
 		if err != nil {
 			cmd.PrintErr(err)
 		}
-
 	case len(specOps.existingSpecs) > 0:
 		if *specOps.flags.delete { //TEST: MULTI-SPEC DELETE
 			for i := range specOps.existingSpecs {
@@ -90,7 +94,7 @@ func specRun(cmd *cobra.Command, args []string) {
 				}
 			}
 		} else {
-			changed := dscore.TempData().SelectPtr(specOps.existingSpecs[0])
+			changed := td.SelectPtr(specOps.existingSpecs[0])
 			if changed {
 				cmd.Printf("Selected %s.", specOps.existingSpecs[0].Alias)
 			}
@@ -120,26 +124,41 @@ func (op *specOpData) outputSelected() {
 }
 
 func (op *specOpData) specNew() error {
-	upargs := make([]string, op.argcount)
-	copy(upargs, op.args)
-	tempdat := dscore.TempData()
-	var spec *dscore.Spec
+	temp := dscore.TempData()
+	if op.reqMultNewWithPaths() {
+		ask := askConfirmf(fmt.Sprintf("make %d specs with same source/target?", len(op.args)))
+		if !ask {
+			op.cmd.Print("0 specs made")
+			return nil
+		}
+	}
 	var err error
-	// TODO: (Hi) Remove the weird system of adding paths and just use flags for paths + make multiple specs on multi-arg in
-	if op.argcount > 1 {
-		spec, err = tempdat.NewSpec(op.args[0], op.args[1:]...)
-	} else {
-		spec, err = tempdat.NewSpec(op.args[0])
+	for _, v := range op.args {
+		s, e := temp.NewSpec(v, *op.flags.src, *op.flags.tgt)
+		if e != nil {
+			if err == nil {
+				err = fmt.Errorf("err making new spec:")
+			} else {
+				err = fmt.Errorf("%w, %w", err, e)
+			}
+
+		}
+		temp.Specs = append(temp.Specs, *s)
 	}
-	if err != nil || spec == nil {
-		return fmt.Errorf("error in op.specNew(): %w, from NewSpec: %w", ErrSpecNotMade, err)
-	}
-	tempdat.SelectPtr(spec)
-	op.cmd.Printf("spec %s created and selected\n", spec.Alias)
+	//op.cmd.Printf("spec %s created and selected\n", spec.Alias)
 	return nil
 }
+func (op specOpData) reqMultNewWithPaths() bool {
+	nArgs := len(op.args)
+	nSrcArgs := len(*op.flags.src)
+	nTgtArgs := len(*op.flags.tgt)
+	return nArgs > 1 && (nSrcArgs > 0 || nTgtArgs > 0)
+}
 
+// TODO: finish this
 func (op *specOpData) checkFlagActions() bool {
+
+	// alias change
 	if newAlias := *op.flags.alias; newAlias != "" {
 		switch {
 		case op.argcount == 1 && len(op.existingSpecs) == 1:
