@@ -4,7 +4,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -44,9 +43,7 @@ func TestOutputPath(t *testing.T) {
 		func(p string, d DirEntry, e error) error {
 			// FUNCTION: CopyJob.stripRoot()
 			t.Logf("Run filepath.Rel(%s, %s)", p, inpath)
-			if runtime.GOOS == "windows" {
-				inpath = strings.Replace(inpath, "/", `\`, -1)
-			}
+
 			//t.Logf("Replace:\n%s\n%s", p, inpath)
 			relp := strings.Replace(p, inpath, "", 1)
 			//t.Logf("relative path = %s", relp)
@@ -133,7 +130,7 @@ func testCopyDir(t *testing.T, srcDir, outDir string, bOpt boolConfig) {
 	t.Logf("CopyJob pre-copy:\n%+v", tcopy)
 	tcopy.BPrefs = bOpt
 	tcopy.logCopyConfigTest(t)
-	err := tcopy.Run()
+	err := tcopy.RunFS()
 	if err != nil {
 		t.Errorf("COPY ERROR: %v", err)
 		t.Logf("[COPYJOB: %+v]", tcopy)
@@ -229,7 +226,7 @@ func testCopyOnlyDirs(t *testing.T, srcDir, outDir string) {
 	tcopy.BPrefs[bNoFiles] = true
 	t.Logf("CopyJob PathIn:%s, PathOut:%s", tcopy.PathIn, tcopy.PathOut)
 	t.Logf("Prefs:\n%+v", tcopy.BPrefs)
-	err := tcopy.Run()
+	err := tcopy.RunFS()
 	if err != nil {
 		t.Errorf("COPY ERROR: %v", err)
 		t.Logf("[COPYJOB: %+v]", tcopy)

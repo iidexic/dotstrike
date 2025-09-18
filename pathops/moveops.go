@@ -2,30 +2,15 @@ package pops
 
 import (
 	"fmt"
-	"io"
 	"io/fs"
 	"maps"
-	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 
 	"iidexic.dotstrike/config"
 )
 
-// // TODO: Document this (i dont remember what it's for)
-// type esource = byte
-//
-// const (
-//
-//	_ esource = iota
-//	esInfileOPEN
-//	esOutfileMAKEOPEN
-//	esCOPY
-//	es
-//
-// )
 type DirEntry = fs.DirEntry
 type boolConfig map[config.OptionKey]bool
 
@@ -39,27 +24,26 @@ type stringConfig = map[config.OptionKey]string
 type PathError = fs.PathError
 
 var (
-	globalOutDir *string //NOTE: Using  copierMaschine GlobalOut instead
-	bNoFiles     = config.BoolNoFiles
-	bAllDirs     = config.BoolCopyAllDirs
-	bRootSubdir  = config.BoolRootSubdir
-	bUseGlobal   = config.BoolUseGlobalTarget
-	bNoHidden    = config.BoolIgnoreHidden
-	bNoRepo      = config.BoolIgnoreRepo
+	bNoFiles    = config.BoolNoFiles
+	bAllDirs    = config.BoolCopyAllDirs
+	bRootSubdir = config.BoolRootSubdir
+	bUseGlobal  = config.BoolUseGlobalTarget
+	bNoHidden   = config.BoolIgnoreHidden
+	bNoRepo     = config.BoolIgnoreRepo
 )
 
 // copierMaschine builds and executes CopyJobs
 // Ideally single-instance; use GetCopier to get
 type copierMaschine struct {
-	JobQueue     map[string]*CopyJob
-	JobGroups    map[string]*JobGroup
-	globalOut    string //NOTE: This is being handled before data is loaded to this package. Needed?
-	setglobalOut bool
+	JobQueue  map[string]*CopyJob
+	JobGroups map[string]*JobGroup
+	runErrors []error
 }
 
 var cmachine copierMaschine = copierMaschine{
 	JobQueue:  make(map[string]*CopyJob),
 	JobGroups: make(map[string]*JobGroup),
+	runErrors: make([]error, 0, 32),
 }
 
 func Copier() *copierMaschine { return &cmachine }
@@ -86,16 +70,20 @@ type pathSet struct {
 
 // TODO: finish RunAll
 
-func (CM *copierMaschine) RunAll(stopOnError bool) {
-	for name, job := range CM.JobQueue {
-		_ = job
-		_ = name
-	}
-}
+func (CM *copierMaschine) RunAll(stopOnError bool) error {
+	for name, group := range CM.JobGroups {
+		e := group.RunAll(stopOnError)
+		if e != nil {
+			if stopOnError {
+				return fmt.Errorf("error for %s: %w", name, e)
+			} else {
+				CM.runErrors = append(CM.runErrors, e)
 
-func (CM *copierMaschine) SetGlobalOutDir(globalOut string) {
-	CM.globalOut = globalOut
-	CM.setglobalOut = true
+			}
+		}
+	}
+	//TODO: Return Error?
+	return nil
 }
 
 func (CM *copierMaschine) Detail() []string {
@@ -147,30 +135,10 @@ func (g *JobGroup) Detail() string {
 	return strings.Join(sd, "\n")
 }
 
-// TODO:(low) finish full CopyJob Detail
-func (J *CopyJob) Detail() []string {
-	d := make([]string, 4+len(J.fstack)+len(J.ignore.Patterns), +len(J.BPrefs)+len(J.BPrefs))
-	d[0] = fmt.Sprintf("in:'%s' out: %s | ", J.PathIn, J.PathOut)
-
-	return d
-}
-
-func (J *CopyJob) DetailLine() string {
-	d := fmt.Sprintf("in:'%s' | out: %s ", J.PathIn, J.PathOut)
-	if len(J.ignore.Patterns) > 0 {
-		d += fmt.Sprintf("| #ignores:%d", len(J.ignore.Patterns))
-	}
-	if J.jobRan {
-		d += fmt.Sprintf("| ran (%d file, %d newdir, %d errors)", len(J.fstack), J.DirsMade(), len(J.OpErrors))
-	}
-	return d
-}
-
 // NewJobGroup takes all required data for a group of related Copy Jobs, and returns a JobGroup ptr.
 //
 // It also automatically creates all copy jobs, and stores the job names in JobGroup.jobNames.
 // Job names are created as (name-[job#])
-
 func (CM *copierMaschine) NewJobGroup(name string, inPaths []string, outPaths []string, bools boolConfig) *JobGroup {
 	numJobs := len(inPaths) * len(outPaths)
 	group := &JobGroup{groupName: name, bcfg: bools,
@@ -178,7 +146,7 @@ func (CM *copierMaschine) NewJobGroup(name string, inPaths []string, outPaths []
 		jobPtrs:  make([]*CopyJob, numJobs),
 		pathSet:  pathSet{ins: inPaths, outs: outPaths},
 	}
-	//TODO: Must process UseGlobal+KillGlobal now
+
 	group.makeJobs()
 	group.initialized = true
 	key := group.groupName
@@ -208,7 +176,7 @@ func (g *JobGroup) makeJobs() {
 func (g *JobGroup) RunAll(abortOnError bool) error {
 	var outError error
 	for i := range g.jobPtrs {
-		e := g.jobPtrs[i].Run()
+		e := g.jobPtrs[i].RunFS()
 		if e != nil && abortOnError {
 			return e
 		} else if e != nil {
@@ -220,19 +188,6 @@ func (g *JobGroup) RunAll(abortOnError bool) error {
 		}
 	}
 	return outError
-}
-
-// CopyJob prepares and executes the copy of all contents of PathIn to PathOut
-type CopyJob struct {
-	PathIn, PathOut string     // Root of copy source and destination (*or destination parent)
-	parentPathOut   string     // unused. populated on run if JobSettings.makeRootSubdir = true
-	fstack          []filecopy // record of files copied
-	jobRan          bool
-	newDirs         map[string]bool //
-	ignore          IgnoreSet
-	OpErrors        []fs.PathError
-	BPrefs          boolConfig
-	SPrefs          stringConfig //* Currently Unused
 }
 
 // NewJob creates a new job and adds to the JobQueue; returns a ptr to created job if successful
@@ -278,28 +233,10 @@ func (CM *copierMaschine) GetJob(jobName string) *CopyJob {
 // RunJob is equivalent to running GetJob and then running CopyJob.Run(nil)
 func (CM *copierMaschine) RunJob(jobName string) *CopyJob {
 	if ptrjob := CM.GetJob(jobName); ptrjob != nil {
-		ptrjob.Run()
+		ptrjob.RunFS()
 		return ptrjob
 	}
 	return nil
-}
-
-func (J *CopyJob) configCheck(opt config.OptionKey) bool {
-	if opt.IsBool() {
-		v, ok := J.BPrefs[opt]
-		return v && ok
-	}
-	if opt.IsString() {
-		v, ok := J.SPrefs[opt]
-		return len(v) > 0 && ok
-	}
-
-	return false
-}
-
-// TODO:  test IgnoreGit  (ALSO Test Global)
-func (J *CopyJob) IgnoreGit() {
-	J.ignore.Patterns = append(J.ignore.Patterns, subptn{ptn: `.git`, matchDir: true})
 }
 
 // filecopy acts as a record of a single file's copy operation
@@ -315,168 +252,24 @@ type filecopy struct {
 // 	esrc    esource
 // }
 
-func (J *CopyJob) logError(abspath, opname string, e error) {
-	J.OpErrors = append(J.OpErrors, fs.PathError{Path: abspath, Op: opname, Err: e})
-}
-
-// checkAndLogError checks the error, and logs non-nil errors to CopyJob.logError.
-// returns true if error!=nil, else false
-func (J *CopyJob) checkAndLogError(abspath, opname string, e error) bool {
-	if e != nil {
-		J.logError(abspath, opname, e)
-		return true
+func (F filecopy) String() string {
+	var is, os float64
+	var iu, ou string
+	if F.inSize > 1048576 {
+		is = float64(F.inSize) / 1048576.0
+		iu = "MB"
+	} else {
+		is = float64(F.inSize) / 1024.0
+		iu = "KB"
 	}
-	return false
-}
-
-func (J *CopyJob) addFile(relpath string, inSize, outSize int64) {
-	J.fstack = append(J.fstack, filecopy{relpath: relpath, inSize: inSize, outSize: outSize})
-}
-
-// ── Performing CopyJob ──────────────────────────────────────────────
-
-// Run the copy. Returns
-func (J *CopyJob) Run( /* params */ ) error {
-	// condition paths
-	var e error
-	// Prefs that need to be processed here
-	//TODO: CHECK WHETHER OR NOT BPREFS ALWAYS CONTAINS ALL OF THESE VALUES
-	//	IF NOT MUST ADD CHECK FOR KEY EXIST TO EVERYTHING
-	/*
-	   bNoFiles
-	   bAllDirs
-	   bRootSubdir
-	   bUseGlobal
-	   bNoHidden
-	   bNoRepo
-	*/
-	if J.BPrefs.IsOn(bNoRepo) {
-
+	if F.outSize > 1048576 {
+		os = float64(F.outSize) / 1048578.0
+		ou = "MB"
+	} else {
+		os = float64(F.outSize) / 1024.0
+		ou = "KB"
 	}
-	if J.BPrefs.IsOn(bNoHidden) {
-
-	}
-
-	if J.jobRan {
-		return fmt.Errorf("CopyJob Already Ran")
-	}
-	if J.BPrefs[bRootSubdir] && J.parentPathOut == "" { // parentpath check to be safe
-		J.parentPathOut = J.PathOut
-		J.PathOut = Joinpath(J.PathOut, filepath.Base(J.PathIn))
-	}
-	J.jobRan = true
-	// ── Walk ────────────────────────────────────────────────────────────
-	e = filepath.WalkDir(J.PathIn, J.Walk)
-
-	if e != nil {
-		J.OpErrors = append(J.OpErrors, fs.PathError{Path: J.PathIn, Err: e, Op: ""})
-		return e
-	}
-
-	//warning: WITH THIS STRUCTURE, A WALKDIR ERROR WILL PREVENT MAKING ADDITIONAL DIRS
-	// why would I do this separately?
-	// Technically it works.. but I don't see a reason not to have this in the walk
-	if J.BPrefs[bAllDirs] {
-		for relDir := range J.newDirs {
-			e := os.MkdirAll(Joinpath(J.PathOut, relDir), 0)
-			J.checkAndLogError(relDir, "MakeDirectory", e)
-		}
-	}
-	return nil
-}
-
-// logDir adds directories to j.newDirs if they are not already present
-// NOTE: Walk sends relative paths to logDir (J.newDirs keys will be relative)
-func (J *CopyJob) logDir(dir string, copied bool) {
-	var exists bool
-	for keydir := range J.newDirs {
-		exists = (exists || keydir == dir)
-	}
-	if !exists {
-		J.newDirs[dir] = copied
-	}
-}
-func (J *CopyJob) DirsMade() int {
-	n := 0
-	for _, v := range J.newDirs {
-		if v {
-			n++
-		}
-	}
-	return n
-}
-
-// ╭─────────────────────────────────────────────────────────╮
-// │                      WALK FUNCTION                      │
-// ╰─────────────────────────────────────────────────────────╯
-
-func (J *CopyJob) Walk(p string, d DirEntry, e error) error {
-	// make relative path first; used for dirs & files
-	rootRelativePath := J.stripRoot(p) //	!INFO: panics on error; error is unexpected
-
-	// DIRECTORIES:
-	if d.IsDir() {
-		// check ignore + prevent recursion (if PathOut is a subdir of PathIn)
-		if J.ignore.isIgnored(p, true) || strings.HasPrefix(p, J.PathOut) {
-			J.logDir(rootRelativePath, false)
-			return fs.SkipDir
-		}
-		J.logDir(rootRelativePath, true)
-		return nil
-	} else { // File Ignore
-		if J.ignore.isIgnored(p, false) {
-			return nil
-		}
-	}
-
-	// ── 0.1 make filepath out ─────────────────────────────────
-	pto := Joinpath(J.PathOut, rootRelativePath)
-	if !filepath.IsAbs(pto) {
-		pto = absNoE(pto) //	!INFO: panics on error; error is unexpected
-	}
-
-	// 0.2 Get infile Info()
-	inDE, e := d.Info()
-	J.checkAndLogError(p, "GetFileInfo_In", e)
-
-	// 0.3 Return before copy if config requires.
-	if J.BPrefs[bNoFiles] {
-		J.addFile(rootRelativePath, inDE.Size(), 0) // for dry runs
-		return nil
-	}
-
-	// ── 1. open in file ──
-	inF, e := OpenExistingFile(p)
-	defer inF.Close()
-	if e != nil {
-		J.logError(p, "OpenExisting_In", e)
-		return nil //skip file if opening errors
-	}
-	// ── 2. make/open out file ──
-
-	outF, e := MakeOpenFileF(pto)
-	defer outF.Close()
-	J.checkAndLogError(pto, "MakeOpen_Out", e)
-
-	// ── 3. perform copy ──
-	wb, e := io.CopyBuffer(outF, inF, nil)
-	J.checkAndLogError(pto, "CopyError_Out", e)
-
-	// check size original matches new copied
-	J.addFile(rootRelativePath, inDE.Size(), wb)
-	return nil
-}
-
-// stripRoot removes CopyJob.PathIn from path provided for construction of destination path
-// structure/intent of CopyJob requires J.PathIn to be a prefix in rpath.
-// As such, if an error is encountered, stripRoot panics
-func (J *CopyJob) stripRoot(p string) string {
-	relp, e := filepath.Rel(J.PathIn, p)
-	if e != nil {
-		panic(fmt.Errorf("stripRoot(%s) error: %v", p, e))
-	}
-	return relp
-
+	return fmt.Sprintf("'%s' (In: %.2f %s, Out: %.2f %s)", F.relpath, is, iu, os, ou)
 }
 
 // absNoE runs abs and returns the resulting string; panics on error
@@ -488,14 +281,16 @@ func absNoE(p string) string {
 	return po
 }
 
-// conditionPath cleans path, gets abs path, and fixes windows path separators
+// TODO: Remove conditionPath
+
+// conditionPath cleans path and gets abs path
 // returns error direct from filepath.Abs
 func conditionPath(p string) (string, error) {
 	var e error
 	p = filepath.Clean(p)
 	p, e = filepath.Abs(p)
-	if runtime.GOOS == "windows" {
-		p = strings.Replace(p, "/", `\`, -1)
-	}
+	// if runtime.GOOS == "windows" {
+	// 	p = strings.Replace(p, "/", `\`, -1)
+	// }
 	return p, e
 }

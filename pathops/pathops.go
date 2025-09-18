@@ -44,11 +44,13 @@ var (
 	ErrGetConfigdir error
 	ErrEmptyHome    = fmt.Errorf("Home path is empty string")
 	ErrNilInfo      = fmt.Errorf("nil os.FileInfo")
+	ErrNotAbs       = fmt.Errorf("Path can't be resolved to an absolute path")
+	ErrNotDir       = fmt.Errorf("Path is not a directory path")
 )
 
 var (
 	Open     = os.Open
-	BaseName = filepath.Base
+	Base     = filepath.Base
 	Joinpath = filepath.Join
 )
 
@@ -216,6 +218,8 @@ func TildeFix(ospath string) (string, error) {
 	}
 	return ospath, nil
 }
+
+//TODO: (mid-hi) delete/replace MakeAbs. Don't Swallow errors with panic
 
 // makeabs returns absolute path of inpath
 // inpath may or may not be relative from home dir/cwd
