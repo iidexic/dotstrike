@@ -21,7 +21,7 @@ var (
 	bSeparate                 = dscore.BoolSeparateSources
 	bNoFiles, bAllDirs        = dscore.BoolNoFiles, dscore.BoolCopyAllDirs
 	bUseGlobTgt, bKillGlobTgt = dscore.BoolUseGlobalTarget, dscore.BoolKillGlobalTarget
-	configIDs                 = []dscore.ConfigOption{bNoRepo, bNoHidden, bRootSubdir, bSeparate, bNoFiles, bAllDirs}
+	configIDs                 = []dscore.ConfigOption{bNoRepo, bNoHidden, bRootSubdir, bSeparate, bNoFiles, bAllDirs, bUseGlobTgt, bKillGlobTgt}
 
 	// ── Non-config pkg flags: ───────────────────────
 	flagnameAll        = "all-specs"
@@ -69,11 +69,12 @@ Use override flag to set run configuration; by default current global prefs will
 	mainRun.flagSources = runCmd.Flags().StringArray(flagnameSrc, []string{}, `--src="path1,path2" for manual run;  --src="0,1,alias" for partial run (source index, alias, or dirname)`)
 
 	mainRun.flagTargets = runCmd.Flags().StringArray(flagnameTgt, []string{}, `--tgt="path1,path2" for manual run;  --tgt="0,1,alias" for partial run (target index, alias, or dirname)`)
-	mainRun.fOptGlobalTarget = runCmd.Flags().String(flagnameGlobTgt, "", bUseGlobTgt.RunUsage())
+	// mainRun.fAllToGlobalTarget = runCmd.Flags().String(flagnameGlobTgt, "", bUseGlobTgt.RunUsage())
+	// mainRun.fAllToGlobalTarget = runCmd.Flags().String(flagnameGlobTgt, "", bUseGlobTgt.RunUsage())
 	mainRun.fSetupDebug = runCmd.Flags().Bool(flagnameNoRunDebug, false, "")
 	mainRun.set.MarkHidden(flagnameNoRunDebug)
 
-	runCmd.Flag("global-target").NoOptDefVal = "on"
+	// runCmd.Flag("global-target").NoOptDefVal = "on"
 	// ── ConfigOption Flags ──────────────────────────────────────────────
 	initConfigFlags()
 
@@ -98,9 +99,9 @@ type runner struct {
 
 	rtPrefs                      map[dscore.ConfigOption]*bool
 	FinalConfig                  map[dscore.ConfigOption]bool
-	flagY, flagSelected, flagAll *bool   // checked where used
-	fManualRun, fPartialRun      *bool   // check first to toggle operation
-	fOptGlobalTarget             *string // must convert into FinalConfig if used
+	flagY, flagSelected, flagAll *bool // checked where used
+	fManualRun, fPartialRun      *bool // check first to toggle operation
+	fAllToGlobalTarget           *bool // must convert into FinalConfig if used
 	fSetupDebug                  *bool
 	runTriggered, dbg            bool
 
@@ -226,17 +227,6 @@ func (r *runner) run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func (r *runner) ps(ss ...string) {
-	if len(ss) > 0 {
-		for _, s := range ss {
-			r.Println("|" + s)
-		}
-	} else {
-		r.Print("~")
-	}
-
-}
-
 func (r *runner) jobDetailUserConfirm() bool {
 	ls := len(r.specs)
 	requestText := dscore.JobManager().WriteJobDetail()
@@ -340,15 +330,8 @@ func (r *runner) process(f *pflag.Flag) {
 // handleFlags applies the remainder of flags that aren't checked in-process.
 // Flags not handled by handleFlags+makeRuntimeConfig: All, NoSelect, Src, Tgt, Y
 func (r *runner) handleFlags() {
-	if optGT := *r.fOptGlobalTarget; optGT != "" {
-		if toBool := dscore.StringToBool(optGT); toBool != nil {
-			if *toBool {
-				r.FinalConfig[dscore.BoolUseGlobalTarget] = true
-			} else {
-				r.FinalConfig[dscore.BoolKillGlobalTarget] = true
-			}
-		}
-	}
+	// if optGT := *r.fAllToGlobalTarget; optGT != "" { if toBool := dscore.StringToBool(optGT); toBool != nil { if *toBool {
+	// 			r.FinalConfig[dscore.BoolUseGlobalTarget] = true } else { r.FinalConfig[dscore.BoolKillGlobalTarget] = true } } }
 	r.manualMode = *r.fManualRun
 	r.partialMode = *r.fPartialRun
 }
@@ -361,6 +344,9 @@ func (r *runner) checkFlagProblems() error {
 		if len(r.args) != 2 && (len(*r.flagSources) == 0 || len(*r.flagTargets) == 0) {
 			return ErrMissModeDependency
 		}
+	}
+	if *r.rtPrefs[bUseGlobTgt] && *r.rtPrefs[bKillGlobTgt] {
+
 	}
 	return nil
 }

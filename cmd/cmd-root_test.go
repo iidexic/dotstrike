@@ -96,13 +96,17 @@ func runSequential(runargs ...string) ([]string, error) {
 // TODO:(mid) finish this guyy
 func TestFeatureset(t *testing.T) {
 	out, err := runSequential(
-		"spec test-audio",
-		"spec test-svg",
-		"spec test-imagesets",
-		"src d:/coding/exampleFiles/imagesets/svg-sizediff ",
+		"spec test-audio test-svg",                          // make multiple spec
+		"spec test-imagesets",                               // make  spec
+		"src d:/coding/exampleFiles/imagesets/svg-sizediff", // add src
 		"src d:/coding/exampleFiles/imagesets/svg-x-circle",
-		"src d:/coding/exampleFiles/imagesets/svg_circle",
-		"src d:/coding/exampleFiles/imagesets/svg_png",
+		"src d:/coding/exampleFiles/imagesets/svg_circle d:/coding/exampleFiles/imagesets/svg_png", //add 2 src
+		"tgt d:/coding/exampleFiles/OUTPUT/images",
+		"cfg ",                     //WARN:notdone
+		"spec test-audio --delete", //test deletes
+		"spec  test-svg --delete",
+		// single line new spec with inline paths
+		`spec t-audio --src='d:/coding/exampleFiles/audio' --tgt=='d:/coding/exampleFiles/OUTPUT/audio'`,
 	)
 	if err != nil {
 		t.Error(err)

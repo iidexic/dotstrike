@@ -53,6 +53,8 @@ func (J *jobProcessor) AddSpecs(s ...*Spec) {
 	}
 }
 
+var setupRunContinue = false
+
 func (J *jobProcessor) SetupAndRunAll(abortOnError bool) error {
 	// if confirmHaveRuntimeConfig && (J.runtimeConfig == nil || len(J.runtimeConfig) == 0) {
 	// 	return fmt.Errorf("Run terminated: No runtime config (confirmHaveRuntimeConfig on)")
@@ -60,8 +62,11 @@ func (J *jobProcessor) SetupAndRunAll(abortOnError bool) error {
 	var runErr error
 	for i, s := range J.specs {
 
-		s.applyConfigsPrioritized(gd.data.Prefs.Bools, J.runtimeConfig)
+		cerr := s.applyAndCheckConfigs(gd.data.Prefs.Bools, J.runtimeConfig)
 		//HANDLE UseGlobalTarget, KillGlobalTarget before groups made
+		if cerr != nil {
+			return cerr
+		}
 
 		switch {
 		case s.config[BoolUseGlobalTarget] && s.config[BoolKillGlobalTarget]:
@@ -97,7 +102,7 @@ func (J *jobProcessor) SetupOnly() error {
 	var specErrors error
 	errcount := 0
 	for i := range J.specs {
-		e := J.specs[i].applyConfigsPrioritized(gd.data.Prefs.Bools, J.runtimeConfig)
+		e := J.specs[i].applyAndCheckConfigs(gd.data.Prefs.Bools, J.runtimeConfig)
 		if e != nil {
 			errcount++
 			if specErrors == nil {

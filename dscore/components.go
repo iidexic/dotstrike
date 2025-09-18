@@ -137,16 +137,16 @@ func (pc pathComponent) Detail() string {
 func (pc pathComponent) MatchesID(id string) bool {
 	if pc.Abspath == "" {
 		return id == pc.Abspath || id == pc.Path || id == pc.Alias ||
-			strings.ToLower(id) == pops.BaseName(pc.Path)
+			strings.ToLower(id) == pops.Base(pc.Path)
 	} else {
 		return id == pc.Abspath || id == pc.Path || id == pc.Alias ||
-			strings.ToLower(id) == pops.BaseName(pc.Abspath)
+			strings.ToLower(id) == pops.Base(pc.Abspath)
 	}
 
 }
 func (pc pathComponent) MatchesPath(id string) bool     { return id == pc.Abspath || id == pc.Path }
 func (pc pathComponent) MatchesAlias(id string) bool    { return standardizeAlias(id) == pc.Alias }
-func (pc pathComponent) MatchesPathBase(id string) bool { return id == pops.BaseName(pc.Abspath) }
+func (pc pathComponent) MatchesPathBase(id string) bool { return id == pops.Base(pc.Abspath) }
 
 func (pc pathComponent) IsSource() bool { return pc.Ctype == sourceComponent }
 

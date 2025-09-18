@@ -175,16 +175,15 @@ Use with --no-files to only copy the directories themselves.`,
 		ForFileOp: true, LookupSubstrings: []string{"copy|all", "all|", "dir"}, LookupExacts: []string{"alldirs", "aldr"},
 	},
 	BoolUseGlobalTarget: {
-		Type: Tbool, NameText: "UseGlobalTarget", fName: "use-global-target",
-		runUsage: `Use "--GlobalTarget" to enable write to Global Target for all specs in run.
-Use --GlobalTarget="off" to forcibly disable write to GlobalTarget for full run, including specs that exclusively target the Global Target.`,
-		ForSpec: true, LookupSubstrings: []string{"use|all|force", "global|glb|gtg", "target|tgt|"}, LookupExacts: []string{"usegt", "allgt", "agtg"},
+		Type: Tbool, NameText: "ForceGlobalTarget", fName: "force-globaltarget",
+		runUsage: `--all-globaltarget forces all specs in the run to copy to global target (in addition to their current targets)`,
+		ForSpec:  true, LookupSubstrings: []string{"use|all|force", "global|glb|gtg", "target|tgt|"}, LookupExacts: []string{"usegt", "allgt", "agtg"},
 	},
 	BoolKillGlobalTarget: {
-		Type: Tbool, NameText: "DisableGlobalTarget", fName: "kill-global-target",
-		runUsage: `--GlobalTarget=off`,
+		Type: Tbool, NameText: "DisableGlobalTarget", fName: "none-globaltarget",
+		runUsage: `--none-globaltarget disables copy to global target for every spec in the run (including for specs that only write to global target)`,
 		ForSpec:  true, LookupSubstrings: []string{"kill|disable|no", "glob|glb|gtg", "target|tgt|"},
-		LookupExacts: []string{"nogt", "gtoff", "gtgoff"},
+		LookupExacts: []string{"nonegt", "nogt", "gtoff", "gtgoff"},
 	},
 	BoolOverrideOn: {
 		Type: Tbool, NameText: "OverrideOn", fName: "use-override",
@@ -194,7 +193,7 @@ Use --GlobalTarget="off" to forcibly disable write to GlobalTarget for full run,
 	StringGlobalTargetPath: {
 		Type: Tstring, NameText: "GlobalTargetPath", fName: "set-global-target-path",
 		runUsage: ``, ForRun: true,
-		LookupSubstrings: []string{"set", "glob|glb", "target|tgt|dest", "path|dir|"},
+		LookupSubstrings: []string{"set|", "glob|glb", "target|tgt|dest", "path|dir"},
 		LookupExacts:     []string{"gtpath", "globaltarget", "gtpath"},
 	},
 }
@@ -318,4 +317,34 @@ func lookupSubstringMatch(input string, sub string) bool {
 		}
 	}
 	return false
+}
+
+func DetailFlat(OptMap map[OptionKey]bool) string {
+	enabled := make([]OptionKey, len(OptMap))
+	disabled := make([]OptionKey, len(OptMap))
+	ti, fi := 0, 0
+	for opt, v := range OptMap {
+		if v {
+			enabled[ti] = opt
+			ti++
+		} else {
+			disabled[fi] = opt
+			fi++
+		}
+	}
+	if ti > 0 {
+		enabled = enabled[:ti]
+	}
+	if fi > 0 {
+		disabled = disabled[:fi]
+	}
+	d := "[on:] "
+	for _, opt := range enabled {
+		d += opt.String() + ", "
+	}
+	d += "\n[off:] "
+	for _, opt := range disabled {
+		d += opt.String() + ", "
+	}
+	return d
 }

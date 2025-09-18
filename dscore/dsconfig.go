@@ -113,6 +113,18 @@ Globals Log (instance):
 	return strings.Join(lines, "\n")
 }
 
+func (gd *globalData) DetailSimple() string {
+	det := make([]string, len(gd.Specs)+len(gd.Prefs.Bools))
+	det[0] = "-- Global Data: --"
+	i := 1
+	for n, s := range gd.Specs {
+		det[i] = fmt.Sprintf("[%d] Spec %s: %d sources, %d targets, %d overrides", n, s.Alias, len(s.Sources), len(s.Targets), len(s.Overrides.Bools))
+		i++
+	}
+	det[i] = fmt.Sprintf("Prefs: %d boolean prefs", len(gd.Prefs.Bools))
+	return strings.Join(det, "\n")
+}
+
 func (p prefs) Detail() string {
 	if len(p.Bools) == 0 {
 		return "0 options set"

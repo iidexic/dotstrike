@@ -119,11 +119,6 @@ type pfid int
 var persistentFlags persistentData
 var version *bool
 
-// TODO: remember what this was for, or remove
-func (p *persistentData) componentFlags() {
-
-}
-
 func configLoadInit() {
 	e := dscore.CoreConfig()
 	if e != nil {

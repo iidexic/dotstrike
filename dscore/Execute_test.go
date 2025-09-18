@@ -16,7 +16,7 @@ func (J *jobProcessor) testSetupAndDryRun(abortOnError bool) error {
 	J.runtimeConfig[BoolNoFiles] = true
 	var runErr error
 	for i := range J.specs {
-		J.specs[i].applyConfigsPrioritized(gd.data.Prefs.Bools, J.runtimeConfig)
+		J.specs[i].applyAndCheckConfigs(gd.data.Prefs.Bools, J.runtimeConfig)
 		J.specs[i].group = pops.Copier().NewJobGroup(J.specs[i].groupExport())
 		e := J.specs[i].group.RunAll(abortOnError)
 		if e != nil {

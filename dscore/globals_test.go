@@ -55,7 +55,7 @@ func TestForceEncodeDefaults(t *testing.T) {
 
 func loadTestconfig(t *testing.T) error {
 	// Executs from dscore subdir, so using ../ below
-	abstestdir := pops.MakeAbs("../[samplefiles]")
+	abstestdir := pops.MakeAbs("../_xtra/[samplefiles]")
 	gotConfig := gd.GetConfig(abstestdir) //NOTE: uses dotstrikeData.toml
 
 	fpath := pops.Joinpath(abstestdir, globalsFilename)
