@@ -66,19 +66,20 @@ func TestPathTear(t *testing.T) {
 func testing_job() *CopyJob {
 	in := CleanPath(`d:\coding\exampleFiles\INPUT\`)
 	out := CleanPath(`d:\coding\exampleFiles\OUTPUT`)
-	job := CopyJob{
-		PathIn: in, PathOut: out,
-		newDirs: make(map[string]bool),
-		BPrefs:  make(boolConfig),
-		SPrefs:  make(stringConfig),
-	}
+	job := cmachine.NewJob("test-job", in, out)
+	// job := CopyJob{
+	// 	PathIn: in, PathOut: out,
+	// 	newDirs: make(map[string]bool),
+	// 	BPrefs:  make(boolConfig),
+	// 	SPrefs:  make(stringConfig),
+	// }
 	job.BPrefs[bNoRepo] = true
 	job.BPrefs[bUseGlobal] = true
 	job.BPrefs[bRootSubdir] = true
 	job.BPrefs[bNoFiles] = false
 	job.BPrefs[bNoHidden] = false
 
-	return &job
+	return job
 
 }
 
@@ -99,13 +100,14 @@ func TestRunFSdry(t *testing.T) {
 	}
 }
 
-func TestRunFSDirs(t *testing.T) {
+func TestRunFSdirs(t *testing.T) {
 	job := testing_job()
 	dl, e := newDirLog(job)
 	if e != nil && dl != nil {
 
 	}
 	job.BPrefs[bNoFiles] = true
+	job.BPrefs[bAllDirs] = true
 	e = job.RunFS()
 	if e != nil {
 		t.Errorf("JobRun Error: %v", e)
@@ -114,6 +116,26 @@ func TestRunFSDirs(t *testing.T) {
 	for _, e := range job.OpErrors {
 		t.Logf("%v", e)
 	}
+}
+
+func TestRunFSfull(t *testing.T) {
+	job := testing_job()
+	dl, e := newDirLog(job)
+	if e != nil && dl != nil {
+
+	}
+	e = job.RunFS()
+	if e != nil {
+		t.Errorf("JobRun Error: %v", e)
+	}
+	if le := len(job.OpErrors); le > 0 {
+		t.Logf("WARNING: %d OP ERRORS", le)
+	}
+
+	for _, e := range job.OpErrors {
+		t.Logf("OpError %v", e)
+	}
+	t.Log(job.DetailRun())
 }
 
 func TestDirFS(t *testing.T) {
@@ -158,4 +180,8 @@ func TestDirFSWalk(t *testing.T) {
 		t.Errorf("Walk Error: %v", e)
 	}
 
+}
+
+func TestDeleteDir(t *testing.T) {
+	testing_job().wipeOutputDir()
 }

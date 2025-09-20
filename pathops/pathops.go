@@ -291,6 +291,20 @@ func MakeOpenFileF(fpath string) (*os.File, error) {
 	return file, e
 }
 
+// ForceMakeFile will make a new file at fpath, overwriting any file that already exists there.
+// Returns the opened file or an error (either from os.MkdirAll or os.Create).
+func ForceMakeFile(fpath string) (*os.File, error) {
+	e := os.MkdirAll(filepath.Dir(fpath), os.ModeDir)
+	if e != nil {
+		return nil, e
+	}
+	f, e := os.Create(fpath)
+	if e != nil {
+		return f, e
+	}
+	return f, nil
+}
+
 func NoError(errors []error) bool {
 	for _, e := range errors {
 		if e != nil {

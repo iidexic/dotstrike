@@ -29,13 +29,13 @@ func (J *CopyJob) RunFS() error {
 		J.PathOut = Joinpath(J.PathOut, filepath.Base(J.PathIn))
 	}
 	J.jobRan = true
-	parent, base := filepath.Split(J.PathIn)
-	if parent == "" || base == "" {
-		return fmt.Errorf("Split did a bad job splitting")
-	}
-	df := os.DirFS(parent)
+	// parent, base := filepath.Split(J.PathIn)
+	// if parent == "" || base == "" {
+	// 	return fmt.Errorf("Split did a bad job splitting")
+	// }
+	df := os.DirFS(J.PathIn)
 	// ── Walk ────────────────────────────────────────────────────────────
-	e := fs.WalkDir(df, base, J.WalkFS)
+	e := fs.WalkDir(df, ".", J.WalkFS)
 	if e != nil {
 		J.OpErrors = append(J.OpErrors, fs.PathError{Path: J.PathIn, Err: e, Op: ""})
 		return e
@@ -79,29 +79,35 @@ func (J *CopyJob) WalkFS(p string, d DirEntry, e error) error {
 	}
 	inpath = Joinpath(J.PathIn, p)
 	outpath = Joinpath(J.PathOut, p)
+	rec, err := J.record.newRecord(outpath, p, d.IsDir())
+	if be := J.checkAndLogError(outpath, "newRecord (os.Stat)", err); be && J.abort {
+		return err
+	}
+	if d.IsDir() { // ──────────────────────────────────────────────────────────
+		e := J.walkPathDir(inpath, outpath) //Error already logged here
+		if e != nil && J.abort {
 
-	if d.IsDir() {
-		e := J.walkPathDir(inpath, outpath)
-		if e != nil && J.abort { //Logged in walkPathDir
-
-			return e //need an abort check?
+			return e
 		}
-	} else if J.ignore.isIgnored(p, false) {
+		return nil
+	} // ───────────────────────────────────────────────────────────────────────
+	info, e := d.Info()
+	J.checkAndLogError(inpath, fmt.Sprintf("%s DirPath.Info()", d.Name()), e)
+	rec.setOrigin(info)
+	//rec.setOriginalSize(info.Size())
+
+	if J.ignore.isIgnored(p, false) {
 		return nil
 	}
 
-	info, e := d.Info()
-	J.checkAndLogError(p, fmt.Sprintf("%s DirPath.Info()", d.Name()), e)
-
 	if J.BPrefs[bNoFiles] { // for dry runs
-		J.addFile(p, info.Size(), 0)
 		return nil
 	}
 
 	//if looksLikeRawCopy(outpath, info) {}
 
 	// ── 1. open in file ──
-	inF, e := OpenExistingFile(p)
+	inF, e := OpenExistingFile(inpath)
 	if e != nil {
 		J.logError(p, "OpenExisting_In", e)
 		return nil //skip file if opening errors
@@ -109,19 +115,28 @@ func (J *CopyJob) WalkFS(p string, d DirEntry, e error) error {
 	defer inF.Close()
 	// ── 2. make/open out file ──
 
-	outF, e := MakeOpenFileF(outpath)
-	if J.checkAndLogError(outpath, "MakeOpen_Out", e) {
-		outF.Close()
+	outF, e := ForceMakeFile(outpath)
+	if J.checkAndLogError(outpath, "ForceMakeFile", e) {
 		return e
 	}
 	defer outF.Close()
 
 	// ── 3. perform copy ──
 	wb, e := io.CopyBuffer(outF, inF, nil)
-	J.checkAndLogError(outpath, "CopyError_Out", e)
+	//TODO: Pull an outF.Stat(), add modtime to rec
+	if J.checkAndLogError(outpath, "CopyError_Out", e) {
 
-	// check size original matches new copied
-	J.addFile(p, info.Size(), wb)
+	}
+	// get modtime and send 2 rec
+	iout, e := outF.Stat()
+	if J.checkAndLogError(outpath, "Stat() error", e) {
+
+	}
+	rec.setNew(iout, wb)
+	//rec.setNewSize(wb)
+	if rec.sizeOrigin != rec.sizeFinal && !J.configCheck(bNoFiles) {
+		J.logError(outpath, "CopySizeCheck", e)
+	}
 	return nil
 }
 
@@ -131,11 +146,11 @@ func (J *CopyJob) walkPathDir(inPath, outPath string) error {
 		J.logDir(outPath, false)
 		return fs.SkipDir
 	}
+
 	if J.BPrefs[bAllDirs] {
 		e := os.MkdirAll(outPath, 0)
 		if e != nil {
 			J.logError(outPath, "walkPathDir-Mkdir", e)
-			// TEST: check if returning the error terminates walkdir; if so, maybe add J.abort check?
 			return e
 		}
 	}

@@ -197,7 +197,11 @@ func (CM *copierMaschine) NewJob(jobName, pathIn, pathOut string) *CopyJob {
 	if CM.jobExists(jobName) {
 		return nil
 	}
-	CM.JobQueue[jobName] = &CopyJob{PathIn: pathIn, PathOut: pathOut, newDirs: make(map[string]bool)}
+	CM.JobQueue[jobName] = &CopyJob{PathIn: pathIn, PathOut: pathOut,
+		newDirs: make(map[string]bool),
+		BPrefs:  make(boolConfig),
+		SPrefs:  make(stringConfig),
+		record:  fileRecord{files: make(map[string]*filedata)}}
 	return CM.JobQueue[jobName]
 }
 
