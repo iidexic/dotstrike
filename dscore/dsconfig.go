@@ -8,6 +8,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"iidexic.dotstrike/config"
+	"iidexic.dotstrike/uout"
 )
 
 func ifer(e error) {
@@ -111,6 +112,22 @@ Globals Log (instance):
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+func (gd *globalData) Detail(verbose bool) string {
+	if !verbose {
+		return gd.DetailSimple()
+	}
+	out := uout.NewOut("[ User Data ]")
+	out.V("Config:")
+	out.IndR()
+	out.NV("Global Target Path", gd.GlobalTargetPath)
+	out.LV(gd.Prefs.Bools)
+	out.IndL()
+	out.V("Specs:")
+	out.IndR()
+	out.LV(gd.Specs)
+	return out.String()
 }
 
 func (gd *globalData) DetailSimple() string {

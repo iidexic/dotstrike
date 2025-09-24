@@ -12,6 +12,7 @@ import (
 // Condensed List of Methods & how they extend the string:
 //   - Ln(s): if 1+ strings are passed, adds each on newln. if given 0 strings, it adds newln
 //   - A(s): adds s, without  newlines or indentation
+//   - AF(s, a...): Sprintf's onto String without newln.
 //   - V(a): %+v(a) on newln,
 //   - NfnV(a): v(a) (no fieldnames) on newln
 //   - NV(name, a): '%s: %v'(name, a) on newln (~named var)
@@ -45,6 +46,32 @@ func ezunwrap(a any, index bool, ez *EZout) {
 	}
 }
 
+func flatunwrap(a any, index bool, ez *EZout) {
+	rv := reflect.ValueOf(a)
+	if rk := rv.Kind(); rk == reflect.Slice {
+		ez.A(" (")
+		if index {
+			for i := 0; i < rv.Len(); i++ {
+				ez.AF(" %02d:%v,", i, rv.Index(i).Interface())
+			}
+		} else {
+			for i := 0; i < rv.Len(); i++ {
+				ez.AF(" %+v,", rv.Index(i).Interface())
+			}
+		}
+		ez.A(")")
+	} else if rk == reflect.Map {
+		miter := rv.MapRange()
+		ez.A(" {")
+		for miter.Next() {
+			ez.AF(" %v:%+v,", miter.Key(), miter.Value())
+		}
+		ez.A("}")
+	} else {
+		ez.V(a)
+	}
+}
+
 type EZout struct {
 	string
 	Ind int
@@ -54,8 +81,24 @@ func NewOut(s string) EZout {
 	return EZout{string: s, Ind: 0}
 }
 
+func NewOutf(s string, a ...any) EZout {
+
+	return EZout{string: fmt.Sprintf(s, a...), Ind: 0}
+}
+
 func (E EZout) String() string {
 	return E.string
+}
+
+// pre adds newline and indentation
+func (E *EZout) pre() {
+	E.string += "\n"
+	if E.Ind > 0 {
+		for range E.Ind {
+			E.string += "	"
+		}
+	}
+
 }
 
 // Ln adds one or more strings, each on a new line
@@ -86,6 +129,16 @@ func (E *EZout) A(s string) {
 	E.string += s
 }
 
+// F formats s on a new line
+func (E *EZout) F(s string, a ...any) {
+	E.pre()
+	E.string += fmt.Sprintf(s, a...)
+}
+
+func (E *EZout) AF(s string, a ...any) {
+	E.string += " " + fmt.Sprintf(s, a...)
+}
+
 // ILns (Indexed Lines) prints a numbered list of strings in l, each on a new line
 func (E *EZout) ILns(l []string) {
 	for i, s := range l {
@@ -111,28 +164,35 @@ func (E *EZout) NV(name string, a any) {
 	E.string += fmt.Sprintf("%s: %+v", name, a)
 }
 
-// F formats s on a new line
-func (E *EZout) F(s string, a ...any) {
+// IfV prints a if b and aNot if !b, on a new line. Returns b
+//
+// Always prints a new line
+func (E *EZout) IfV(b bool, a, aNot any) bool {
 	E.pre()
-	E.string += fmt.Sprintf(s, a...)
-}
-
-func (E *EZout) IfV(b bool, a, aNot any) {
-	E.pre()
-	if b {
+	if b { // if sa, ok := a.(string); ok && sa != "" && b {
 		E.string += fmt.Sprintf("%+v", a)
-	} else {
+
+	} else { // if sna, ok := a.(string); ok && sna != "" && !b
+		E.pre()
 		E.string += fmt.Sprintf("%+v", aNot)
 	}
+	return b
 }
 
-func (E *EZout) IfF(b bool, s, sNot string, a, aNot any) {
-	E.pre()
-	if b {
+// IfF adds f(s,a...) if b or f(sNot, aNot...) if !b. Returns b
+//
+// When an empty string is passed for either s/sNot and that string
+// would be added, IfF adds no newline and no text.
+//   - i.e. b and s=="" or !b and sNot=="" doesn't change EZ.String
+func (E *EZout) IfF(b bool, s, sNot string, a, aNot any) bool {
+	if b && s != "" {
+		E.pre()
 		E.string += fmt.Sprintf(s, a)
-	} else {
+	} else if !b && sNot != "" {
+		E.pre()
 		E.string += fmt.Sprintf(sNot, aNot)
 	}
+	return b
 }
 
 // ILV adds an indexed list of values from sa.
@@ -162,6 +222,11 @@ func (E *EZout) ILVV(sa ...any) {
 	}
 }
 
+// Prints a list, flattened into a single-line comma-separated list of values, in parentheses
+func (E *EZout) FlatLV(sa any) {
+	flatunwrap(sa, false, E)
+}
+
 func (E *EZout) IStringerV(sa ...fmt.Stringer) {
 	for i, a := range sa {
 		E.F("[%d] %+v", i, a)
@@ -169,29 +234,24 @@ func (E *EZout) IStringerV(sa ...fmt.Stringer) {
 }
 
 // Indent+1
-func (E *EZout) IndR() {
+// Returns ptr to itself for chaining
+func (E *EZout) IndR() *EZout {
 	E.Ind++
+	return E
 }
 
 // Indent-1
-func (E *EZout) IndL() {
+// Returns ptr to itself for chaining
+func (E *EZout) IndL() *EZout {
 	if E.Ind > 0 {
 		E.Ind--
 	}
+	return E
 }
 
 // Indent to 0
-func (E *EZout) Ind0() {
+// Returns ptr to itself for chaining
+func (E *EZout) Ind0() *EZout {
 	E.Ind = 0
-}
-
-// pre adds newline and indentation
-func (E *EZout) pre() {
-	E.string += "\n"
-	if E.Ind > 0 {
-		for range E.Ind {
-			E.string += "	"
-		}
-	}
-
+	return E
 }

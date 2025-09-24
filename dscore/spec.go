@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	pops "iidexic.dotstrike/pathops"
+	"iidexic.dotstrike/uout"
 )
 
 // Primary user data structure; contains info required to perform a dircopy operation
@@ -69,46 +70,32 @@ func (S *Spec) getSource(alias string) *pathComponent {
 	return nil
 }
 func (S *Spec) Detail() string {
-	lines := make([]string, 0, 32)
-	lines = append(lines, "Spec: "+S.Alias, "-------------------",
-		"Sources:", S.DetailSources(false), "Targets:", S.DetailTargets(false))
-
-	// ── Sources ──────────────────────────────
-	//lines = append(lines, "Sources:")
-	// if len(S.Sources) == 0 {
-	// 	lines = append(lines, "	none")
-	// }
-	// for i, src := range S.Sources {
-	// 	lines = append(lines, fmt.Sprintf("[src %d]", i+1))
-	// 	lines = append(lines, src.Detail())
-	// }
-
-	// ── Targets ──────────────────────────────
-	// lines = append(lines, "Targets:")
-	// if len(S.Targets) == 0 {
-	// 	lines = append(lines, "	none")
-	// }
-	// for i, tgt := range S.Targets {
-	// 	lines = append(lines, fmt.Sprintf("[tgt %d]", i+1))
-	// 	lines = append(lines, tgt.Detail())
-	// }
-
-	// ── Overrides ────────────────────────────
-	lines = append(lines, fmt.Sprintf("Overrides Enabled: %t", S.OverrideOn))
-	if !S.Overrides.equal(gd.data.Prefs) {
-		lines = append(lines, fmt.Sprintf("Overrides:\n%s", S.Overrides.Detail()))
+	out := uout.NewOutf("- SPEC: %s ------", S.Alias)
+	out.IndR()
+	if len(S.Sources)+len(S.Targets) == 0 {
+		out.V("No Path Components (0 Sources, 0 Targets)")
+	} else {
+		out.F("Sources (%d):", len(S.Sources))
+		out.IndR().ILV(S.Sources)
+		out.IndL().F("Targets (%d):", len(S.Targets))
+		out.IndR().ILV(S.Targets)
+		out.IndL()
 	}
-
-	// ── Ignores ──────────────────────────────
-	if len(S.Ignorepat) > 0 {
-		lines = append(lines, "Ignore Patterns:")
-		for i, pat := range S.Ignorepat {
-			lines = append(lines, fmt.Sprintf("	 %d.) '%s'", i, pat))
-		}
+	out.IfV(S.OverrideOn, "Config Overrides (enabled)", "Config Overrides (disabled)")
+	lcfg := len(S.Overrides.Bools)
+	out.AF(" (%d options set)", lcfg)
+	out.IndR()
+	for opt, b := range S.Overrides.Bools {
+		out.IfF(b, "opt %s: On", "opt %s: Off", opt, opt)
 	}
-	lines = append(lines, "")
-	return strings.Join(lines, "\n")
+	out.IndL()
+	if igN := len(S.Ignorepat); igN > 0 {
+		out.F("%d Ignore Patterns: ", igN)
+		out.FlatLV(S.Ignorepat)
+	}
+	return out.String()
 }
+
 func (S *Spec) ShortDetail() string {
 	line := fmt.Sprintf("%s, ", S.Alias)
 	sl := len(S.Sources)
@@ -130,6 +117,10 @@ func (S *Spec) ShortDetail() string {
 		line += "(overrides on)"
 	}
 	return line
+}
+
+func (S Spec) String() string {
+	return S.Detail()
 }
 
 func (S *Spec) DetailSources(parentName bool) string {

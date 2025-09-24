@@ -22,12 +22,7 @@ type Temp interface {
 	GetSpec(string) *Spec
 }
 
-//TODO: standardize modify. Now prefer to put as deep/as close to the actual modify as possible,
-// Intent to avoid write to file as much as possible
-
-// TODO: Replace NewSpec.  The weird sources-target thing with paths is bad.
-// Also, there are flags for that...
-
+// TODO: add to cmd-spec in place of NewSpec
 func (gm *globalModify) NewSpecEmpty(alias string) (*Spec, error) {
 	cAlias, err := uniqueSpecAlias(alias)
 	if err != nil {
@@ -38,7 +33,11 @@ func (gm *globalModify) NewSpecEmpty(alias string) (*Spec, error) {
 	return &gm.Specs[len(gm.Specs)-1], nil
 }
 
+// If user requests a new spec but provides an existing alias,
+// uniqueSpecAlias will add an incrementing integer to ensure new spec alias is unique
+// limit hard set at 10 attempts before erroring
 func uniqueSpecAlias(alias string) (string, error) {
+	alias = standardizeAlias(alias)
 	if tempData.GetSpec(alias) != nil {
 		n := 1
 		for {
@@ -54,8 +53,16 @@ func uniqueSpecAlias(alias string) (string, error) {
 	return alias, nil
 }
 
+// NewSpec makes a new spec. It is automatically added to TempData.
+// Adds paths in src and tgt as new sources and targets, respectively.
+// Error occurs if the provided alias is already in use and increment limit is reached
 func (gm *globalModify) NewSpec(alias string, src, tgt []string) (*Spec, error) {
-	s := Spec{Alias: alias, Ctype: specComponent}
+	cAlias, err := uniqueSpecAlias(alias)
+	if err != nil {
+		return nil, fmt.Errorf("Alias already in use (%s, standardized = %s)",
+			alias, standardizeAlias(alias))
+	}
+	s := Spec{Alias: cAlias, Ctype: specComponent}
 	if !gm.initialized {
 		return nil, ErrNoInit
 	}
@@ -80,9 +87,10 @@ func (s *Spec) addSources(paths ...string) []bool {
 
 // adds paths as components without causing data to be written to user file
 //
-// NOTE: if another change is made that triggers tempData.Modified(), these will still be written if not manually corrected.
+// temp components will still be written if another change is made
+// that triggers tempData.Modified() within the same run.
 // This includes all public functions/methods that make user data changes.
-// IF NEED THIS TO NOT HAPPEN: Need a new component struct OR break out path components into types
+// Currently there is no single run that can make both temp/persistent changes.
 func (s *Spec) temporaryComponents(isSource bool, paths ...string) error {
 	etext := make([]string, 0, len(paths))
 	if isSource {
@@ -172,6 +180,8 @@ func isLastAndSelectedSpec(i int) bool { return i+1 == len(tempData.Specs) && i 
 // ResetSpecSelection Resets the selected spec to 0 (persistent).
 func ResetSpecSelection() { tempData.Modify(); tempData.Selected = 0 }
 
+// Modify toggles gm modified bool to true; this is neccessary to write userdata changes to file.
+// Modify will generally be placed directly before the code chunk that actually makes the change.
 func (gm *globalModify) Modify() { gm.Modified = true }
 
 /* Unused
@@ -203,6 +213,9 @@ func (gm *globalModify) SetOptionBool(opt ConfigOption, newValue bool) bool {
 // SetOptionString sets global prefs[opt] to newValue
 // Returns an error if opt is not a string option
 func (gm *globalModify) SetOptionString(opt ConfigOption, newValue string) error {
+	if !opt.IsString() {
+		return fmt.Errorf("Not a string option,")
+	}
 	switch opt {
 	case StringGlobalTargetPath:
 		tempData.Modify()
