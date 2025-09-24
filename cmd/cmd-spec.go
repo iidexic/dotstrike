@@ -132,8 +132,10 @@ func (op *specOpData) specNew() error {
 			return nil
 		}
 	}
+	speclenPre := len(temp.Specs)
 	var err error
-	for _, v := range op.args {
+	specsMade := make([]string, op.argcount)
+	for i, v := range op.args {
 		s, e := temp.NewSpec(v, *op.flags.src, *op.flags.tgt)
 		if e != nil {
 			if err == nil {
@@ -143,9 +145,30 @@ func (op *specOpData) specNew() error {
 			}
 
 		}
-		temp.Specs = append(temp.Specs, *s)
+		specsMade[i] = s.Alias
+
 	}
-	//op.cmd.Printf("spec %s created and selected\n", spec.Alias)
+	if err != nil {
+		op.cmd.Print("Warning: Errors making specs")
+	}
+	if numNewSpecs := len(temp.Specs) - speclenPre; numNewSpecs > 0 {
+		selectionChanged := temp.Select(op.args[0])
+		switch {
+		case selectionChanged && numNewSpecs == 1:
+			op.cmd.Printf("spec %s created and selected\n", specsMade[0])
+		case selectionChanged && numNewSpecs > 1:
+			op.cmd.Print("new specs made:\n***")
+			for _, alias := range specsMade {
+				op.cmd.Printf("%s\n", alias)
+			}
+		case numNewSpecs == 0 && err != nil:
+			op.cmd.Print("No new specs. ERRORS:")
+			op.cmd.Print(err.Error())
+
+		case numNewSpecs == 0:
+			op.cmd.Print("No new specs. ERRORS:")
+		}
+	}
 	return nil
 }
 func (op specOpData) reqMultNewWithPaths() bool {
