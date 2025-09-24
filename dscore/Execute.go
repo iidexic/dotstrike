@@ -34,8 +34,7 @@ var manager = jobProcessor{
 // Adds specs as partial specs by stripping any source/target
 // paths that don't match with the IDs passed.
 //
-// The current implementation clones the specs, but will probably change
-// to using specs directly from gd in the future.
+// The current implementation clones the specs.
 func (J *jobProcessor) AddAsPartial(s *Spec, sourceIDs []string, targetIDs []string) error {
 	// TODO: determine if we can just use specs direct from globalData as to not bloat things.
 	isources := s.GetMatching(sourceIDs, true)
@@ -52,8 +51,6 @@ func (J *jobProcessor) AddSpecs(s ...*Spec) {
 		J.specs[s[i].Alias] = &jobSpec{Spec: s[i]}
 	}
 }
-
-var setupRunContinue = false
 
 func (J *jobProcessor) SetupAndRunAll(abortOnError bool) error {
 	// if confirmHaveRuntimeConfig && (J.runtimeConfig == nil || len(J.runtimeConfig) == 0) {
@@ -122,34 +119,6 @@ func (J *jobProcessor) SetupOnly() error {
 }
 
 // TODO: (LOW-later) re-do configs so a priority can be attached (then only need to write overrides at spec-level)
-
-// Performs necessary process of applying all priority levels of configuration to all individual specs
-// Don't think this is needed anymore
-func (J *jobProcessor) applySpecConfigs() {
-	for i := range J.specs {
-		//1. apply global config. Handles both defaults + globals
-		maps.Copy(J.specs[J.specs[i].Alias].config, gd.data.Prefs.Bools)
-		if J.specs[i].OverrideOn { //2. apply spec overrides where enabled
-			maps.Copy(J.specs[J.specs[i].Alias].config, J.specs[i].Overrides.Bools)
-		}
-		if len(J.runtimeConfig) > 0 { // 3. apply runtimeConfig if populated
-			maps.Copy(J.specs[J.specs[i].Alias].config, J.runtimeConfig)
-		}
-		J.specs[i].configApplied = true
-	} // At this point, all specs have their configuration
-
-}
-
-func (J *jobProcessor) makeJobGroups() {
-	for i := range J.specs {
-		alias := J.specs[i].Alias
-		J.specs[i].group = Copier.NewJobGroup(alias,
-			J.specs[i].sourcePaths(),
-			J.specs[i].targetPaths(),
-			J.specs[i].config)
-		J.specs[i].madeJobs = true
-	}
-}
 
 func JobManager() *jobProcessor {
 	//1. sort out config as is

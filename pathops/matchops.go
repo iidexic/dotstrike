@@ -4,24 +4,6 @@ import (
 	"strings"
 )
 
-// ── Ignore Functionality ────────────────────────────────────────────
-// TODO: Make + flesh out a string pattern matching package. Useful for all 3 main packages
-
-// matchString struct reports whether an input string matches itself
-
-// ----------- thinking thru tokenizing ------------
-// type ptok rune
-// var (
-//
-//	localdir ptok='.'
-//	parentdir ptok ='.'
-//	usep ptok = '\\'
-//	wsep ptok = '/'
-//	home ptok = '~'
-//	wild ptok = '*'
-//
-// )
-// -------------------------------------------------
 type matchStyle int
 
 const (
@@ -88,22 +70,6 @@ func (I *IgnoreSet) isIgnored(path string, isDir bool) bool {
 
 // Adds a subptn to the IgnoreSet. A subptn only checks whether the pattern string exists as a substring anywhere within a given path string
 func (I *IgnoreSet) AddSubpattern(ptn string, matchDir, matchFile bool) {
-	// endwild := endswith(ptn, "*")
-	// startwild := startswith(ptn, "*")
-	// switch {
-	// case endwild && !startwild:
-	// 	var inroot bool
-	// 	if startswith(ptn, "./") || startswith(ptn, `.\`) {
-	// 		inroot = true
-	// 	} else {
-	// 		inroot = false
-	// 	}
-	// 	I.Patterns = append(I.Patterns, prefixptn{ptn: ptn, matchDir: matchDir, matchFile: matchFile, inRootDir: inroot})
-	// case startwild && !endwild:
-	// 	fallthrough //temp/wip
-	// case endwild && startwild:
-	// 	fallthrough //temp/wip
-	// default:
 	I.Patterns = append(I.Patterns, subptn{ptn: ptn, matchDir: matchDir, matchFile: matchFile})
-	//}
+
 }

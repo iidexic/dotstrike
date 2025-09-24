@@ -3,7 +3,6 @@ package dscore
 import (
 	"errors"
 	"fmt"
-	"maps"
 	"slices"
 	"strings"
 
@@ -58,7 +57,7 @@ func (c componentType) String() string {
 
 var ErrComponentNotInitialized error = errors.New("Component not initialized")
 
-// component interface for interop search
+// component interface. Only unused thing getting kept in
 type component interface {
 	getAlias() string
 	getCtype() componentType
@@ -79,16 +78,6 @@ type pathComponent struct {
 	Parent  string        //NOTE: INITIALIZE INHERENT
 }
 
-//TODO: Determine fate of rawComponent: either remove the struct, or integrate it into pathComponents.
-
-// rawComponent stores only information relevant to the path itself. Can be turned into a pathComponent and attached to a Spec when needed.
-// Aliases must be unique within the set of all rawComponents, but are not checked for uniqueness against pathComponents.
-type rawComponent struct {
-	Path    string
-	Alias   string
-	Ignores []string
-}
-
 // isInitialized to check pc inherent-initialized. This is performed during startup and should never be false
 func (pc pathComponent) isInitialized() bool { return pc.Parent != "" && pc.Ctype > 0 }
 
@@ -96,6 +85,7 @@ func (pc pathComponent) isInitialized() bool { return pc.Parent != "" && pc.Ctyp
 func (pc pathComponent) getAlias() string        { return pc.Alias }
 func (pc pathComponent) getCtype() componentType { return pc.Ctype }
 
+// TODO: replace this or replace the MakeAbs call
 func newPathComponent(ospath string, ctype componentType) *pathComponent {
 	apath := pops.MakeAbs(ospath)
 	return &pathComponent{Path: apath, Ctype: ctype}
@@ -122,18 +112,13 @@ func (pc pathComponent) Detail() string {
 	return strings.Join(lines, "\n")
 }
 
-// // id makes pathComponent Alias based on parent, ctype, path
-// func (pc pathComponent) id() string {
-// 	return pc.Parent + "" + string(pc.Ctype) + "" + pc.Alias
-// }
+// TODO add basepath bool arg (huh?)
 
 // MatchesID determines whether the provided identifier string matches any of the following:
 //   - Path
 //   - AbsPath
 //   - Alias
 //   - BaseName of Abspath
-//
-// TODO: add basepath bool arg
 func (pc pathComponent) MatchesID(id string) bool {
 	if pc.Abspath == "" {
 		return id == pc.Abspath || id == pc.Path || id == pc.Alias ||
@@ -144,9 +129,6 @@ func (pc pathComponent) MatchesID(id string) bool {
 	}
 
 }
-func (pc pathComponent) MatchesPath(id string) bool     { return id == pc.Abspath || id == pc.Path }
-func (pc pathComponent) MatchesAlias(id string) bool    { return standardizeAlias(id) == pc.Alias }
-func (pc pathComponent) MatchesPathBase(id string) bool { return id == pops.Base(pc.Abspath) }
 
 func (pc pathComponent) IsSource() bool { return pc.Ctype == sourceComponent }
 
@@ -157,7 +139,7 @@ func pathComponentEqual(pc, pc2 pathComponent) bool {
 		pc.Ptype == pc2.Ptype && pc.Ctype == pc2.Ctype && slices.Equal(pc.Ignores, pc2.Ignores)
 }
 
-// specEqual compares two cfg params for equality.
+// specEqual compares two spec params for equality.
 // standalone function to ensure compatible with slices.EqualFunc
 func specEqual(S, S2 Spec) bool {
 	return S.Alias == S2.Alias && S.Ctype == S2.Ctype &&
@@ -165,8 +147,4 @@ func specEqual(S, S2 Spec) bool {
 		slices.EqualFunc(S.Targets, S2.Targets, pathComponentEqual) &&
 		slices.Equal(S.Ignorepat, S2.Ignorepat) &&
 		S.Overrides.equal(S2.Overrides)
-}
-
-func prefsEqual(p, p2 prefs) bool {
-	return maps.Equal(p.Bools, p2.Bools)
 }

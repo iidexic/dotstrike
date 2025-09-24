@@ -16,11 +16,6 @@ type jobSpec struct {
 	configApplied, madeJobs bool
 }
 
-// TODO:(low) Move to be method of jobSpec
-func (S *Spec) jobName(isrc, itgt int) string {
-	return fmt.Sprintf("%s.src-%d.tgt-%d", S.Alias, isrc, itgt)
-}
-
 func (js *jobSpec) briefDetail() string {
 	detail := fmt.Sprintf("spec %s - ", js.Alias)
 	if js.partialSpec {
@@ -79,17 +74,13 @@ func (js *jobSpec) addGlobalTarget() {
 	//TODO:(low) make this function more flexible
 }
 
-// TODO: Finish removeGlobalTarget
-//
-//	 Just do a for lookp thru components, dw bout this other shit.
-//	But I am also drunk right now so take with a grain o salt
+// removeGlobalTarget - used to implement bKillglobtgt
 func (js *jobSpec) removeGlobalTarget() {
 	if globTarget := tempData.GlobalTargetPath; js.IsPathChild(globTarget) {
 		if js.IsPathSource(globTarget) {
 			// Do I want to do anything here?
 		}
 		if js.IsPathTarget(globTarget) {
-			// remove
 			js.runtimeRemoveMatching(globTarget, false)
 		}
 	}

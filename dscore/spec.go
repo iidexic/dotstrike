@@ -61,14 +61,6 @@ func (S *Spec) allInitialized() bool {
 func (S *Spec) getAlias() string        { return S.Alias }
 func (S *Spec) getCtype() componentType { return S.Ctype }
 
-func (S *Spec) getSource(alias string) *pathComponent {
-	for _, src := range S.Sources {
-		if alias == src.Alias {
-			return &src
-		}
-	}
-	return nil
-}
 func (S *Spec) Detail() string {
 	out := uout.NewOutf("- SPEC: %s ------", S.Alias)
 	out.IndR()
@@ -184,15 +176,7 @@ func (S *Spec) DetailTargets(parentName bool) string {
 	return strings.Join(ss, "\n")
 }
 
-func (S *Spec) getTarget(alias string) *pathComponent {
-	for _, tgt := range S.Targets {
-		if alias == tgt.Alias {
-			return &tgt
-		}
-	}
-	return nil
-}
-func (S *Spec) GetIgnores() *[]string { return &S.Ignorepat }
+// func (S *Spec) GetIgnores() *[]string { return &S.Ignorepat }
 
 func (S *Spec) GetLocalPrefs() *prefs { return &S.Overrides }
 
@@ -315,18 +299,6 @@ func (S *Spec) CheckAddPath(path string, isSource bool) bool {
 			S.Sources = append(S.Sources, *newPathComponent(path, sourceComponent))
 		} else {
 			S.Targets = append(S.Targets, *newPathComponent(path, targetComponent))
-		}
-	}
-	return false
-}
-
-func (S *Spec) AliasIfChild(alias string, identifier string, isSource bool) bool {
-	tempData.Modify()
-	if pc := S.GetIfChild(identifier); pc != nil {
-		if (pc.Ctype == sourceComponent && isSource) ||
-			(pc.Ctype == targetComponent && !isSource) {
-			pc.setAlias(alias)
-		} else {
 		}
 	}
 	return false
@@ -474,20 +446,3 @@ func (S *Spec) CheckAddMultiplePaths(paths []string, isSource bool) []bool {
 	}
 	return b
 }
-
-// ── Running spec copy jobs(MOVE TO EXECUTE) ──────────────────────────────────────────
-// func (S *Spec) RunCopy(global bool) error {
-// 	if !S.allInitialized() {
-// 		return fmt.Errorf("spec not initialized: %s", S.Alias)
-// 	}
-// 	copymachine := pops.GetCopierMaschine()
-
-// 	for y, tgt := range S.Targets {
-// 		for x, src := range S.Sources {
-// 			job := copymachine.NewJob(S.Alias+"."+fmt.Sprintf("%d", x)+"."+fmt.Sprintf("%d", y), src.Path, tgt.Path)
-// 			job.JobOptionMakeSubdir(true)
-// 			_ = job
-// 		}
-// 	}
-// 	return nil
-// }

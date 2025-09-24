@@ -9,9 +9,8 @@ import (
 )
 
 var (
-	errorEmpty       = fmt.Errorf("toml file exists but has no data")
-	errorNoneDecoded = fmt.Errorf("toml file has data but 0 decoded")
-	errorNoToml      = fmt.Errorf("no toml file at path")
+	errorEmpty  = fmt.Errorf("toml file exists but has no data")
+	errorNoToml = fmt.Errorf("no toml file at path")
 )
 
 // same as globalModify_test.go encodeTomltesting

@@ -11,7 +11,7 @@ import (
 type globalsReadResult int
 
 // potential outcomes of attempting to read and load global config/user data into usable components
-const ( // TODO: Change globalsReadResult into an error struct. Make these vars
+const ( // TODO:(hi) Change globalsReadResult into an error struct. Make these vars
 
 	preInit = iota
 	noInit
@@ -93,14 +93,6 @@ func ConfigTomlPath() string {
 	}
 }
 
-func GetGlobals() (*globals, error) {
-	if gd.loaded {
-		return &gd, nil
-	}
-	return &globals{}, fmt.Errorf("Globals not loaded.\n Globals = %+v", gd)
-}
-func (G *globals) WhatConfigPath() string { return G.dsconfigPath }
-
 func (g *globalData) getSpec(alias string) *Spec {
 	for _, s := range g.Specs {
 		if s.Alias == alias {
@@ -141,7 +133,6 @@ func (G *globals) GetConfig(dirpath string) bool {
 
 // CoreConfig called to find ds data file in all possible locations
 // ?TODO: If no config file exists, create one and encode gd defaults
-// TODO: require vars be passed (globalDir)?
 func (G *globals) makeCfgPath(suffix string) string {
 	if !pops.HaveHome() && pops.ErrGetHomedir == nil && pops.ErrGetConfigdir == nil {
 		pops.GetSysDirs()
@@ -151,7 +142,7 @@ func (G *globals) makeCfgPath(suffix string) string {
 func resolveHomeSubpath(path string) string {
 	absP, e := pops.TildeFix(path)
 	if e != nil {
-		panic(fmt.Errorf("Error from TildeFix: %w", e))
+		panic(fmt.Errorf("Error resolving home path ('~'): %w", e))
 	}
 	return absP
 }

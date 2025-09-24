@@ -81,12 +81,7 @@ const (
 	FailedOpen
 	Error // if error is returned, an error will also be returend in PathActionResult.Err
 )
-const (
-	tilde     = byte('~')
-	backslash = byte('\\') //unused
-	amp       = byte('&')  //unused
-	atsign    = byte('@')  //unused
-)
+const tilde = byte('~')
 
 type ReadResult struct {
 	Contents []byte

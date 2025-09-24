@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path/filepath"
 	"time"
 
 	"iidexic.dotstrike/config"
@@ -93,11 +92,6 @@ func (R *fileRecord) newRecord(outpath, relpath string, isDir bool) (*filedata, 
 	return fd, nil
 }
 
-// updates the record with post-job outfile size
-func (F *filedata) setOriginalSize(size int64) {
-	F.sizeOrigin = size
-}
-
 func (F *filedata) setOrigin(info fs.FileInfo) {
 	F.sizeOrigin = info.Size()
 	F.modOrigin = info.ModTime()
@@ -110,18 +104,6 @@ func (F *filedata) setNew(info fs.FileInfo, written int64) {
 	F.copied = true
 	F.dataWritten = written
 }
-
-// updates the record with post-job outfile size
-// toggles F.copied to true
-func (F *filedata) setNewSize(size int64) {
-	F.sizeFinal = size
-	F.copied = true
-}
-
-// func (D dirRecord) valueIf(s string) bool {
-// 	_, ok := D[s]
-// 	return ok
-// }
 
 // CopyJob prepares and executes the copy of all contents of PathIn to PathOut
 type CopyJob struct {
@@ -246,10 +228,6 @@ func (J *CopyJob) logError(abspath, opname string, e error) {
 	}
 }
 
-func (J *CopyJob) logPathError(perr PathError) {
-	J.OpErrors = append(J.OpErrors, perr)
-}
-
 // checkAndLogError checks the error, and logs non-nil errors to CopyJob.logError.
 // returns true if error!=nil, else false
 func (J *CopyJob) checkAndLogError(abspath, opname string, e error) bool {
@@ -279,19 +257,6 @@ func (J *CopyJob) DirsMade() int {
 		}
 	}
 	return n
-}
-
-// stripRoot removes CopyJob.PathIn from path provided for construction of destination path
-// structure/intent of CopyJob requires J.PathIn to be a prefix in rpath.
-// As such, if an error is encountered, stripRoot panics
-func (J *CopyJob) stripRoot(p string) string {
-
-	relp, e := filepath.Rel(J.PathIn, p)
-	if e != nil {
-		panic(fmt.Errorf("stripRoot(%s) error: %v", p, e))
-	}
-	return relp
-
 }
 
 func (J *CopyJob) configCheck(opt config.OptionKey) bool {

@@ -67,7 +67,7 @@ func (gm *globalModify) NewSpec(alias string, src, tgt []string) (*Spec, error) 
 		return nil, ErrNoInit
 	}
 	if len(src) > 0 {
-		s.addSources(src...)
+		s.CheckAddMultiplePaths(src, true)
 	}
 	if len(tgt) > 0 {
 		s.CheckAddMultiplePaths(tgt, false)
@@ -76,13 +76,6 @@ func (gm *globalModify) NewSpec(alias string, src, tgt []string) (*Spec, error) 
 	newSpecPtr := &gm.Specs[len(gm.Specs)-1] //works
 	gm.Modified = true
 	return newSpecPtr, nil
-}
-func (s *Spec) addSources(paths ...string) []bool {
-	added := make([]bool, len(paths))
-	for i, src := range paths {
-		added[i] = s.CheckAddPath(src, true)
-	}
-	return added
 }
 
 // adds paths as components without causing data to be written to user file
@@ -114,34 +107,6 @@ func (s *Spec) temporaryComponents(isSource bool, paths ...string) error {
 		return fmt.Errorf("Failed to add %d paths\n(%s)", numer, strings.Join(etext, ", "))
 	}
 	return nil
-}
-
-// GetModifiableSpec returns a pointer to a spec that will be encoded when the program exits
-// If spec exists but has not yet been modified, this adds that spec to gm.Specs
-// TODO: Update/Replace this as it is now entirely unnecessary. Also, the errors are a mess
-func (gm *globalModify) GetModifiableSpec(alias string) (*Spec, error) {
-	ermsg := make([]string, 1, len(gm.Specs)+len(gd.data.Specs))
-	ermsg[0] = "[MODIFY_SPECS]"
-	for i, s := range gm.Specs {
-		if s.Alias == alias {
-			gm.Modified = true
-			return &gm.Specs[i], nil
-		} else {
-			ermsg = append(ermsg, s.Alias)
-		}
-	}
-	ermsg = append(ermsg, "[GLOBALDATA_SPECS]")
-	for _, s := range gd.data.Specs {
-		if s.Alias == alias {
-			gm.Specs = append(gm.Specs, s)
-			gm.Modified = true
-			return &gm.Specs[len(gm.Specs)-1], nil
-		} else {
-			ermsg = append(ermsg, s.Alias)
-		}
-	}
-
-	return nil, fmt.Errorf("No matching alias found in:\n%s", strings.Join(ermsg, "\n"))
 }
 
 // GetSpec searches the spec list and returns the *spec that matches provided alias
@@ -184,19 +149,7 @@ func ResetSpecSelection() { tempData.Modify(); tempData.Selected = 0 }
 // Modify will generally be placed directly before the code chunk that actually makes the change.
 func (gm *globalModify) Modify() { gm.Modified = true }
 
-/* Unused
-// SetNamedOptionBool performs option lookup and sets selected configOption opt to newValue (persistent).
-// Returns true if a config value was changed, false otherwise
- func (gm *globalModify) SetNamedOptionBool(optName string, newValue bool) bool {
-	//BUG panics on optName->NotAnOption
-	return gm.SetOptionBool(OptionID(strings.ToLower(strings.TrimSpace(optName))), newValue)
-}
-
-func (gm *globalModify) SetNamedOptionString(optName string, newValue string) error {
-	return gm.SetOptionString(OptionID(strings.ToLower(strings.TrimSpace(optName))), newValue)
-}
-*/
-
+// Sets the global option opt. Persistent
 func (gm *globalModify) SetOptionBool(opt ConfigOption, newValue bool) bool {
 	val, exist := gm.Prefs.Bools[opt]
 	switch {
@@ -300,6 +253,7 @@ func (gm *globalModify) SetSpecEnableOverrides(s *Spec, enable bool) bool {
 func (gm *globalModify) SelectedSpec() *Spec { return gm.specByIndex(gm.Selected) }
 
 // findAliasIndex searches for alias within []Specs
+// probably remove
 func (gd *globalData) findAliasIndex(alias string) int {
 	for i := range gd.Specs {
 		if alias == gd.Specs[i].Alias {
@@ -371,38 +325,3 @@ func (p *prefs) setOpt(opt ConfigOption, val bool) error {
 }
 
 func (gd *globalData) SetGlobalTargetPath(path string) { gd.GlobalTargetPath = pops.CleanPath(path) }
-
-// TODO:(V0.0.1) Delete
-// func (p *prefs) OverwriteRaw(newp prefs) error {
-// 	if !p.equal(newp) {
-// 		for co := range p.bools {
-// 			delete(p.bools, co)
-// 		}
-// 		maps.Copy(p.bools, newp.bools)
-// 		// for k, v := range newp.bools {
-// 		// 	p.bools[k] = v
-// 		// }
-//
-// 	}
-// 	return nil
-// }
-
-// setAlias sets the PathComponent alias.
-// If PathComponent is not unique, alias is not set, and ErrNotUnique is returned
-func (pc *pathComponent) setAlias(alias string) error {
-	cfptr := gd.data.getSpec(pc.Parent)
-	if cfptr == nil {
-		return ErrParentNotFound
-	}
-	var existingpc *pathComponent
-	if pc.Ctype == sourceComponent {
-		existingpc = cfptr.getSource(alias)
-	} else {
-		existingpc = cfptr.getTarget(alias)
-	}
-	if existingpc != nil {
-		return ErrNotUnique
-	}
-	pc.Alias = alias
-	return nil
-}

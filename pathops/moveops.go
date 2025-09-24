@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/fs"
 	"maps"
-	"path/filepath"
 	"slices"
 	"strings"
 
@@ -214,14 +213,7 @@ func (CM *copierMaschine) jobExists(jobName string) bool {
 	return false
 }
 
-func (CM *copierMaschine) groupExists(jobName string) bool {
-	for k := range CM.JobQueue {
-		if k == jobName {
-			return true
-		}
-	}
-	return false
-}
+//func (CM *copierMaschine) groupExists(jobName string) bool {}
 
 // GetJob returns *CopyJob if jobName exists in the JobQueue
 // otherwise returns nil ptr
@@ -234,27 +226,11 @@ func (CM *copierMaschine) GetJob(jobName string) *CopyJob {
 	return nil
 }
 
-// RunJob is equivalent to running GetJob and then running CopyJob.Run(nil)
-func (CM *copierMaschine) RunJob(jobName string) *CopyJob {
-	if ptrjob := CM.GetJob(jobName); ptrjob != nil {
-		ptrjob.RunFS()
-		return ptrjob
-	}
-	return nil
-}
-
 // filecopy acts as a record of a single file's copy operation
 type filecopy struct {
 	relpath         string
 	inSize, outSize int64
 }
-
-// Removed for now.
-// type elog struct {
-// 	fs.PathError
-// 	relpath string
-// 	esrc    esource
-// }
 
 func (F filecopy) String() string {
 	var is, os float64
@@ -274,27 +250,4 @@ func (F filecopy) String() string {
 		ou = "KB"
 	}
 	return fmt.Sprintf("'%s' (In: %.2f %s, Out: %.2f %s)", F.relpath, is, iu, os, ou)
-}
-
-// absNoE runs abs and returns the resulting string; panics on error
-func absNoE(p string) string {
-	po, e := filepath.Abs(p)
-	if e != nil {
-		panic(e)
-	}
-	return po
-}
-
-// TODO: Remove conditionPath
-
-// conditionPath cleans path and gets abs path
-// returns error direct from filepath.Abs
-func conditionPath(p string) (string, error) {
-	var e error
-	p = filepath.Clean(p)
-	p, e = filepath.Abs(p)
-	// if runtime.GOOS == "windows" {
-	// 	p = strings.Replace(p, "/", `\`, -1)
-	// }
-	return p, e
 }

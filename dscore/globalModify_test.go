@@ -18,12 +18,6 @@ func tLogErr(context string, e error, t *testing.T) {
 	}
 }
 
-func tError(context string, e error, t *testing.T) {
-	if e != nil {
-		t.Errorf("%s: %s", context, e.Error())
-	}
-}
-
 // ── Decoding ────────────────────────────────────────────────────────
 
 func initForTest(t *testing.T) *globalModify {
@@ -138,6 +132,7 @@ func TestGlobalEncodeSoftAssign(t *testing.T) {
 	}
 
 }
+
 func TestPrefSetByName(t *testing.T) {
 	CoreConfig()
 	InitTempData()
@@ -188,6 +183,7 @@ func TestSetOverridesMap(t *testing.T) {
 }
 
 // test edit and encode; encodes to buffer and prints before manually writing to file
+// WARN: Test Uncertain; not tested since major changes
 func TestEncodeToBuffer(t *testing.T) {
 	temp := initForTest(t)
 	snew, e := temp.NewSpecEmpty("testEditEncodeSpec")
@@ -201,11 +197,9 @@ func TestEncodeToBuffer(t *testing.T) {
 	t.Logf("%+v", temp)
 	t.Logf("temp.Specs = %+v", temp.Specs)
 	//Checking new spec and find spec
-	testGet, eget := temp.GetModifiableSpec("testEditEncodeSpec")
-	if eget != nil {
-		t.Error(eget)
-	} else if testGet == nil {
-		t.Error("still not getting ptr to spec")
+	testGet := temp.GetSpec("testEditEncodeSpec")
+	if testGet == nil {
+		t.Error("did not get ptr to spec")
 	}
 
 	testGet.AddIgnores([]string{"EE", "DD"})
@@ -247,11 +241,9 @@ func TestEditEncode(t *testing.T) {
 	t.Log("Current State of temp:")
 	t.Logf("%+v", temp)
 	t.Logf("temp.Specs = %+v", temp.Specs)
-	testGet, eget := temp.GetModifiableSpec("testEditEncodeSpec")
-	if eget != nil {
-		t.Error(eget)
-	} else if testGet == nil {
-		t.Error("still not getting ptr to spec")
+	testGet := temp.GetSpec("testEditEncodeSpec")
+	if testGet == nil {
+		t.Error("did not get ptr to spec")
 	}
 
 	testGet.AddIgnores([]string{"EE", "DD"})

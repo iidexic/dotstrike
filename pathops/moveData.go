@@ -24,15 +24,13 @@ func (J *CopyJob) RunFS() error {
 	if J.jobRan {
 		return fmt.Errorf("CopyJob Already Ran")
 	}
+
+	J.builtinIgnores()
 	if J.BPrefs[bRootSubdir] && J.parentPathOut == "" { // parentpath check to be safe
 		J.parentPathOut = J.PathOut
 		J.PathOut = Joinpath(J.PathOut, filepath.Base(J.PathIn))
 	}
 	J.jobRan = true
-	// parent, base := filepath.Split(J.PathIn)
-	// if parent == "" || base == "" {
-	// 	return fmt.Errorf("Split did a bad job splitting")
-	// }
 	df := os.DirFS(J.PathIn)
 	// ── Walk ────────────────────────────────────────────────────────────
 	e := fs.WalkDir(df, ".", J.WalkFS)
@@ -50,25 +48,6 @@ func (J *CopyJob) RunFS() error {
 	return nil
 }
 
-// func MakeDirectories() {}
-
-// TEST: BEFORE EVER USING THIS FUNC:
-// func pathRelative(path string, parent string) string {
-// 	if path == parent {
-// 		return "."
-// 	}
-// 	if strings.Contains(path, parent) {
-// 		if rn := rune(path[len(parent)]); rn == '/' || rn == '\\' {
-// 			return strings.Replace(path, parent, ".", 1)
-// 		}
-// 	}
-// 	path, parent = CleanPath(path), CleanPath(parent)
-// 	if strings.Contains(path, parent) {
-// 		return strings.Replace(path, parent, ".", 1)
-// 	}
-// 	return ""
-// }
-
 // ╭─────────────────────────────────────────────────────────╮
 // │                      WALK FUNCTION                      │
 // ╰─────────────────────────────────────────────────────────╯
@@ -84,9 +63,8 @@ func (J *CopyJob) WalkFS(p string, d DirEntry, e error) error {
 		return err
 	}
 	if d.IsDir() { // ──────────────────────────────────────────────────────────
-		e := J.walkPathDir(inpath, outpath) //Error already logged here
+		e := J.walkPathDir(inpath, outpath) //walkPathDir logs error
 		if e != nil && J.abort {
-
 			return e
 		}
 		return nil
@@ -99,11 +77,9 @@ func (J *CopyJob) WalkFS(p string, d DirEntry, e error) error {
 	if J.ignore.isIgnored(p, false) {
 		return nil
 	}
-
 	if J.BPrefs[bNoFiles] { // for dry runs
 		return nil
 	}
-
 	//if looksLikeRawCopy(outpath, info) {}
 
 	// ── 1. open in file ──
@@ -130,7 +106,6 @@ func (J *CopyJob) WalkFS(p string, d DirEntry, e error) error {
 	// get modtime and send 2 rec
 	iout, e := outF.Stat()
 	if J.checkAndLogError(outpath, "Stat() error", e) {
-
 	}
 	rec.setNew(iout, wb)
 	//rec.setNewSize(wb)

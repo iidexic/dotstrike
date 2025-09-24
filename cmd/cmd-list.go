@@ -4,7 +4,6 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"fmt"
 	"slices"
 
 	"github.com/spf13/cobra"
@@ -22,25 +21,30 @@ var listCmd = &cobra.Command{
 	list all user data :)
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		g, e := dscore.GetGlobals()
+		temp := dscore.TempData()
 		switch {
-		case e != nil:
-			panic(fmt.Errorf("globals failed:%v", e))
 
 		case len(args) == 0 && *persistentFlags.debug:
 			cmd.Print("USER DATA ---------\n")
-			cmd.Print("using datafile: ", g.WhatConfigPath(), "\n")
-			printsl := g.DetailAllUserData(*persistentFlags.verbose)
+			cmd.Print("using datafile: ", dscore.ConfigTomlPath(), "\n")
+			printsl := temp.Detail(*persistentFlags.verbose)
 			for _, p := range printsl {
 				cmd.Print(p, "\n")
 			}
 		case *persistentFlags.verbose:
-			cmd.Print(g.Detail())
-		case len(args) > 0 && slices.Contains(argstrSource, args[0]):
+			cmd.Print(temp.Detail(true))
+		case len(args) > 0 &&
+			(slices.Contains(argstrSource, args[0]) ||
+				(slices.Contains(argstrTarget, args[0]))):
 			cmd.Print(listComponents(dscore.TempData().Specs, true))
 		case len(args) > 0:
-			for i, a := range args {
-				cmd.Printf("%d: %v", i, g.CfgData(a))
+			for _, a := range args {
+				s := temp.GetSpec(a)
+				if s != nil {
+					cmd.Print(s.Detail())
+				} else {
+					cmd.Printf("spec '%s' not found", a)
+				}
 			}
 		default:
 			cmd.Println("User Specs:")
@@ -60,6 +64,7 @@ func listComponents(specs []dscore.Spec, isSource bool) []string {
 	output := make([]string, 0, len(specs))
 	for i := range specs {
 		output = append(output, specs[i].DetailSources(true))
+		output = append(output, specs[i].DetailTargets(true))
 	}
 	return output
 }

@@ -60,8 +60,11 @@ var ErrSpecNotMade = errors.New("No spec created; received nil pointer")
 var flagDataSpec specFlags
 var specOps = specOpData{flags: &flagDataSpec}
 
-// TODO: Use SelectedSpec for 0-arg edits
+// TODO:(Done?) Use SelectedSpec for 0-arg edits
 
+// BUG(fixed) Double-adding new spec in ALL circumstances
+
+// MAJOR BUG:(HIGH) TILDE PATHS ARE GOING IN AS LOCAL, FIX THIS!
 func specRun(cmd *cobra.Command, args []string) {
 	td := dscore.TempData()
 	specOps.args = sliceUniques(args)
@@ -272,14 +275,5 @@ func (op *specOpData) pprintExisting() {
 	for i, spec := range op.existingSpecs {
 		op.cmd.Print(i, ".   ", spec.Detail())
 
-	}
-}
-
-// outputExistingSpecDetails called when have existingSpecs; determines and executes next process steps
-func (op *specOpData) outputExistingSpecDetails() {
-	if numExist := len(op.existingSpecs); op.argcount == 1 || numExist == op.argcount {
-		//all args are existing spec names
-	} else if op.argcount > 1 || numExist < op.argcount {
-		op.pprintExisting()
 	}
 }

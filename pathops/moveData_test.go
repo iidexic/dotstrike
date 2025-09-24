@@ -7,40 +7,6 @@ import (
 	"testing"
 )
 
-type FS = fs.FS
-type File = fs.File
-type FileInfo = fs.FileInfo
-type FileMode = fs.FileMode
-type uniFS map[string]uniFile
-
-type uniFile struct {
-	mode FileMode
-	info FileInfo
-}
-
-// ── Test FS Implementation ──────────────────────────────────────────
-func (F uniFile) Stat() (_ fs.FileInfo, _ error) {
-	panic("not implemented") // TODO: Implement
-}
-func (F uniFile) Read(_ []byte) (_ int, _ error) {
-	panic("not implemented") // TODO: Implement
-}
-func (F uniFile) Close() (_ error) {
-	panic("not implemented") // TODO: Implement
-}
-
-func (U uniFS) Open(name string) (File, error) {
-	f, ok := U[name]
-	if ok {
-		return f, nil
-	}
-	return nil, fs.ErrNotExist
-}
-
-func makeTestFS() *uniFS {
-	return nil
-}
-
 // ──────────────────────────────────────────────────────────────────────
 
 func TestPathExplore(t *testing.T) {
@@ -50,6 +16,17 @@ func TestPathExplore(t *testing.T) {
 	t.Logf("clean:%s\nsplit:%v", clean, split)
 	localize, err := filepath.Localize(filepath.Clean(pfile))
 	t.Logf("Localized = %s (err %v)", localize, err)
+}
+
+func readDirWalkTest(dirpath string, t *testing.T) {
+	dfs := os.DirFS(dirpath)
+	e := fs.WalkDir(dfs, ".", func(p string, d fs.DirEntry, e error) error {
+		t.Logf("- %s (isDir: %t)", p, d.IsDir())
+		return nil
+	})
+	if e != nil {
+		t.Logf("ReadWalkDir error: %v", e)
+	}
 }
 
 func TestPathTear(t *testing.T) {
@@ -136,6 +113,16 @@ func TestRunFSfull(t *testing.T) {
 		t.Logf("OpError %v", e)
 	}
 	t.Log(job.DetailRun())
+	t.Log("------ POST-COPY DIR CHECK ------")
+	readDirWalkTest(job.PathOut, t)
+	t.Log("--- Deleting Dir Contents ---")
+	e = job.wipeOutputDir()
+	if e != nil {
+		t.Logf("Delete-Dir Error: %v", e)
+	}
+	t.Log("------ DELETE ALL DIR CHECK ------")
+	readDirWalkTest(job.parentPathOut, t)
+
 }
 
 func TestDirFS(t *testing.T) {

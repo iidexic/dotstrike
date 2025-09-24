@@ -1,8 +1,8 @@
 package dscore
 
 import (
-	"fmt"
 	"slices"
+	"strings"
 )
 
 //NOTE: Cobra already does this inherently for some flags. Figure out if it can be used for args
@@ -26,23 +26,8 @@ func StringToBool(text string) *bool {
 	}
 }
 
-// ValuesInSlice returns a unique set of values that are in both s and vals
-func ValuesInSlice[E comparable](s []E, vals ...E) []E {
-	sSet := make(map[E]struct{}, len(vals))
-	for _, v := range vals {
-		sSet[v] = struct{}{}
-	}
-
-	r := make([]E, 0, min(len(s), len(vals)))
-
-	for _, v := range s {
-		if _, ok := sSet[v]; ok {
-			delete(sSet, v)
-			r = append(r, v)
-		}
-	}
-	return r
-}
+// QuickClean performs some string standardization to improve matching and lookups for dscore functions
+func QuickClean(s string) string { return strings.TrimSpace(strings.ToLower(s)) }
 
 func KeepIndices[A any](s []A, ikeep []int) []A {
 	if len(s) == 0 || len(ikeep) == 0 {
@@ -65,67 +50,3 @@ func KeepIndices[A any](s []A, ikeep []int) []A {
 	out = out[0 : len(ikeep)-offset]
 	return out
 }
-
-func sliceUniques[E comparable](in []E) []E {
-	seen := make(map[E]struct{}, len(in))
-	out := make([]E, 0, len(in))
-	for _, v := range in {
-		if _, ok := seen[v]; !ok {
-			seen[v] = struct{}{}
-			out = append(out, v)
-		}
-	}
-	return out
-}
-
-// NoneIn reports whether s contains anything in vals
-func NoneIn[E comparable](s []E, vals ...E) bool {
-	for _, val := range vals {
-		if slices.Contains(s, val) {
-			return false
-		}
-	}
-	return true
-}
-
-func ExtendErr(errs ...error) error {
-	var eout error
-	if le := len(errs); le == 0 {
-		return nil
-	} else if le == 1 && errs[0] != nil {
-		return errs[0]
-	}
-	eout = errs[0]
-	errs = errs[1:]
-	for _, e := range errs {
-		if e != nil {
-			eout = fmt.Errorf("%w, %w", eout, e)
-		}
-	}
-	return eout
-}
-
-// func lastCharNumber(s string) (int, bool) {
-// 	n := len(s) - 1
-// 	if unicode.IsDigit(rune(s[n])) {
-// 		i, e := strconv.Atoi(string(s))
-// 		if e == nil {
-// 			return i, true
-// 		}
-// 	}
-// 	return -1, false
-// }
-
-// TODO: clean up; no use for these I can think of.
-//
-// // StringToBoolFalsy returns true only if text == "true" (case insensitive, spaces removed)
-// // returns false in any other case
-// func StringBoolTrueOnly(text string) bool {
-// 	text = strings.TrimSpace(strings.ToLower(text))
-// 	if text == "true" {
-// 		return true
-// 	}
-// 	return false
-// }
-//
-// func StringBoolTruthyFalsy(text string) bool { return len(text) > 0 }

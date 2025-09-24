@@ -3,19 +3,12 @@ package dscore
 import (
 	"fmt"
 	"maps"
-	"slices"
 	"strings"
 
 	"github.com/BurntSushi/toml"
 	"iidexic.dotstrike/config"
 	"iidexic.dotstrike/uout"
 )
-
-func ifer(e error) {
-	if e != nil {
-		panic(e)
-	}
-}
 
 // ╭─────────────────────────────────────────────────────────╮
 // │              Dotstrike Config+Data Structs              │
@@ -41,12 +34,6 @@ type globalData struct {
 	Specs            []Spec `toml:"specs"`
 
 	//TODO: add []rawComponent/implement rawComponent
-}
-
-func (g *globalData) equal(g2 *globalData) bool {
-	return g.Prefs.equal(g2.Prefs) &&
-		g.Selected == g2.Selected &&
-		slices.EqualFunc(g.Specs, g2.Specs, specEqual)
 }
 
 type globalModify struct {
@@ -85,7 +72,6 @@ const (
 )
 
 // Delete if not in use (or probably even if they are)
-var optionCount = int(config.NumberOfOptions)
 var OptionID = config.LookupOption
 
 func OptionIsBool(opt ConfigOption) bool   { return config.AllOptions[opt].Type == config.Tbool }
@@ -131,8 +117,9 @@ func (gd *globalData) Detail(verbose bool) string {
 }
 
 func (gd *globalData) DetailSimple() string {
+
 	det := make([]string, len(gd.Specs)+len(gd.Prefs.Bools))
-	det[0] = "-- Global Data: --"
+	det[0] = "[ User Data ]"
 	i := 1
 	for n, s := range gd.Specs {
 		det[i] = fmt.Sprintf("[%d] Spec %s: %d sources, %d targets, %d overrides", n, s.Alias, len(s.Sources), len(s.Targets), len(s.Overrides.Bools))
@@ -184,20 +171,6 @@ func TempData() *globalModify {
 	}
 }
 
-// func IsDir(ospath string) bool {
-// 	ps, e := os.Stat(ospath)
-// 	if e != nil {
-// 		if os.IsNotExist(e) {
-// 			return false
-// 		}
-// 		return false //TODO: fix function or remove
-// 	}
-// 	if ps.IsDir() {
-// 		return true
-// 	}
-// 	return false
-// }
-
 // InitTempData populates tempdata from globaldata
 // fields populated are required to avoid data loss on toml encode
 func InitTempData() {
@@ -219,7 +192,7 @@ func standardizeAlias(alias string) string {
 	//TODO:(hi) Check that this cleans shit up well
 	//	Switch this to trim characters from the entire string
 	//	Trim all escape sequences
-	return strings.ToLower(strings.Trim(alias, "\\/		\n@"))
+	return strings.ToLower(strings.Trim(alias, "\\/		'\n\r\t\""))
 }
 
 func (G *globals) forcelogG(outStr string) {

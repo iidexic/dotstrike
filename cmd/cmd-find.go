@@ -94,7 +94,7 @@ func (f findData) runSearch(onspec, onsource, ontarget bool) map[string]string {
 				case 0:
 					lookup[a] += "spec: no match"
 				default:
-					lookup[a] += "SOMETHING is wrong with findData.runsearch() or dscore.FindSpec() :)"
+					lookup[a] += "SOMETHING is wrong with find runsearch() or dscore.FindSpec() :)"
 				}
 			}
 		}
