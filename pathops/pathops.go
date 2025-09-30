@@ -204,14 +204,13 @@ func HaveHome() bool {
 // 	return ospath
 // }
 
-func TildeFix(ospath string) (string, error) {
+// TildeExpand replaces a leading tilde in path string with the actual home path
+func TildeExpand(ospath string) string {
 	// tilde code: 126
-	if c1 := ospath[0]; c1 == tilde && *HomePath != "" {
-		return HomeJoinC(ospath[1:]), nil
-	} else if c1 == tilde {
-		return HomeJoin(ospath[1:])
+	if ospath[0] == tilde {
+		return HomeJoinC(ospath[1:])
 	}
-	return ospath, nil
+	return ospath
 }
 
 //TODO: (mid-hi) delete/replace MakeAbs. Don't Swallow errors with panic

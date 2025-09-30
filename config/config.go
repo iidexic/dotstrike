@@ -15,10 +15,12 @@ BoolIgnoreRepo
 	- moveOps.CopyJob.Run() -> right before go into the walk
 BoolIgnoreHidden
 BoolRootSubdir
-TODO: CHECK IF CAN MOVE PROCESSING OF ROOTSUBDIR AND SOURCESUBDIRS
-	FROM COPYJOB.RUN TO JOB CREATION.
+TODO: subdir made on job creation
+	-- also, uhh I think rootsubdir and source dirs are the same thing.
+	-- because like we're running by source and making subdir by source.
 	I think all required information to make this happen is already ready there
-	Plus it is best to have the copy run op be as clean and separated from other pieces as I can make it
+	Plus it is best to have the copy run op be as clean
+	and as separate from other pieces as I can make it
 
 	- moveOps.CopyJob.Run() -> right before go into the walk
 BoolSourceSubdirs
@@ -42,7 +44,7 @@ const (
 	BoolIgnoreRepo
 	BoolIgnoreHidden
 	BoolRootSubdir
-	BoolSourceSubdirs
+	//BoolSourceSubdirs
 	BoolNoFiles
 	BoolCopyAllDirs
 	BoolUseGlobalTarget // Spec Bools
@@ -157,12 +159,12 @@ Dir is named with spec's alias if possible, else numbers will be added`,
 		ForFileOp: true, LookupSubstrings: []string{"root|make", "root|sub", "dir"},
 		LookupExacts: []string{"mrsd"},
 	},
-	BoolSourceSubdirs: {
-		Type: Tbool, NameText: "SourceSubdirs", fName: "separate-sources",
-		runUsage:  "Copies each source into a separate subdir; name is source's alias or source path's dir name.",
-		ForFileOp: true, LookupSubstrings: []string{"source|src", "sub|dirs"},
-		LookupExacts: []string{"ssep"},
-	},
+	// BoolSourceSubdirs: {
+	// 	Type: Tbool, NameText: "SourceSubdirs", fName: "separate-sources",
+	// 	runUsage:  "Copies each source into a separate subdir; name is source's alias or source path's dir name.",
+	// 	ForFileOp: true, LookupSubstrings: []string{"source|src", "sub|dirs"},
+	// 	LookupExacts: []string{"ssep"},
+	// },
 	BoolNoFiles: {
 		Type: Tbool, NameText: "CopyNoFiles", fName: "no-files", fshort: "n",
 		runUsage:  "Disable filecopy for run. Use for dry runs, or with --all-dir to copy only the directory structure",
@@ -274,13 +276,6 @@ func LookupOptionExact(input string) (OptionKey, error) {
 	}
 	return NotAnOption, nil
 }
-
-// func div(num, divis int) float32 {
-// 	if divis != 0 {
-// 		return float32(num) / float32(divis)
-// 	}
-// 	return -0
-// }
 
 // Returns 1 key for each string. If string does not match, returns NotAnOption
 func GetOptionKeys(searches []string) []OptionKey {

@@ -6,8 +6,8 @@ import (
 
 var tspec = Spec{
 	Alias:   "testfiles",
-	Sources: []pathComponent{{Path: "C:/dev/github/testfiles-in", Ctype: sourceComponent}},
-	Targets: []pathComponent{{Path: "C:/dev/github/testfiles-out"}},
+	Sources: []PathComponent{{Path: "C:/dev/github/testfiles-in", Ctype: sourceComponent}},
+	Targets: []PathComponent{{Path: "C:/dev/github/testfiles-out"}},
 }
 
 func TestInherent(t *testing.T) {
@@ -19,6 +19,6 @@ overrides: %+v`, tspec.Alias, tspec.Ctype, tspec.Overrides)
 	t.Logf(`---Source---
 Alias: %s, Abspath: %s, Path: %s
 Ignores: %v
-Ptype: %v,Ctype: %v`, s.Alias, s.Abspath, s.Path, s.Ignores, s.Ptype, s.Ctype)
+Ctype: %v`, s.Alias, s.Abspath, s.Path, s.Ignores, s.Ctype)
 	tspec.initializeInherent()
 }

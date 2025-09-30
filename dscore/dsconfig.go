@@ -32,9 +32,10 @@ type globalData struct {
 	GlobalTargetPath string `toml:"targetpath"`
 	Prefs            prefs  `toml:"prefs"`
 	Specs            []Spec `toml:"specs"`
-
 	//TODO: add []rawComponent/implement rawComponent
 }
+
+//TODO:(low - general feature) symlink handling + symlink preference
 
 type globalModify struct {
 	*globalData
@@ -43,8 +44,7 @@ type globalModify struct {
 
 type prefs struct {
 	Bools map[ConfigOption]bool
-	local bool
-	//TODO: symlink handling + symlink preference
+	local bool // what is this why here go away
 }
 
 // ╭─────────────────────────────────────────────────────────╮
@@ -52,17 +52,17 @@ type prefs struct {
 // ╰─────────────────────────────────────────────────────────╯
 
 // ── ConfigOptions ───────────────────────────────────────────────────
-// TODO: Replace entirely with config.OptionKey
+// TODO:(mid) Replace entirely with config.OptionKey
 //
 //	Use config.OptionKey directly where needed and then delete this
 type ConfigOption = config.OptionKey
 
 const (
-	BoolIgnoreRepo         = config.BoolIgnoreRepo
-	BoolIgnoreHidden       = config.BoolIgnoreHidden
-	BoolRootSubdir         = config.BoolRootSubdir
-	BoolNoFiles            = config.BoolNoFiles
-	BoolSeparateSources    = config.BoolSourceSubdirs
+	BoolIgnoreRepo   = config.BoolIgnoreRepo
+	BoolIgnoreHidden = config.BoolIgnoreHidden
+	BoolRootSubdir   = config.BoolRootSubdir
+	BoolNoFiles      = config.BoolNoFiles
+	//BoolSeparateSources    = config.BoolSourceSubdirs
 	BoolCopyAllDirs        = config.BoolCopyAllDirs
 	BoolUseGlobalTarget    = config.BoolUseGlobalTarget
 	BoolKillGlobalTarget   = config.BoolKillGlobalTarget
@@ -71,7 +71,7 @@ const (
 	NotAnOption            = config.NotAnOption
 )
 
-// Delete if not in use (or probably even if they are)
+// Delete if not in use (or probably even if it is)
 var OptionID = config.LookupOption
 
 func OptionIsBool(opt ConfigOption) bool   { return config.AllOptions[opt].Type == config.Tbool }
@@ -84,7 +84,7 @@ var GetOption = config.OptFrom
 func (G *globals) Detail() string {
 	lines := make([]string, 1, 32) //arbitrary
 	lines[0] = fmt.Sprintf(`GLOBAL USER DATA:
-=================
+==================
 Config Path: '%s'
 Selected Spec(index): %d
 

@@ -72,6 +72,15 @@ func flatunwrap(a any, index bool, ez *EZout) {
 	}
 }
 
+/* The starting to go crazy section
+type ( ezFuncID  int; OutSelect map[string]EZout;
+	EZmanager struct { OutSelect; ezbuilder }
+	ezbuilder struct { *EZout; ops []ezOp }
+	ezOp struct { vcount int; id ezFuncID })
+// why am I keeping this
+func (o OutSelect) Gmake() *EZmanager { return &EZmanager{OutSelect: o} }
+*/
+
 type EZout struct {
 	string
 	Ind int

@@ -9,18 +9,8 @@ import (
 	pops "iidexic.dotstrike/pathops"
 )
 
-// Denote whether paths in pathObjects are path or dir
-type pathType byte
-
 // Denote whether component is source or target. Uncertain of implementation
 type componentType byte
-
-const (
-	_ pathType = iota
-	filePath
-	dirPath
-	dnePath
-)
 
 const (
 	_ componentType = iota
@@ -32,17 +22,6 @@ const (
 	//GlobalTarget
 )
 
-func (p pathType) string() string {
-	switch p {
-	case filePath:
-		return "filepath"
-	case dirPath:
-		return "dirpath"
-	case dnePath:
-		return "path-DNE"
-	}
-	return ("unknown")
-}
 func (c componentType) String() string {
 	switch c {
 	case specComponent:
@@ -58,44 +37,43 @@ func (c componentType) String() string {
 var ErrComponentNotInitialized error = errors.New("Component not initialized")
 
 // component interface. Only unused thing getting kept in
-type component interface {
-	getAlias() string
-	getCtype() componentType
-}
+// type component interface {
+// 	getAlias() string
+// 	getCtype() componentType
+// }
 
-// pathComponent is the core of a source or target;
+// PathComponent is the core of a source or target;
 // contains path info
 // TODO: Refactor Source and Target; eliminate complexity
 //   - there are a lot of conditional situations here already
 //   - there are also a lot of implementation inconsistencies.
-type pathComponent struct {
+type PathComponent struct {
 	Alias   string        `toml:"alias"`
 	Abspath string        `toml:"abspath"`
 	Path    string        `toml:"path"`
-	Ignores []string      `toml:"ignores"` // remove if not using target ignore copy
-	Ptype   pathType      `toml:"ptype"`   //targetComponent requires dirPath //TODO: init Ptype or remove if not useful
-	Ctype   componentType `toml:"ctype"`   //NOTE: not  implemented. Inherent??
+	Ignores preIgnoreList `toml:"ignores"`
+	Ctype   componentType `toml:"ctype"` //NOTE: Inherent? it is used in a couple places, replace with type assertions maybe
 	Parent  string        //NOTE: INITIALIZE INHERENT
 }
 
 // isInitialized to check pc inherent-initialized. This is performed during startup and should never be false
-func (pc pathComponent) isInitialized() bool { return pc.Parent != "" && pc.Ctype > 0 }
+func (pc PathComponent) isInitialized() bool { return pc.Parent != "" && pc.Ctype > 0 }
 
 // interface methods
-func (pc pathComponent) getAlias() string        { return pc.Alias }
-func (pc pathComponent) getCtype() componentType { return pc.Ctype }
+func (pc PathComponent) getAlias() string        { return pc.Alias }
+func (pc PathComponent) getCtype() componentType { return pc.Ctype }
 
 // TODO: replace this or replace the MakeAbs call
-func newPathComponent(ospath string, ctype componentType) *pathComponent {
+func newPathComponent(ospath string, ctype componentType) *PathComponent {
 	apath := pops.MakeAbs(ospath)
-	return &pathComponent{Path: apath, Ctype: ctype}
+	return &PathComponent{Path: apath, Ctype: ctype}
 }
 
-func (pc pathComponent) Detail() string {
+func (pc PathComponent) Detail() string {
 	lines := make([]string, 0, 16)
 	//ctype := pc.Ctype.string()
 	//header := fmt.Sprintf("Component: %s", ctype)
-	path := fmt.Sprintf("	Path: %s (path type: %s)", pc.Path, pc.Ptype.string())
+	path := fmt.Sprintf("	Path: %s", pc.Path)
 	parent := "	Parent Alias = " + pc.Parent
 	lines = append(lines /*, header*/, path, parent)
 	if pc.Alias != "" {
@@ -119,7 +97,7 @@ func (pc pathComponent) Detail() string {
 //   - AbsPath
 //   - Alias
 //   - BaseName of Abspath
-func (pc pathComponent) MatchesID(id string) bool {
+func (pc PathComponent) MatchesID(id string) bool {
 	if pc.Abspath == "" {
 		return id == pc.Abspath || id == pc.Path || id == pc.Alias ||
 			strings.ToLower(id) == pops.Base(pc.Path)
@@ -130,13 +108,13 @@ func (pc pathComponent) MatchesID(id string) bool {
 
 }
 
-func (pc pathComponent) IsSource() bool { return pc.Ctype == sourceComponent }
+func (pc PathComponent) IsSource() bool { return pc.Ctype == sourceComponent }
 
 // ── Equality Check ──────────────────────────────────────────────────
 
-func pathComponentEqual(pc, pc2 pathComponent) bool {
+func pathComponentEqual(pc, pc2 PathComponent) bool {
 	return pc.Alias == pc2.Alias && pc.Abspath == pc2.Abspath && pc.Path == pc2.Path &&
-		pc.Ptype == pc2.Ptype && pc.Ctype == pc2.Ctype && slices.Equal(pc.Ignores, pc2.Ignores)
+		pc.Ctype == pc2.Ctype && slices.Equal(pc.Ignores, pc2.Ignores)
 }
 
 // specEqual compares two spec params for equality.

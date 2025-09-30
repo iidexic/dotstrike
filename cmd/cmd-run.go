@@ -15,13 +15,14 @@ import (
 
 var (
 	// ── config.OptionKeys: ──────────────────────────
-	NotAnOption               = dscore.NotAnOption
-	bNoRepo, bNoHidden        = dscore.BoolIgnoreRepo, dscore.BoolIgnoreHidden
-	bRootSubdir               = dscore.BoolRootSubdir
-	bSeparate                 = dscore.BoolSeparateSources
+	NotAnOption        = dscore.NotAnOption
+	bNoRepo, bNoHidden = dscore.BoolIgnoreRepo, dscore.BoolIgnoreHidden
+	bRootSubdir        = dscore.BoolRootSubdir
+	// bSeparate                 = dscore.BoolSeparateSources
 	bNoFiles, bAllDirs        = dscore.BoolNoFiles, dscore.BoolCopyAllDirs
 	bUseGlobTgt, bKillGlobTgt = dscore.BoolUseGlobalTarget, dscore.BoolKillGlobalTarget
-	configIDs                 = []dscore.ConfigOption{bNoRepo, bNoHidden, bRootSubdir, bSeparate, bNoFiles, bAllDirs, bUseGlobTgt, bKillGlobTgt}
+	configIDs                 = []dscore.ConfigOption{bNoRepo, bNoHidden, bRootSubdir,
+		bNoFiles, bAllDirs, bUseGlobTgt, bKillGlobTgt} // bSeparate
 
 	// ── Non-config pkg flags: ───────────────────────
 	flagnameAll        = "all-specs"
@@ -122,7 +123,7 @@ func detailMainRun() string {
 		rtp += fmt.Sprintf("(%s) = %t\n", k.String(), *v)
 	}
 	sep := "--------"
-	hoflag := fmt.Sprintf("-- Other Flags --")
+	hoflag := "-- Other Flags --"
 	detail = append(detail, hpref, sep, rtp, hoflag)
 	for i, f := range mainRun.flagsPassed {
 		detail = append(detail, fmt.Sprintf("[%d] flag: %s", i, f))

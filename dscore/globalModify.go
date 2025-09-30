@@ -124,6 +124,42 @@ func (gm *globalModify) GetSpec(alias string) *Spec {
 	return nil
 }
 
+// GetSpecs finds and returns all Spec values whose unique alias is in aliases.
+// It also returns all indices in aliases that found no match.
+func (gm globalModify) GetSpecs(forceSelected bool, aliases ...string) ([]*Spec, []int) {
+	aqty := len(aliases)
+	// TODO:(low)  eliminate the nested loop
+	if aqty == 0 {
+		//WARNING: Probably bad idea to return nil slice instead of an empty one, not sure
+		return []*Spec{gm.SelectedSpec()}, nil
+	}
+	sel, selIn := gm.SelectedSpec(), false
+	specs := make([]*Spec, aqty+1)
+	notfound := make([]int, 0, aqty)
+	n := 0
+	for i, a := range aliases {
+		if specs[n] = gm.GetSpec(a); specs[n] != nil {
+			n++
+			if selIn || specs[n] == sel {
+				selIn = true
+			}
+		} else {
+			notfound = append(notfound, i)
+		}
+	}
+	if forceSelected && !selIn {
+		specs[n] = sel
+		n++
+	}
+	if n < aqty+1 {
+		specs = specs[:n]
+	}
+	if len(notfound) == 0 {
+		return specs, nil
+	}
+	return specs, notfound
+}
+
 // DeleteSpec deletes the spec *sptr (persistent).
 func (gm *globalModify) DeleteSpec(sptr *Spec) bool {
 	for i := range gm.Specs {
@@ -149,10 +185,17 @@ func ResetSpecSelection() { tempData.Modify(); tempData.Selected = 0 }
 // Modify will generally be placed directly before the code chunk that actually makes the change.
 func (gm *globalModify) Modify() { gm.Modified = true }
 
+// TODO: Update SetOptionBool to handle nonexistant values.
+//	Check what using on?? Would not be simple.
+
+// TODO: (Hi-Mid fix) ensure that global prefs gets populated with falses where values not entered by user.
+
 // Sets the global option opt. Persistent
 func (gm *globalModify) SetOptionBool(opt ConfigOption, newValue bool) bool {
 	val, exist := gm.Prefs.Bools[opt]
 	switch {
+	case !exist:
+		fallthrough
 	case exist && val != newValue:
 		gm.Modify()
 		gm.Prefs.Bools[opt] = newValue

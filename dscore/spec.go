@@ -20,9 +20,9 @@ import (
 //   - GetIfChild: If path is within a child component, a pointer to that component is returned
 type Spec struct {
 	Alias      string          `toml:"alias"`      // name, unique
-	Sources    []pathComponent `toml:"sources"`    // paths marked as origin points
-	Targets    []pathComponent `toml:"targets"`    // paths  marked as destination points
-	Ignorepat  []string        `toml:"ignores"`    // ignorepat that apply to all sources
+	Sources    []PathComponent `toml:"sources"`    // paths marked as origin points
+	Targets    []PathComponent `toml:"targets"`    // paths  marked as destination points
+	Ignorepat  preIgnoreList   `toml:"ignores"`    // ignorepat that apply to all sources
 	OverrideOn bool            `toml:"overrideOn"` // enable overrides, prevent Overrides being over-written
 	Overrides  prefs           `toml:"overrides"`  // override global prefs
 	Ctype      componentType
@@ -213,8 +213,8 @@ func (S *Spec) IsPathTarget(path string) bool {
 	return false
 }
 
-func (S *Spec) GetExistingChildren(identifiers []string) []*pathComponent {
-	components := make([]*pathComponent, 0, len(identifiers))
+func (S *Spec) GetExistingChildren(identifiers []string) []*PathComponent {
+	components := make([]*PathComponent, 0, len(identifiers))
 	for _, id := range identifiers {
 		if pc := S.GetIfChild(id); pc != nil {
 			components = append(components, pc)
@@ -223,8 +223,40 @@ func (S *Spec) GetExistingChildren(identifiers []string) []*pathComponent {
 	return components
 }
 
+func (S *Spec) GetMatchingComponents(identifiers []string, isSource bool) []*PathComponent {
+	lenids := len(identifiers)
+	var cmpExisting []PathComponent
+	cmpMatching := make([]*PathComponent, lenids)
+	if isSource {
+		cmpExisting = S.Sources
+	} else {
+		cmpExisting = S.Targets
+	}
+	sm := make(map[string]struct{}, lenids)
+	for _, sid := range identifiers {
+		sm[sid] = struct{}{} //can't clean sid, must match either Alias or Path
+		// break out into separate path/alias functions?
+	}
+	n := 0
+	for i, comp := range cmpExisting {
+		if _, ok := sm[comp.Path]; ok {
+			cmpMatching[n] = &cmpExisting[i]
+			n++
+		} else if comp.Alias != "" {
+			if _, ok := sm[comp.Alias]; ok {
+				cmpMatching[n] = &cmpExisting[i]
+				n++
+			}
+		}
+	}
+	if n < lenids {
+		cmpMatching = cmpMatching[:n]
+	}
+	return cmpMatching
+}
+
 // GetIfChild returns a pointer to the child source or target with the path or alias passed. Returns nil if none found
-func (S *Spec) GetIfChild(identifier string) *pathComponent {
+func (S *Spec) GetIfChild(identifier string) *PathComponent {
 	for _, src := range S.Sources {
 		if src.Alias == identifier || src.Path == pops.MakeAbs(identifier) {
 			return &src
@@ -277,7 +309,7 @@ func (S *Spec) AddSource(path string, ignorelist ...string) error {
 		tempData.Modify()
 		abs := pops.MakeAbs(path)
 		S.Sources = append(S.Sources,
-			pathComponent{
+			PathComponent{
 				Path:    path,
 				Abspath: abs,
 				Ctype:   sourceComponent,
@@ -295,6 +327,7 @@ func (S *Spec) AddIgnores(ignores []string) {
 // WARNING: Non-Persistent
 func (S *Spec) CheckAddPath(path string, isSource bool) bool {
 	if !S.IsPathChild(path) {
+		path = pops.TildeExpand(path)
 		if isSource {
 			S.Sources = append(S.Sources, *newPathComponent(path, sourceComponent))
 		} else {
@@ -354,7 +387,7 @@ func (S *Spec) GetMatching(ids []string, isSource bool) []int {
 //   - sv match to source/target alias (ie clean(sv) == source.Alias)
 //   - sv match full path or base name (ie clean(sv) == filepath.Base(source.Path))
 func (S *Spec) textMatchesComponent(xid string, isSource bool) int {
-	var oplist []pathComponent
+	var oplist []PathComponent
 	if isSource {
 		oplist = S.Sources
 	} else {
@@ -388,7 +421,7 @@ func (s *Spec) cloneSelf() *Spec {
 	return new
 }
 
-func (S *Spec) getComponentList(isSource bool) *[]pathComponent {
+func (S *Spec) getComponentList(isSource bool) *[]PathComponent {
 	if isSource {
 		return &S.Sources
 	}
@@ -399,10 +432,10 @@ func (S *Spec) getComponentList(isSource bool) *[]pathComponent {
 func (S *Spec) WipeComponentList(isSource bool) {
 	tempData.Modify()
 	if isSource {
-		S.Sources = make([]pathComponent, 0)
+		S.Sources = make([]PathComponent, 0)
 	} else {
 
-		S.Targets = make([]pathComponent, 0)
+		S.Targets = make([]PathComponent, 0)
 	}
 }
 

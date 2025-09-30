@@ -62,9 +62,12 @@ var specOps = specOpData{flags: &flagDataSpec}
 
 // TODO:(Done?) Use SelectedSpec for 0-arg edits
 
-// BUG(fixed) Double-adding new spec in ALL circumstances
+//BUG: (SUPER HIGH PRIORITY) Multi-Spec Delete FAILURE - Also, MULTIPLE CONFIRM PROMPT
+// MESSAGE: "Component.Parent did not match any existing alias.delete  failed." (wtf is this)
+//  Wtf
 
-// MAJOR BUG:(HIGH) TILDE PATHS ARE GOING IN AS LOCAL, FIX THIS!
+//BUG: NO CONFIRMATION MESSAGE IF ADDING A SPEC WITH CAPS IN THE MIDDLE???
+
 func specRun(cmd *cobra.Command, args []string) {
 	td := dscore.TempData()
 	specOps.args = sliceUniques(args)

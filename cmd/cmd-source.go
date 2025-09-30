@@ -1,5 +1,5 @@
 /*
-Copyright © 2025 NAME HERE <EMAIL ADDRESS>
+Copyright © 2025 derek :)
 */
 package cmd
 
@@ -11,66 +11,112 @@ import (
 	"iidexic.dotstrike/dscore"
 )
 
-var srcF = compFlags{}
-
-/*
-Flags that actually apply:
--a --all: print details, --spec
-local:
--y --yes, --delete, --alias, --ignore (not implemented)
-To be added:
---verbose
---global(?)
-*/
-
-var src cmdWrapper
-
-//NOTE: src is the main/master command, tgt is nearly a duplicate. Vars and functions required to run the command are stored here. In the future, they may be combined.
-//NOTE: Having a central data structure and building out the command action seems better than this switch
-
-//BUG: Adding new source Always shows only that src, as `0. srcPath`.
-//	This should be the full list of sources
+type componentCmd struct {
+	*cmdData
+	alias        *string
+	ignore       *[]string
+	delete       *bool
+	y            *bool
+	spec         *[]string
+	selectedSpec *bool
+	isSource     bool
+}
 
 // srcCmd represents the src command
 var srcCmd = &cobra.Command{
 	Use:   "src path ...",
 	Short: "manage sources of a given spec",
 	Long:  `add, modify, and delete source components of selected/specified spec`,
+	Run:   sourceRun,
+}
+var src = componentCmd{}
 
-	Run: func(cmd *cobra.Command, args []string) {
-		affectedSpecs := getSpecs(cmd, true)
-		detail, oneOrMoreExist := detailsIfArgsExist(args, affectedSpecs)
-		numargs, numspecs := len(args), len(affectedSpecs)
-		switch {
-		case numargs > 0 && !oneOrMoreExist:
-			if oneSpecOrUserConfirm("Adding source to Multiple specs", affectedSpecs) {
-				for i := range affectedSpecs {
-					added := affectedSpecs[i].CheckAddMultiplePaths(args, true)
-					cmd.Printf("Spec %s:\n", affectedSpecs[i].Alias)
-					printNumberedListFiltered(cmd, args, added)
+func sourceRun(cmd *cobra.Command, args []string) {
+	src.cmdData = newCmdData(cmd, args)
+	specFlagArgs := *src.spec
 
-				}
-			}
-		case *srcF.delete && numspecs > 0:
-			if oneSpecOrUserConfirm("Deletion with multiple sources or specs", affectedSpecs) && len(args) > 0 {
-				for i := range affectedSpecs {
-					runDelete(affectedSpecs[i], args, true)
-				}
-			} else if (*persistentFlags.all || numspecs == 1) &&
-				checkConfirm(fmt.Sprintf("Deletion of ALL sources for %d specs", numspecs), srcF.y) {
-				for i := range affectedSpecs {
-					affectedSpecs[i].WipeComponentList(true)
-				}
-			}
-		case *persistentFlags.all && len(args) == 0:
-			cmd.Print(detailAllComponentFrom(affectedSpecs, true))
-		case numargs > 0:
-			cmd.Print(detail)
-		case numargs == 0 && persistentFlags.countFlags == 0:
-			cmd.Help()
+	var ns = 0
+
+	if len(specFlagArgs) > 0 {
+		ns = src.getSpecs(false, specFlagArgs...)
+	} else {
+		ns = src.getSpecs(false)
+	}
+
+	if len(args) > 0 {
+		for _, spec := range src.specs {
+			src.components = append(src.components,
+				spec.GetMatchingComponents(src.args, src.isSource)...)
 		}
 
-	},
+	}
+
+	if ns > 0 {
+		e := runComponent(&src)
+		if e != nil {
+			cmd.Print(e.Error())
+		}
+	} else if ns == 0 {
+		cmd.Print("no specs found for entered arguments!")
+	}
+
+}
+
+func runComponent(cmp *componentCmd) error {
+
+	nargs, ncomp := len(cmp.args), len(cmp.components)
+	if nargs > 0 && ncomp == 0 { // Make new args
+	} else if nargs > 0 && ncomp < nargs { // Uncertain/Mixed Qty
+		if *cmp.delete {
+			return error(fmt.Errorf("Found no matching sources to delete"))
+		}
+		cmp.runMixedQty()
+	} else if ncomp > 0 {
+		switch {
+		case *cmp.delete && len(*cmp.ignore) > 0: //Delete Ignores
+			if len(cmp.components) == 0 {
+
+			}
+
+		case *cmp.delete: //Delete Sources
+
+		case len(*cmp.ignore) > 0: // Add Ignores
+			return cmp.addIgnores()
+		}
+
+	}
+
+	return nil
+}
+
+func (C *componentCmd) runMixedQty() error {
+	switch {
+	case len(*C.ignore) > 0 && *C.delete:
+		for i, comp := range C.components {
+			if len(comp.Ignores) > 0 {
+				_ = i
+			}
+		}
+	case len(*C.ignore) > 0:
+
+	}
+
+	return nil
+}
+
+func (C *componentCmd) deleteArgs() int {
+
+	return 0
+}
+
+func (C *componentCmd) addIgnores() error {
+
+	return nil
+}
+
+func (C *componentCmd) deleteIgnores() error {
+
+	return nil
 }
 
 func runDelete(spec *dscore.Spec, args []string, isSource bool) {
@@ -84,9 +130,16 @@ func runDelete(spec *dscore.Spec, args []string, isSource bool) {
 	}
 }
 
+var (
+	msgAddSource       = "Add source(s) to multiple specs"
+	msgAddIgnores      = "Add Ignores to multiple sources"
+	fmsgDelSourceCount = "Delete %d Source(s)"
+	msgDelIgnores      = "Delete Ignore pattern(s) in multiple sources"
+)
+
 func oneSpecOrUserConfirm(requestText string, specs []*dscore.Spec) bool {
 	ls := len(specs)
-	return ls == 1 || (ls > 1 && checkConfirm(requestText, srcF.y))
+	return ls == 1 || (ls > 1 && checkConfirm(requestText, src.y))
 }
 
 // !!TODO:(HIGHEST:FIX) DECIDE + IMPLEMENT IF GETSPECS INHERENTLY INCLUDES SELECTED & IF GETSPECS PROCESSES NOSELECT
@@ -96,8 +149,8 @@ func getSpecs(cmd *cobra.Command, includeSelected bool) []*dscore.Spec {
 	if includeSelected {
 		specs = append(specs, dscore.TempData().SelectedSpec())
 	}
-	if len(*srcF.spec) > 0 {
-		for _, a := range *srcF.spec {
+	if len(*src.spec) > 0 {
+		for _, a := range *src.spec {
 			if s := dscore.TempData().GetSpec(a); s != nil {
 				specs = append(specs, s)
 			} else {
@@ -169,22 +222,13 @@ func detailAllComponentFrom(specs []*dscore.Spec, isSource bool) string {
 
 }
 
-type compFlags struct {
-	alias        *string
-	ignore       *[]string
-	delete       *bool
-	y            *bool
-	spec         *[]string
-	useSelection *bool
-}
-
 func init() {
 
 	rootCmd.AddCommand(srcCmd)
-	srcF.ignore = srcCmd.Flags().StringArray("ignore", nil, "ignore")
-	srcF.alias = srcCmd.Flags().String("alias", "", "set alias")
-	srcF.delete = srcCmd.Flags().Bool("delete", false, "delete")
-	srcF.y = srcCmd.Flags().BoolP("yes", "y", false, "Auto-confirm on prompt")
-	srcF.spec = srcCmd.Flags().StringSlice("spec", []string{}, `--spec="alias1, alias2"  to target specs provided`)
-	srcF.useSelection = srcCmd.Flags().Bool("useSelected", true, "--useSelected=false to disable operating on selected spec")
+	src.ignore = srcCmd.Flags().StringArray("ignore", nil, "ignore")
+	src.alias = srcCmd.Flags().String("alias", "", "set alias")
+	src.delete = srcCmd.Flags().Bool("delete", false, "delete")
+	src.y = srcCmd.Flags().BoolP("yes", "y", false, "Auto-confirm on prompt")
+	src.spec = srcCmd.Flags().StringSlice("spec", []string{}, `--spec="alias1, alias2"  to target specs provided`)
+	src.selectedSpec = srcCmd.Flags().BoolP("selected", "s", true, "--useSelected=false to disable operating on selected spec")
 }

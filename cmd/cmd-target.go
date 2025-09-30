@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var tgtF = compFlags{}
+var tgtF = componentCmd{}
 
 //var tgt cmdWrapper
 

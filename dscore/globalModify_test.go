@@ -86,8 +86,8 @@ func TestEncodeHardAssign(t *testing.T) {
 	t.Logf("prefs:\n%+v", p)
 	InitTempData()
 	specNvim := Spec{
-		Alias: "nvim", Sources: []pathComponent{{Path: "C:\\users\\derek\\appdata\\local\\nvim"}},
-		Targets: []pathComponent{{Path: "@GLOBAL@"}}}
+		Alias: "nvim", Sources: []PathComponent{{Path: "C:\\users\\derek\\appdata\\local\\nvim"}},
+		Targets: []PathComponent{{Path: "@GLOBAL@"}}}
 	specNvim.initializeInherent()
 	specNvim.Sources[0].Alias = "nvim-config"
 	if !specNvim.allInitialized() {
@@ -95,8 +95,8 @@ func TestEncodeHardAssign(t *testing.T) {
 	}
 
 	specWezterm := Spec{
-		Alias: "wezterm", Sources: []pathComponent{{Path: "~\\.config\\wezterm"}},
-		Targets: []pathComponent{{Path: "@GLOBAL@"}}}
+		Alias: "wezterm", Sources: []PathComponent{{Path: "~\\.config\\wezterm"}},
+		Targets: []PathComponent{{Path: "@GLOBAL@"}}}
 
 	specWezterm.initializeInherent()
 	if !specWezterm.allInitialized() {

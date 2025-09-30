@@ -48,9 +48,9 @@ var gd = globals{
 				BoolIgnoreHidden:    false,
 				BoolIgnoreRepo:      false,
 				BoolUseGlobalTarget: true,
-				BoolSeparateSources: true,
-				BoolCopyAllDirs:     false,
-				BoolNoFiles:         false,
+				//BoolSeparateSources: true,
+				BoolCopyAllDirs: false,
+				BoolNoFiles:     false,
 			},
 		},
 		GlobalTargetPath: "~\\dotstrike\\globalTarget\\", // this doesnt work until transformed in CoreConfig.
@@ -139,13 +139,6 @@ func (G *globals) makeCfgPath(suffix string) string {
 	}
 	return pops.HomeJoinC(suffix)
 }
-func resolveHomeSubpath(path string) string {
-	absP, e := pops.TildeFix(path)
-	if e != nil {
-		panic(fmt.Errorf("Error resolving home path ('~'): %w", e))
-	}
-	return absP
-}
 func CoreConfig() error {
 	if pops.HomePath == nil {
 		pops.GetSysDirs()
@@ -153,7 +146,7 @@ func CoreConfig() error {
 
 	//TODO: clean up this homepath/GlobalTargetPath solution
 	cfgdir := gd.makeCfgPath(globalDirHomeRelative)
-	gd.data.GlobalTargetPath = resolveHomeSubpath(gd.data.GlobalTargetPath)
+	gd.data.GlobalTargetPath = pops.TildeExpand(gd.data.GlobalTargetPath)
 	gotConfig := gd.GetConfig(cfgdir)
 	if gotConfig {
 		gd.status = badToml //pre-emptive
@@ -189,9 +182,15 @@ User data file not found and could not be made.`, ee))
 
 func EndEncode() {
 	if tempData.Modified {
-		err := tempData.encodeModified()
-		if err != nil {
-			gd.forcelogG(fmt.Sprintf("error attempting encode: %s", err.Error()))
+		e := tempData.encodeModified()
+		if e != nil {
+			if pe, ok := any(e).(pops.PathError); ok {
+				gd.forcelogG(fmt.Sprintf("Error opening file (OpenRW): %v", pe))
+			} else {
+
+				gd.forcelogG(fmt.Sprintf("Error encoding to TOML file: %s", e.Error()))
+
+			}
 		}
 	}
 }

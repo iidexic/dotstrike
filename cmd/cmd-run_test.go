@@ -39,7 +39,7 @@ func TestRunFlag(t *testing.T) {
 
 func TestRunDetail(t *testing.T) {
 
-	out, e := testCommand(rootCmd, "run --setup-only-debug")
+	out, e := testCmdLines(rootCmd, "run --setup-only-debug")
 	if e != nil {
 		t.Errorf("testRoot execute error: %v", e)
 	}

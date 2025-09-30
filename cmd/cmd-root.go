@@ -4,6 +4,7 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -28,11 +29,60 @@ func ce(e error) {
 // 	_ = logger
 // }
 
-type cmdWrapper struct {
+type cmdData struct {
 	*cobra.Command
-	args    []string
-	specs   []*dscore.Spec
-	runFunc func(*cobra.Command, []string)
+	args       []string
+	specs      []*dscore.Spec
+	components []*dscore.PathComponent
+	ignoreptns []string
+	countArgs  int
+	msg        opString
+	runFunc    func(*cobra.Command, []string)
+}
+
+type opString struct {
+	operation, opVerb              string
+	directType, parentType         string
+	directNames, parentNames       string
+	directAffected, parentAffected int
+}
+
+func (O opString) String() string {
+	str := O.operation + "."
+	if O.parentType != "" {
+		str += fmt.Sprintf("This will %s %d %ss in %d %ss.", O.opVerb, O.directAffected, O.directType, O.parentAffected, O.parentType)
+	} else {
+		str += fmt.Sprintf("This will %s %d %ss.", O.opVerb, O.directAffected, O.directType)
+	}
+	if O.directNames != "" {
+		str += fmt.Sprintf("\n%s %s Names: (%s)", O.opVerb, O.directType, O.directNames)
+	}
+	if O.parentNames != "" {
+		str += fmt.Sprintf("\nAffected %s Names: (%s)", O.directType, O.directNames)
+	}
+	return str
+}
+
+func newCmdData(cmd *cobra.Command, args []string) *cmdData {
+	c := &cmdData{
+		args:      args,
+		specs:     make([]*dscore.Spec, len(args)+1),
+		countArgs: len(args),
+	}
+	c.Command = cmd
+	return c
+}
+
+// Gets all specs from arglist. Returns selected spec if no arglist passed
+// getSpecs gathers a list of indices from arglist that did NOT find a match
+// It then does nothing with this and instead returns the qty of specs found?
+func (C *cmdData) getSpecs(forceSelected bool, arglist ...string) int {
+	var nf []int
+	C.specs, nf = dscore.TempData().GetSpecs(forceSelected, arglist...)
+	if nf == nil {
+		return 1
+	}
+	return len(nf)
 }
 
 // rootCmd represents the base command when called without any subcommands
@@ -99,9 +149,7 @@ type persistentData struct {
 }
 
 func (p *persistentData) setup() {
-	// p.bsrc = len(*p.src) > 0
-	// p.bspec = len(*p.spec) > 0
-	// p.btgt = len(*p.tgt) > 0
+
 	p.countFlags = 0 //just to make sure
 	for _, b := range []bool{*p.verbose, *p.debug /*, *p.global, p.bspec, p.bsrc, p.btgt*/} {
 		if b {
@@ -110,10 +158,6 @@ func (p *persistentData) setup() {
 	}
 
 }
-
-type pfid int
-
-//func (p *persistentData) checkAddData() { }
 
 // persistentFlags is the persistentData var that stores all persistent flag values
 var persistentFlags persistentData
@@ -132,14 +176,9 @@ func init() {
 	persistentFlags = persistentData{
 		verbose: rootCmd.PersistentFlags().BoolP("verbose", "v", false, "shows additional details on execution"),
 		all:     rootCmd.PersistentFlags().BoolP("all", "a", false, "applies command to 'all' applicable items (see command help for more detail)"),
-		//global:  rootCmd.PersistentFlags().BoolP("global", "g", false, "target the global group"), //uncertain, overlap with all?
-		// spec:    rootCmd.PersistentFlags().StringArrayP("spec", "s", nil, "spec"),
-		// src:     rootCmd.PersistentFlags().StringArrayP("source", "o", nil, "src"),
-		// tgt:     rootCmd.PersistentFlags().StringArrayP("target", "t", []string{}, "tgt"),
-		// dev use
-		//WARN: Comment this out before build/release
-		debug: rootCmd.PersistentFlags().Bool("debug", false, "debug"),
+		debug:   rootCmd.PersistentFlags().Bool("debug-secret", false, ""), //hide
 	}
+	rootCmd.PersistentFlags().MarkHidden("debug-secret")
 	persistentFlags.setup()
 	// version is not default
 	version = rootCmd.Flags().Bool("version", false, "print application version")

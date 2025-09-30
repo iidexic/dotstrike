@@ -38,7 +38,7 @@ func testConfig() map[ConfigOption]bool {
 	m[BoolIgnoreRepo] = true
 	m[BoolKillGlobalTarget] = true
 	m[BoolRootSubdir] = true
-	m[BoolSeparateSources] = true
+	//m[BoolSeparateSources] = true
 	m[BoolNoFiles] = true
 	return m
 }
@@ -64,8 +64,8 @@ func TestTempAssign(t *testing.T) {
 func testSpec() *Spec {
 	return &Spec{
 		Alias: "@TEST_SPEC", Overrides: prefs{Bools: make(map[ConfigOption]bool)}, Ctype: specComponent,
-		Sources: []pathComponent{{Path: "d:/coding/exampleFiles/imagesets", Ctype: sourceComponent}},
-		Targets: []pathComponent{{Path: `d:\coding\exampleFiles\OUTPUT\ImageSets`, Ctype: targetComponent}},
+		Sources: []PathComponent{{Path: "d:/coding/exampleFiles/imagesets", Ctype: sourceComponent}},
+		Targets: []PathComponent{{Path: `d:\coding\exampleFiles\OUTPUT\ImageSets`, Ctype: targetComponent}},
 	}
 }
 
