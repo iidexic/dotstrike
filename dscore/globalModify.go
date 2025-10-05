@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"iidexic.dotstrike/match"
 	pops "iidexic.dotstrike/pathops"
 )
 
@@ -168,6 +169,7 @@ func (gm *globalModify) DeleteSpec(sptr *Spec) bool {
 			if isLastAndSelectedSpec(i) {
 				ResetSpecSelection()
 			}
+
 			// Does this cause a problem if given
 			gm.Specs = slices.Delete(gm.Specs, i, i+1)
 			return true
@@ -223,6 +225,20 @@ func (gm *globalModify) SetOptionString(opt ConfigOption, newValue string) error
 		return nil
 	}
 	return ErrID
+}
+
+func (gm *globalModify) SelectFirstMatch(sub string) (string, error) {
+	sp := match.NewSubptn(sub, true)
+	if sp == nil {
+		return "", match.ErrEmptyPattern
+	}
+	for i := range gm.Specs {
+		if alias := gm.Specs[i].Alias; sp.Matches(alias) {
+			gm.SelectPtr(&gm.Specs[i])
+			return alias, nil
+		}
+	}
+	return "", fmt.Errorf("No Match Found") // is this acceptable use for an error though
 }
 
 func (gm *globalModify) Select(alias string) bool {
