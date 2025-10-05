@@ -37,6 +37,7 @@ All modifying commands take a '--spec' flag that takes priority over the selecte
 			}
 			if newsel != "" {
 				cmd.Printf("Spec '%s' selected.", newsel)
+				return nil
 			}
 		}
 		_ = temp
