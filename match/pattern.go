@@ -1,12 +1,27 @@
-package ignore
+package match
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
+type PreIgnoreList []string
+
+type PreIgnoreData struct {
+	*PreIgnoreList
+}
+
+// Textpattern takes comparison strings as input and output the result of the match (boolean Matches/Doesn't)
+// They all have a function to Set the pattern that will be matched against.
 type TextPattern interface {
 	Matches(string) bool
 	Set(string, bool) bool
 	IsSet() bool
 }
+
+var (
+	ErrEmptyPattern = fmt.Errorf("No Pattern provided when making TextPattern (Nothing to Match with)")
+)
 
 // utility only
 type truePtn struct{}
@@ -24,7 +39,6 @@ type PathPattern struct {
 }
 
 // TODO:(hi) Uh test/document all this
-
 func (pp *PathPattern) Set(ptn string, overwrite bool) bool {
 	switch {
 	case pp.IsSet() && !overwrite:
@@ -64,6 +78,44 @@ func (pp PathPattern) IsSet() bool {
 }
 func (pp PathPattern) Matches(input string) bool {
 	return pp.baseptn.Matches(input) && pp.parentptn.Matches(input) && pp.rootptn.Matches(input)
+}
+
+// NewSubptn is a helper function to generate a preset config subpattern.
+//   - `matchAnywhere = true` makes a pure subpattern search
+func NewSubptn(ptn string, matchAnywhere bool) TextPattern {
+	var pre, suf bool
+	// kinda half-assed, whatever
+	if ptn == "*" || ptn == "**" {
+		return &truePtn{}
+	}
+	if lp := len(ptn); lp > 0 {
+		if lp > 1 {
+			ptn, pre, suf = trimwild(ptn)
+		} else {
+			pre, suf = true, true
+		}
+		if matchAnywhere {
+			return &SubPattern{string: ptn}
+		}
+		return &SubPattern{string: ptn, Prefix: pre, Suffix: suf}
+	}
+	return nil
+}
+
+// trimwild expects a NON-EMPTY STRING
+// Also it is way too late I am just going to assume this is fine
+// WARNING: THIS IS PROBABLY NOT FINE
+func trimwild(ptn string) (string, bool, bool) {
+	var mpre, msuf bool = true, true
+	if ptn[0] == '*' && len(ptn) > 1 {
+		mpre = false
+		ptn = ptn[1:]
+	}
+	if lp := len(ptn); ptn[lp-1] == '*' && lp > 1 {
+		msuf = false
+		ptn = ptn[:len(ptn)-1]
+	}
+	return ptn, mpre, msuf
 }
 
 // SubPattern matches if the input string contains the set pattern in the configuration determined by SubPattern's booleans.

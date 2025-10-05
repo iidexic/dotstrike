@@ -10,9 +10,7 @@ import (
 	"iidexic.dotstrike/uout"
 )
 
-// ╭─────────────────────────────────────────────────────────╮
-// │              Dotstrike Config+Data Structs              │
-// ╰─────────────────────────────────────────────────────────╯
+// ── Dotstrike Config+Data Structs ───────────────────────────────────
 
 // globals holds configuration status and data
 // globals must be read from file in config step every time ds is run
@@ -47,11 +45,8 @@ type prefs struct {
 	local bool // what is this why here go away
 }
 
-// ╭─────────────────────────────────────────────────────────╮
-// │                     CONFIG OPTIONS                      │
-// ╰─────────────────────────────────────────────────────────╯
+// ── Config Options ──────────────────────────────────────────────────
 
-// ── ConfigOptions ───────────────────────────────────────────────────
 // TODO:(mid) Replace entirely with config.OptionKey
 //
 //	Use config.OptionKey directly where needed and then delete this

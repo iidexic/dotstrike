@@ -4,12 +4,12 @@ from pathlib import Path
 from shutil import copyfile
 import sys
 
-localtoml_abs = Path(r'D:\coding\github\dotstrike\[samplefiles]\dotstrikeData.toml')  # noqa
-testtoml_abs = Path(r'D:\coding\github\dotstrike\[samplefiles]\test_dotstrikeData.toml')  # noqa
+localtoml_abs = Path(r'D:\coding\github\dotstrike\_xtra\[samplefiles]\dotstrikeData.toml')  # noqa
+testtoml_abs = Path(r'D:\coding\github\dotstrike\_xtra\[samplefiles]\test_dotstrikeData.toml')  # noqa
 
-localtoml = Path(getcwd()).joinpath('[samplefiles]\\dotstrikeData.toml')
+localtoml = Path(getcwd()).joinpath('_xtra\\[samplefiles]\\dotstrikeData.toml')
 maintoml: Path = Path.home().joinpath(r'.config\dotstrike\dotstrikeData.toml')
-testtoml = Path(getcwd()).joinpath('[samplefiles]\\test_dotstrikeData.toml')
+testtoml = Path(getcwd()).joinpath('_xtra\\[samplefiles]\\test_dotstrikeData.toml')
 
 helpstring = """----[need arg:]----
 'test' or 'cleartest' -> overwrite test file
