@@ -7,8 +7,6 @@ import (
 	"iidexic.dotstrike/uout"
 )
 
-// WARNING: oh god I'm gonna have to do a bunch more toml shit eww
-// Actually what if I just keep this shit stored as strings
 type (
 	ignoreptn  = match.TextPattern
 	subptn     = match.SubPattern

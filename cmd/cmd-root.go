@@ -124,7 +124,7 @@ If you have multiple specs, you will need to either:
 				cmd.Println(l)
 			}
 		}
-		if !*persistentFlags.debug && !*persistentFlags.all && !*persistentFlags.verbose && !*version {
+		if !*persistentFlags.debug && !*version && len(args) == 0 {
 			cmd.Print("add --help for usage details")
 		}
 

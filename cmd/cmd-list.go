@@ -41,7 +41,7 @@ var listCmd = &cobra.Command{
 			for _, a := range args {
 				s := temp.GetSpec(a)
 				if s != nil {
-					cmd.Print(s.Detail())
+					cmd.Println(s.Detail())
 				} else {
 					cmd.Printf("spec '%s' not found", a)
 				}
