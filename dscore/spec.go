@@ -5,7 +5,6 @@ import (
 	"maps"
 	"slices"
 	"strconv"
-	"strings"
 
 	pops "iidexic.dotstrike/pathops"
 	"iidexic.dotstrike/uout"
@@ -44,22 +43,13 @@ func (S *Spec) initializeInherent() {
 	}
 }
 
-// allInitialized check all source/target components to ensure all are initialized
-func (S *Spec) allInitialized() bool {
-	all := S.Ctype > 0
-	for _, src := range S.Sources {
-		all = all && src.isInitialized()
-	}
-	for _, tgt := range S.Sources {
-		all = all && tgt.isInitialized()
-	}
-	return all
-}
-
 // ── Find/Get Spec Info ──────────────────────────────────────────────
-
-func (S *Spec) getAlias() string        { return S.Alias }
-func (S *Spec) getCtype() componentType { return S.Ctype }
+func specEqual(S, S2 Spec) bool {
+	return S.Alias == S2.Alias && S.Overrides.equal(S2.Overrides) && S.Ctype == S2.Ctype &&
+		slices.EqualFunc(S.Sources, S2.Sources, pathComponentEqual) &&
+		slices.EqualFunc(S.Targets, S2.Targets, pathComponentEqual) &&
+		slices.Equal(S.Ignorepat, S2.Ignorepat)
+}
 
 func (S *Spec) Detail() string {
 	out := uout.NewOutf("- SPEC: %s ------", S.Alias)
@@ -119,61 +109,19 @@ func (S *Spec) DetailSources(parentName bool) string {
 	if len(S.Sources) == 0 {
 		return "	none"
 	}
-	ss := make([]string, len(S.Sources))
-	for i, src := range S.Sources {
-		sstr := ""
-		if parentName {
-			sstr = fmt.Sprintf("spec %s | ", S.Alias)
-		} else {
-			sstr = "	"
-		}
-		if src.Alias != "" {
-			sstr += fmt.Sprintf("%s: ", src.Alias)
-		} else {
-			sstr += fmt.Sprintf("[%d]:", i)
-		}
-		sstr += src.Path
-		if src.Abspath != src.Path && src.Abspath != "" {
-			sstr += fmt.Sprintf(" (%s)", src.Abspath)
-		} else if src.Abspath == "" {
-			sstr += "(WARNING: NO ABSOLUTE PATH)"
-		}
-		if len(src.Ignores) > 0 {
-			sstr += fmt.Sprintf("\n		ignores:%v", src.Ignores)
-		}
-		ss[i] = sstr
-	}
-	return strings.Join(ss, "\n")
+	out := uout.NewOut("Sources:")
+	out.IndR()
+	out.ILV(S.Sources)
+	return out.String()
 }
 func (S *Spec) DetailTargets(parentName bool) string {
 	if len(S.Targets) == 0 {
 		return "	none"
 	}
-	ss := make([]string, len(S.Targets))
-	for i, tgt := range S.Targets {
-		sstr := ""
-		if parentName {
-			sstr = fmt.Sprintf("spec %s | ", S.Alias)
-		} else {
-			sstr = "	"
-		}
-		if tgt.Alias != "" {
-			sstr += fmt.Sprintf("%s: ", tgt.Alias)
-		} else {
-			sstr += fmt.Sprintf("[%d]:", i)
-		}
-		sstr += tgt.Path
-		if tgt.Abspath != tgt.Path && tgt.Abspath != "" {
-			sstr += fmt.Sprintf(" (%s)", tgt.Abspath)
-		} else if tgt.Abspath == "" {
-			sstr += "(WARNING: NO ABSOLUTE PATH)"
-		}
-		if len(tgt.Ignores) > 0 {
-			sstr += fmt.Sprintf("\n		ignores:%v", tgt.Ignores)
-		}
-		ss[i] = sstr
-	}
-	return strings.Join(ss, "\n")
+	out := uout.NewOut("Targets:")
+	out.IndR()
+	out.ILV(S.Targets)
+	return out.String()
 }
 
 // func (S *Spec) GetIgnores() *[]string { return &S.Ignorepat }
@@ -318,16 +266,18 @@ func (S *Spec) AddSource(path string, ignorelist ...string) error {
 		return nil
 	}
 	echild := S.GetIfChild(path)
-	return fmt.Errorf("path `%s` is already in spec %s as a %s!", path, S.Alias, echild.getCtype().String())
+	return fmt.Errorf("path `%s` is already in spec %s as a %s!", path, S.Alias, echild.Ctype.String())
 }
 func (S *Spec) AddIgnores(ignores []string) {
 	S.Ignorepat = append(S.Ignorepat, ignores...)
 }
 
 // WARNING: Non-Persistent
+// TODO: (mid now that I just added the 1 line) Fix the Non-Persistent thing. I will just add gm.Modify() for now
 func (S *Spec) CheckAddPath(path string, isSource bool) bool {
 	if !S.IsPathChild(path) {
 		path = pops.TildeExpand(path)
+		tempData.Modify()
 		if isSource {
 			S.Sources = append(S.Sources, *newPathComponent(path, sourceComponent))
 		} else {
@@ -365,6 +315,26 @@ func (S *Spec) DeleteIfChild(identifier string, isSource bool, singleDelete bool
 	}
 	return count
 }
+
+func (S *Spec) DeleteByPtr(components ...*PathComponent) error {
+	mc := make(map[string]bool, len(components))
+	for _, c := range components {
+		mc[c.Path] = false
+	}
+	for i, src := range S.Sources {
+		if _, ok := mc[src.Path]; ok {
+			S.removeSourceByIndex(i)
+		}
+	}
+
+	for i, tgt := range S.Targets {
+		if _, ok := mc[tgt.Path]; ok {
+			S.removeTargetByIndex(i)
+		}
+	}
+	return nil
+}
+
 func (S *Spec) GetMatching(ids []string, isSource bool) []int {
 	imap := make(map[int]bool, len(ids))
 	for _, id := range ids {
