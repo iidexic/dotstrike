@@ -3,11 +3,11 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"slices"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
+	"iidexic.dotstrike/uout"
 )
 
 func commandTestList() map[string]string {
@@ -19,45 +19,64 @@ func commandTestList() map[string]string {
 	}
 
 }
+func CommandRef() map[string]*cobra.Command {
+	cl := rootCmd.Commands()
+	lookup := make(map[string]*cobra.Command, len(cl))
+	for _, cmd := range cl {
+		lookup[cmd.Name()] = cmd
+	}
+	return lookup
+}
 
 type tRunner struct {
-	cmdList []*cobra.Command
 	inputs  []string
 	outputs []string
 	errors  []error
 }
 
-func (R *tRunner) addCommands(cmd ...*cobra.Command) int {
-	R.cmdList = append(R.cmdList, cmd...)
-	return len(R.cmdList)
+func testRunSequence(inputs []string, t *testing.T) (*tRunner, error) {
+	r := testCmdRunner(inputs)
+	r.Execute()
+	t.Logf("%v", r)
+	var e error
+	for _, err := range r.errors {
+		if err != nil {
+			if e == nil {
+				e = fmt.Errorf("%w", err)
+			} else {
+				e = fmt.Errorf("%w, %w", e, err)
+			}
+		}
+
+	}
+	return r, e
+}
+
+func (R tRunner) String() string {
+	out := uout.NewOut("Run Results")
+	for i, o := range R.outputs {
+		out.F("IN: '%s'", R.inputs[i])
+		if e := R.errors[i]; e != nil {
+			out.F("Error: %v", e)
+		}
+		out.F("OUT: %s", o)
+		out.Sep()
+	}
+	return out.String()
+}
+
+func testCmdRunner(inputs []string) *tRunner {
+	return &tRunner{inputs: inputs, outputs: make([]string, len(inputs)), errors: make([]error, len(inputs))}
 }
 
 func (R *tRunner) addInputs(in ...string) int {
-	// if R.inputs == nil { // impossible
-	// 	R.inputs = make([]string, len(in))
-	// 	copy(R.inputs, in)
-	// 	return len(R.inputs)
-	// }
 	R.inputs = append(R.inputs, in...)
 	return len(R.inputs)
 }
 
-// TODO: uh make this work
-func (R *tRunner) Execute(useCommands bool) {
-	lin, lcmd := len(R.inputs), len(R.cmdList)
-	R.outputs = make([]string, max(lin, lcmd))
-	R.errors = make([]error, max(lin, lcmd))
-	if useCommands {
-		if ll, lc := len(R.inputs), len(R.cmdList); ll < lc {
-			_ = slices.Grow(R.inputs, lc-ll)
-		}
-		for i := range R.cmdList {
-			R.outputs[i], R.errors[i] = testExec(R.cmdList[i], R.inputs[i])
-		}
-	} else {
-		for i, runarg := range R.inputs {
-			R.outputs[i], R.errors[i] = testExec(runCmd, runarg)
-		}
+func (R *tRunner) Execute() {
+	for i, runarg := range R.inputs {
+		R.outputs[i], R.errors[i] = testExec(rootCmd, runarg)
 	}
 }
 
@@ -76,8 +95,9 @@ func testCmdLines(cmd *cobra.Command, args string) ([]string, error) {
 }
 
 func testExec(cmd *cobra.Command, args string) (string, error) {
-	//bin := bytes.NewReader([]byte(input))
+	bin := bytes.NewReader([]byte(args))
 	bout := bytes.NewBufferString("")
+	cmd.SetIn(bin)
 	cmd.SetArgs(strings.Split(args, " "))
 	cmd.SetOut(bout)
 	e := cmd.Execute()
@@ -90,20 +110,50 @@ func testRootSl(args string) ([]string, error) { return testCmdLines(runCmd, arg
 
 func TestTestCommand(t *testing.T) {
 	execArgs := "cfg --global"
-	out, e := testCmdLines(rootCmd, execArgs)
-	if e != nil {
-		t.Errorf("Lines Execute Error: %s", e.Error())
-	}
-	t.Log("Output(lines):")
-	for i, s := range out {
-		t.Logf("%d) %s", i, s)
-	}
 	sout, e2 := testExec(rootCmd, execArgs)
 	if e2 != nil {
 		t.Errorf("Single-String Execute Error: %s", e2.Error())
 	}
-	t.Log("Output(string):")
-	t.Log(sout)
+	ez := uout.NewOut("Output(lines):")
+	ez.WipeOnOutput(true)
+	ez.V("Output(string):")
+	ez.V(sout)
+	out, e := testCmdLines(rootCmd, execArgs)
+	if e != nil {
+		t.Errorf("Lines Execute Error: %s", e.Error())
+	}
+	ez.ILV(out)
+	t.Logf("Results Run '%s':\n%s", execArgs, ez.String())
+	ea2 := "spec"
+	out, e = testCmdLines(rootCmd, ea2)
+	if e != nil {
+		t.Errorf("Lines Execute Error: %s", e.Error())
+	}
+	ez.V("Output(lines):")
+	ez.ILV(out)
+	sout, e2 = testExec(rootCmd, ea2)
+	if e2 != nil {
+		t.Errorf("Single-String Execute Error: %s", e2.Error())
+	}
+	ez.V("Output(string):")
+	ez.V(sout)
+	t.Logf("Results run '%s' :\n%s", ea2, ez.String())
+}
+
+func TestTestCommandRunner(t *testing.T) {
+	execArgs := []string{"cfg --global"}
+	run := testCmdRunner(execArgs)
+	t.Logf("run inputs: %v", run.inputs)
+	run.Execute()
+	t.Log("Output(lines):")
+	for i, s := range run.outputs {
+		t.Logf("%d) %s", i, s)
+	}
+	for i, e := range run.errors {
+		if e != nil {
+			t.Errorf("Execute Error#%d: %v", i, e)
+		}
+	}
 }
 
 func TestRunTestSequence(t *testing.T) {
