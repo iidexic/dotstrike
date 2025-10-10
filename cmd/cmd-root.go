@@ -79,7 +79,7 @@ func newCmdData(cmd *cobra.Command, args []string) *cmdData {
 func (C *cmdData) getSpecs(forceSelected bool, arglist ...string) int {
 	var nf []int
 	C.specs, nf = dscore.TempData().GetSpecs(forceSelected, arglist...)
-	if nf == nil {
+	if len(nf) == 0 {
 		return 1
 	}
 	return len(nf)

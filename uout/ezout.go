@@ -23,16 +23,19 @@ import (
 //     *
 //     *
 
+// TODO:(low) Find out if there's a nicer way to handle the issue of indentation - make line, flatten line?
+
 func ezunwrap(a any, index bool, ez *EZout) {
 	rv := reflect.ValueOf(a)
 	if rk := rv.Kind(); rk == reflect.Slice {
 		if index {
 			for i := 0; i < rv.Len(); i++ {
-				ez.F("[%02d] %+v", i, rv.Index(i).Interface())
+				ez.post(fmt.Sprintf("[%02d] %+v", i, rv.Index(i).Interface()))
+				//ez.F("[%02d] %+v", i, rv.Index(i).Interface())
 			}
 		} else {
 			for i := 0; i < rv.Len(); i++ {
-				ez.F("%+v", rv.Index(i).Interface())
+				ez.post(fmt.Sprintf("%+v", rv.Index(i).Interface()))
 			}
 		}
 
@@ -72,6 +75,19 @@ func flatunwrap(a any, index bool, ez *EZout) {
 	}
 }
 
+func flattenLines(ss []string) []string {
+	nsl := make([]string, 0, len(ss)*3)
+	for _, s := range ss {
+		nnewln := strings.Count(s, "\n")
+		if nnewln == 0 {
+			nsl = append(nsl, s)
+			continue
+		}
+		nsl = append(nsl, strings.Split(s, "\n")...)
+	}
+	return nsl
+}
+
 /* The starting to go crazy section
 type ( ezFuncID  int; OutSelect map[string]EZout;
 	EZmanager struct { OutSelect; ezbuilder }
@@ -83,7 +99,8 @@ func (o OutSelect) Gmake() *EZmanager { return &EZmanager{OutSelect: o} }
 
 type EZout struct {
 	string
-	Ind int
+	Ind   int
+	clear bool
 }
 
 func NewOut(s string) EZout {
@@ -94,21 +111,46 @@ func NewOutf(s string, a ...any) EZout {
 
 	return EZout{string: fmt.Sprintf(s, a...), Ind: 0}
 }
+func (E *EZout) WipeOnOutput(b bool) *EZout {
+	E.clear = b
+	return E
+}
 
 func (E EZout) String() string {
+	if E.clear {
+		defer func() {
+			E.string = ""
+		}()
+	}
 	return E.string
+
 }
 
 // pre adds newline and indentation
 func (E *EZout) pre() {
-	E.string += "\n"
-	if E.Ind > 0 {
-		for range E.Ind {
-			E.string += "	"
-		}
-	}
-
+	E.string += E.getpre()
 }
+
+func (E *EZout) getpre() string {
+	out := "\n"
+	if E.Ind > 0 {
+		return out + E.getInd()
+	}
+	return out
+}
+
+func (E *EZout) getInd() string { return indents(E.Ind) }
+
+// post iterates over lines in s and applies them to the string with proper indentation
+func (E *EZout) post(s string) {
+	strings.SplitSeq(s, "\n")(func(ln string) bool {
+		E.pre()
+		E.string += ln
+		return true
+	})
+}
+
+func indents(n int) string { return strings.Repeat("	", n) }
 
 // Ln adds one or more strings, each on a new line
 //
@@ -121,6 +163,22 @@ func (E *EZout) Ln(s ...string) {
 		E.pre()
 		E.string += txt
 	}
+}
+
+func (E *EZout) PrefixF(ind int, s string, a ...any) {
+	prefix := ""
+	if ind > 0 {
+		prefix = E.getInd()
+	}
+	E.string = prefix + fmt.Sprintf(s, a...) + E.string
+}
+
+func (E *EZout) PrefixV(ind int, a any) {
+	prefix := ""
+	if ind > 0 {
+		prefix = E.getInd()
+	}
+	E.string = prefix + fmt.Sprintf("%+v", a) + E.string
 }
 
 func (E *EZout) LnSplit(s string) {
@@ -150,6 +208,7 @@ func (E *EZout) AF(s string, a ...any) {
 
 // ILns (Indexed Lines) prints a numbered list of strings in l, each on a new line
 func (E *EZout) ILns(l []string) {
+	l = flattenLines(l)
 	for i, s := range l {
 		E.F("[%02d] %s", i, s)
 	}
@@ -182,7 +241,6 @@ func (E *EZout) IfV(b bool, a, aNot any) bool {
 		E.string += fmt.Sprintf("%+v", a)
 
 	} else { // if sna, ok := a.(string); ok && sna != "" && !b
-		E.pre()
 		E.string += fmt.Sprintf("%+v", aNot)
 	}
 	return b
@@ -240,6 +298,9 @@ func (E *EZout) IStringerV(sa ...fmt.Stringer) {
 	for i, a := range sa {
 		E.F("[%d] %+v", i, a)
 	}
+}
+func (E *EZout) Sep() {
+	E.V("------------------------------")
 }
 
 // Indent+1
