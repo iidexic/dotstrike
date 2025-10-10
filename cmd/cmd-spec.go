@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"iidexic.dotstrike/dscore"
+	"iidexic.dotstrike/uout"
 )
 
 var temp dscore.Temp
@@ -62,12 +63,6 @@ var specOps = specOpData{flags: &flagDataSpec}
 
 // TODO:(Done?) Use SelectedSpec for 0-arg edits
 
-//BUG: (SUPER HIGH PRIORITY) Multi-Spec Delete FAILURE - Also, MULTIPLE CONFIRM PROMPT
-// MESSAGE: "Component.Parent did not match any existing alias.delete  failed." (wtf is this)
-//  Wtf
-
-//BUG: NO CONFIRMATION MESSAGE IF ADDING A SPEC WITH CAPS IN THE MIDDLE???
-
 func specRun(cmd *cobra.Command, args []string) {
 	td := dscore.TempData()
 	specOps.args = sliceUniques(args)
@@ -76,6 +71,7 @@ func specRun(cmd *cobra.Command, args []string) {
 	specOps.argExists = make([]bool, len(args))
 
 	notFound := specOps.populateExisting(args)
+
 	switch {
 
 	case len(args) == 0:
@@ -89,15 +85,9 @@ func specRun(cmd *cobra.Command, args []string) {
 			cmd.PrintErr(err)
 		}
 	case len(specOps.existingSpecs) > 0:
-		if *specOps.flags.delete { //TEST: MULTI-SPEC DELETE
-			for i := range specOps.existingSpecs {
-				specToDelete := specOps.existingSpecs[i].Alias
-				deleted := specOps.specDelete(specToDelete)
-				if deleted {
-					cmd.Printf("spec %s deleted", specToDelete)
-				} else {
-					cmd.Printf("delete %s failed.", specOps.existingSpecs[i].Alias)
-				}
+		if *specOps.flags.delete { //TODO: Finish Correcting Spec Delete (processDeletion())
+			if e := specOps.processDeletion(); e != nil {
+				cmd.Printf("Error during deletion: %s", e.Error())
 			}
 		} else {
 			changed := td.SelectPtr(specOps.existingSpecs[0])
@@ -113,8 +103,10 @@ func specRun(cmd *cobra.Command, args []string) {
 func (op *specOpData) outputSelected() {
 	s := dscore.TempData().SelectedSpec()
 	if s == nil {
-		op.cmd.Printf("error: spec not found. resetting  selection")
-		op.cmd.Help()
+		op.cmd.Printf("error: spec not found. resetting selection")
+		// WARN: I should not have to do this here, figure out why specdelete fails to correct
+		dscore.TempData().Modify()
+		dscore.ResetSpecSelection()
 	} else {
 		op.cmd.Print("Selected spec: ", s.Alias, "\n\n")
 		speclist := dscore.TempData().Specs
@@ -158,7 +150,7 @@ func (op *specOpData) specNew() error {
 		op.cmd.Print("Warning: Errors making specs")
 	}
 	if numNewSpecs := len(temp.Specs) - speclenPre; numNewSpecs > 0 {
-		selectionChanged := temp.Select(op.args[0])
+		selectionChanged := temp.Select(specsMade[0])
 		switch {
 		case selectionChanged && numNewSpecs == 1:
 			op.cmd.Printf("spec %s created and selected\n", specsMade[0])
@@ -177,6 +169,8 @@ func (op *specOpData) specNew() error {
 	}
 	return nil
 }
+
+// checks args and flag args, returns true if more than 1 main arg and at least one path flag arg
 func (op specOpData) reqMultNewWithPaths() bool {
 	nArgs := len(op.args)
 	nSrcArgs := len(*op.flags.src)
@@ -184,7 +178,6 @@ func (op specOpData) reqMultNewWithPaths() bool {
 	return nArgs > 1 && (nSrcArgs > 0 || nTgtArgs > 0)
 }
 
-// TODO: finish this
 func (op *specOpData) checkFlagActions() bool {
 
 	// alias change
@@ -229,24 +222,34 @@ func (op *specOpData) checkConfirm(detail string) bool {
 	return *op.flags.yconfirm || askConfirmf(detail)
 }
 
-// TODO:(hi-refactor) fix specDelete and/or shift to specPtrDelete as ptr is getting pulled beforehand anyway.
-func (op *specOpData) specPtrDelete(spec *dscore.Spec) bool {
-	out := false
-
-	if spec != nil {
-		if op.checkConfirm("Delete spec " + spec.Alias) {
-			out = dscore.TempData().DeleteSpec(spec)
+func (op *specOpData) processDeletion() error {
+	out := uout.NewOutf("Delete %d Specs. All specs to be deleted:", len(op.existingSpecs))
+	out.IndR()
+	for i := range op.existingSpecs {
+		s := op.existingSpecs[i]
+		out.F("%s (%d Sources, %d Targets)", s.Alias, len(s.Sources), len(s.Targets))
+		//names[i]=op.existingSpecs[i].Alias
+	}
+	if op.checkConfirm(out.String()) {
+		for i := range op.existingSpecs {
+			alias := op.existingSpecs[i].Alias
+			if dscore.TempData().DeleteSpec(op.existingSpecs[i]) {
+				op.cmd.Printf("deleted spec '%s'\n", alias)
+			}
 		}
 	}
-	return out
+
+	return nil
 }
 
+// specDelete will perform the required steps to delete an individual spec
+// will not check for confirmation
 func (op *specOpData) specDelete(alias string) bool {
 	sptr := dscore.TempData().GetSpec(alias)
 	if sptr == nil {
 		op.cmd.PrintErrf("specDelete error: %s", dscore.ErrAliasNotFound.Error())
 	} else if op.checkConfirm("Delete spec " + sptr.Alias) {
-		dscore.TempData().Modified = true
+		dscore.TempData().Modify()
 		return dscore.TempData().DeleteSpec(sptr)
 	}
 	return false
@@ -262,21 +265,23 @@ type specOpData struct {
 }
 
 func (op *specOpData) populateExisting(args []string) []string {
-	notFound := make([]string, 0, len(args))
-	for i := range args {
-		_ = i
-		if spec := dscore.TempData().GetSpec(args[i]); spec != nil {
-			op.existingSpecs = append(op.existingSpecs, spec)
+
+	notFound := make([]string, len(args))
+	op.existingSpecs = make([]*dscore.Spec, len(args))
+	ix, in := 0, 0
+	for i, s := range args {
+		if spec := dscore.TempData().GetSpec(s); spec != nil {
+			op.existingSpecs[ix] = spec
+			ix++
 			op.argExists[i] = true
 		} else {
-			notFound = append(notFound, args[i])
+			notFound[in] = s
+			in++
 		}
 	}
-	return notFound
-}
-func (op *specOpData) pprintExisting() {
-	for i, spec := range op.existingSpecs {
-		op.cmd.Print(i, ".   ", spec.Detail())
-
+	op.existingSpecs = op.existingSpecs[:ix]
+	if *persistentFlags.verbose {
+		op.cmd.Printf("found %d specs", ix)
 	}
+	return notFound[:in]
 }

@@ -4,17 +4,10 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
-var tgtF = componentCmd{}
-
-//var tgt cmdWrapper
-
-//NOTE: Having a central data structure and building out the command action seems way better than this switch
-//TODO: Refactor source command
+var tgt = componentCmd{}
 
 // tgtCmd represents the tgt command
 var tgtCmd = &cobra.Command{
@@ -23,47 +16,29 @@ var tgtCmd = &cobra.Command{
 	Long:  `add, modify, and delete source components of selected/specified spec`,
 
 	Run: func(cmd *cobra.Command, args []string) {
-		affectedSpecs := getSpecs(cmd, true)
-		detail, oneOrMoreExist := detailsIfArgsExist(args, affectedSpecs)
-		numargs, numspecs := len(args), len(affectedSpecs)
-		switch {
-		case numargs > 0 && !oneOrMoreExist:
-			if oneSpecOrUserConfirm("Adding target to Multiple specs", affectedSpecs) {
-				for i := range affectedSpecs {
-					added := affectedSpecs[i].CheckAddMultiplePaths(args, false)
-					cmd.Printf("Spec %s:\n", affectedSpecs[i].Alias)
-					printNumberedListFiltered(cmd, args, added)
-				}
+		tgt.cmdData = newCmdData(cmd, args)
+		tgt.isSource = false
+		specFlagArgs := *tgt.spec
+		ns := tgt.getSpecs(false, specFlagArgs...)
+		if len(args) > 0 {
+			for _, spec := range tgt.specs {
+				tgt.components = append(tgt.components,
+					spec.GetMatchingComponents(tgt.args, tgt.isSource)...)
 			}
-		case *tgtF.delete && numspecs > 0:
-			if oneSpecOrUserConfirm(
-				fmt.Sprintf("Delete on %d specs", numspecs), affectedSpecs) && len(args) > 0 {
-				for i := range affectedSpecs {
-					runDelete(affectedSpecs[i], args, false)
-				}
-			} else if (*persistentFlags.all || numspecs == 1) &&
-				checkConfirm(fmt.Sprintf("Delete ALL targets - %d specs", numspecs), tgtF.y) {
-				for i := range affectedSpecs {
-					affectedSpecs[i].WipeComponentList(false)
-				}
-			}
-		case *persistentFlags.all && len(args) == 0:
-			cmd.Print(detailAllComponentFrom(affectedSpecs, false))
-
-		case len(args) > 0:
-			cmd.Print(detail)
-		case len(args) == 0 && persistentFlags.countFlags == 0:
-			cmd.Help()
 		}
 
+		if ns > 0 {
+			e := runComponent(&tgt)
+			if e != nil {
+				cmd.Print(e.Error())
+			}
+		} else if ns == 0 {
+			cmd.Print("no specs found for entered arguments!")
+		}
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(tgtCmd)
-
-	tgtF.ignore = tgtCmd.Flags().StringArray("ignore", nil, "ignore")
-	tgtF.alias = tgtCmd.Flags().String("alias", "", "set alias")
-	tgtF.delete = tgtCmd.Flags().Bool("delete", false, "delete")
-	tgtF.y = tgtCmd.Flags().BoolP("yes", "y", false, "Auto-confirm on prompt")
+	makeCmpFlags(tgtCmd, &tgt)
 }

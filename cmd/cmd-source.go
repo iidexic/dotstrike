@@ -5,10 +5,10 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"iidexic.dotstrike/dscore"
+	"iidexic.dotstrike/uout"
 )
 
 type componentCmd struct {
@@ -33,15 +33,9 @@ var src = componentCmd{}
 
 func sourceRun(cmd *cobra.Command, args []string) {
 	src.cmdData = newCmdData(cmd, args)
+	src.isSource = true
 	specFlagArgs := *src.spec
-
-	var ns = 0
-
-	if len(specFlagArgs) > 0 {
-		ns = src.getSpecs(false, specFlagArgs...)
-	} else {
-		ns = src.getSpecs(false)
-	}
+	ns := src.getSpecs(false, specFlagArgs...)
 
 	if len(args) > 0 {
 		for _, spec := range src.specs {
@@ -63,83 +57,151 @@ func sourceRun(cmd *cobra.Command, args []string) {
 }
 
 func runComponent(cmp *componentCmd) error {
+	// TODO: 1 arg w/multiple specs; component doesn't exist in all specs
 
-	nargs, ncomp := len(cmp.args), len(cmp.components)
-	if nargs > 0 && ncomp == 0 { // Make new args
-	} else if nargs > 0 && ncomp < nargs { // Uncertain/Mixed Qty
-		if *cmp.delete {
-			return error(fmt.Errorf("Found no matching sources to delete"))
+	numargs, numcomp := len(cmp.args), len(cmp.components)
+	if numargs > 0 {
+
+	}
+	switch {
+	// no components found from args -> make new args
+	case numargs > 0 && numcomp == 0:
+		conftxt := fmt.Sprintf("Add path(s) as %s to multiple specs", componentTypeString(cmp.isSource))
+		if len(cmp.specs) > 1 && !checkConfirm(conftxt, cmp.y) {
+			return nil
 		}
+		return cmp.addAll()
+	// components found from args but not all args -> uncertain/mixed qty
+	case numargs > 0 && numcomp < numargs && numcomp > 0: // Uncertain/Mixed Qty
 		cmp.runMixedQty()
-	} else if ncomp > 0 {
+	// components found from args and all args (effectively)
+	case numcomp > 0:
 		switch {
 		case *cmp.delete && len(*cmp.ignore) > 0: //Delete Ignores
 			if len(cmp.components) == 0 {
-
+				cmp.deleteIgnores()
 			}
 
 		case *cmp.delete: //Delete Sources
-
+			if ls := len(cmp.specs); ls == 1 || *cmp.y ||
+				askConfirmf("Delete %d %ss from %d specs?", numcomp, componentTypeString(cmp.isSource), ls) {
+				cmp.deleteComponents()
+			}
 		case len(*cmp.ignore) > 0: // Add Ignores
 			return cmp.addIgnores()
 		}
-
+	// have specs, no args, no components
+	case numcomp == 0 && numargs == 0 && len(cmp.specs) > 0:
+		cmp.noArgOutput()
+	default:
+		cmp.Print("this should never happen")
 	}
 
 	return nil
+}
+func (C componentCmd) noArgOutput() {
+	out := uout.NewOutf("--%ss:--", componentTypeString(C.isSource))
+	if len(C.specs) == 0 {
+		C.Print("No specs found/selected")
+	} else {
+		for _, spec := range C.specs {
+			out.IfF(spec == dscore.TempData().SelectedSpec(), "Spec %s (selected)", "Spec %s", spec.Alias, spec.Alias)
+			out.IfV(C.isSource, spec.DetailSources(false), spec.DetailTargets(false))
+		}
+		C.Print(out.String())
+	}
 }
 
 func (C *componentCmd) runMixedQty() error {
 	switch {
-	case len(*C.ignore) > 0 && *C.delete:
-		for i, comp := range C.components {
-			if len(comp.Ignores) > 0 {
-				_ = i
-			}
-		}
 	case len(*C.ignore) > 0:
+		if *C.delete {
+			return C.deleteIgnores()
+		} else {
+			return C.addIgnores()
+		}
+	case *C.delete:
+		if askConfirmf("Found %d sources from %d arguments. Delete?", len(C.components), len(C.args)) {
+			C.deleteComponents()
+		} else {
+			C.Println("Cancelled.")
+		}
+	default:
+		// must have >1 spec or >1 arg to reach mixed qty
+		if askConfirmf("Some of the provided arg paths exist in specs and some do not. Try to add nonexisting to all?") {
+			C.addAll()
+		} else {
+			C.Println("Cancelled.")
+		}
 
 	}
-
 	return nil
 }
 
-func (C *componentCmd) deleteArgs() int {
-
-	return 0
+func (C *componentCmd) addAll() error {
+	cmptype := componentTypeString(C.isSource)
+	out := uout.NewOutf("-- add %s(s) --", cmptype)
+	out.WipeOnOutput(true)
+	for _, spec := range C.specs {
+		added := spec.CheckAddMultiplePaths(C.args, true)
+		out.F("spec %s:", spec.Alias)
+		out.IndR()
+		for i := range added {
+			out.NV(C.args[i], added[i])
+			if !added[i] {
+				out.A(" (path exists as source or target in spec)")
+			}
+		}
+		C.Print(out.String())
+	}
+	return nil
 }
 
-func (C *componentCmd) addIgnores() error {
+// shouldn't need this, oh well for now
+func componentTypeString(isSource bool) string {
+	if isSource {
+		return "source"
+	} else {
+		return "target"
+	}
+}
 
+func (C *componentCmd) deleteComponents() int {
+	temp := dscore.TempData()
+	deleted := make([]string, 0, len(C.components))
+	for _, cmp := range C.components {
+		deleted = append(deleted, cmp.Descriptor())
+		e := temp.GetSpec(cmp.Parent).DeleteByPtr(cmp)
+		if e != nil {
+			C.Printf("Error on delete: %v", e)
+		}
+	}
+	C.Printf("Deleted %d components: %v", len(C.components), deleted)
+	return len(C.components)
+}
+
+// TODO: Finish all
+func (C *componentCmd) addIgnores() error {
+	for _, cmp := range C.components {
+		n := cmp.Ignores.Add(*C.ignore...)
+		if li := len(*C.ignore); n == li {
+			C.Printf("%d ignore patterns added to %s", n, cmp.Descriptor())
+		} else {
+			C.Printf("%d/%d ignore patterns added to %s", n, li, cmp.Descriptor())
+
+		}
+	}
 	return nil
 }
 
 func (C *componentCmd) deleteIgnores() error {
-
-	return nil
-}
-
-func runDelete(spec *dscore.Spec, args []string, isSource bool) {
-	for _, arg := range args {
-		result := spec.DeleteIfChild(arg, isSource, false)
-		if result == 0 {
-			src.Printf("spec %s: None deleted", spec.Alias)
-		} else {
-			src.Printf("spec %s: %d deleted", spec.Alias, result)
+	for _, cmp := range C.components {
+		e := cmp.Ignores.Delete(*C.ignore...)
+		if e != nil {
+			C.Printf("Error on delete: %v", e)
 		}
 	}
-}
-
-var (
-	msgAddSource       = "Add source(s) to multiple specs"
-	msgAddIgnores      = "Add Ignores to multiple sources"
-	fmsgDelSourceCount = "Delete %d Source(s)"
-	msgDelIgnores      = "Delete Ignore pattern(s) in multiple sources"
-)
-
-func oneSpecOrUserConfirm(requestText string, specs []*dscore.Spec) bool {
-	ls := len(specs)
-	return ls == 1 || (ls > 1 && checkConfirm(requestText, src.y))
+	return nil
 }
 
 // !!TODO:(HIGHEST:FIX) DECIDE + IMPLEMENT IF GETSPECS INHERENTLY INCLUDES SELECTED & IF GETSPECS PROCESSES NOSELECT
@@ -161,74 +223,16 @@ func getSpecs(cmd *cobra.Command, includeSelected bool) []*dscore.Spec {
 	return specs
 }
 
-func detailsIfArgsExist(args []string, specs []*dscore.Spec) (string, bool) {
-	if len(args) == 0 {
-		return "", false
-	}
-	//TODO: un-bad this function
-	// This is completely unreadable
-
-	// Functionality:
-	// 1. collects details of the specs passed, prints them directly
-	// 2. checks if args include identifier of an existing component within given specs
-	hasExisting := false
-	details := make([]string, 0, len(specs)+len(args))
-	for _, spec := range specs {
-		if existing := spec.GetExistingChildren(args); len(existing) > 0 {
-			hasExisting = true
-			details = append(details, "In spec "+spec.Alias+":")
-			srctxt, tgttxt := "", ""
-			for i, component := range existing {
-				if component.IsSource() {
-					srctxt += fmt.Sprintf(" %d. %s:%s\n", i, component.Alias, component.Path)
-				} else {
-					tgttxt += fmt.Sprintf(" %d. %s:%s", i, component.Alias, component.Path)
-				}
-			}
-			details = append(details, "[sources]", srctxt, "\n[targets]", tgttxt)
-		}
-
-	}
-	return strings.Join(details, "\n"), hasExisting
-}
-
-func detailAllComponentFrom(specs []*dscore.Spec, isSource bool) string {
-
-	detail := make([]string, 0, len(specs)*2) //arbitrary
-	for _, spec := range specs {
-		detail = append(detail, fmt.Sprintf("Spec: %s", spec.Alias))
-		if isSource {
-			if len(spec.Sources) == 0 {
-				detail = append(detail, " [no sources]")
-
-			} else {
-				for i := range spec.Sources {
-					detail = append(detail, spec.Sources[i].Detail())
-				}
-			}
-		} else {
-
-			if len(spec.Targets) == 0 {
-				detail = append(detail, " [no targets]")
-
-			} else {
-				for i := range spec.Targets {
-					detail = append(detail, spec.Targets[i].Detail())
-				}
-			}
-		}
-	}
-	return strings.Join(detail, "\n")
-
+func makeCmpFlags(cmd *cobra.Command, cmp *componentCmd) {
+	cmp.ignore = cmd.Flags().StringArray("ignore", nil, "ignore")
+	cmp.alias = cmd.Flags().String("alias", "", "set alias")
+	cmp.delete = cmd.Flags().Bool("delete", false, "delete")
+	cmp.y = cmd.Flags().BoolP("yes", "y", false, "Auto-confirm on prompt")
+	cmp.spec = cmd.Flags().StringSlice("spec", []string{}, `--spec="alias1, alias2"  to target specs provided`)
+	cmp.selectedSpec = cmd.Flags().BoolP("selected", "s", true, "--useSelected=false to disable operating on selected spec")
 }
 
 func init() {
-
 	rootCmd.AddCommand(srcCmd)
-	src.ignore = srcCmd.Flags().StringArray("ignore", nil, "ignore")
-	src.alias = srcCmd.Flags().String("alias", "", "set alias")
-	src.delete = srcCmd.Flags().Bool("delete", false, "delete")
-	src.y = srcCmd.Flags().BoolP("yes", "y", false, "Auto-confirm on prompt")
-	src.spec = srcCmd.Flags().StringSlice("spec", []string{}, `--spec="alias1, alias2"  to target specs provided`)
-	src.selectedSpec = srcCmd.Flags().BoolP("selected", "s", true, "--useSelected=false to disable operating on selected spec")
+	makeCmpFlags(srcCmd, &src)
 }
