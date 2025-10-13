@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // enum for path format
@@ -32,7 +33,9 @@ type errCtr struct {
 	err   error
 }
 
-func (e *errCtr) Error() string {
+func (e errCtr) String() string { return e.Error() }
+
+func (e errCtr) Error() string {
 	if e.err != nil {
 		return fmt.Sprintf("%s: [%s]", e.etext, e.err.Error())
 	}
@@ -42,10 +45,11 @@ func (e *errCtr) Error() string {
 var (
 	ErrGetHomedir   error
 	ErrGetConfigdir error
-	ErrEmptyHome    = fmt.Errorf("Home path is empty string")
-	ErrNilInfo      = fmt.Errorf("nil os.FileInfo")
-	ErrNotAbs       = fmt.Errorf("Path can't be resolved to an absolute path")
-	ErrNotDir       = fmt.Errorf("Path is not a directory path")
+	ErrEmptyHome          = fmt.Errorf("Home path is empty string")
+	ErrNilInfo            = fmt.Errorf("nil os.FileInfo")
+	ErrNotAbs             = fmt.Errorf("Path can't be resolved to an absolute path")
+	ErrNotDir             = fmt.Errorf("Path is not a directory path")
+	ErrNotPathlike  error = errCtr{etext: "Path is not path-like"}
 )
 
 var (
@@ -213,11 +217,18 @@ func TildeExpand(ospath string) string {
 	return ospath
 }
 
+func TildeCheck(ospath string) bool {
+	return ospath[0] == tilde && (len(ospath) == 1 || ospath[1] == '/' || ospath[1] == '\\')
+}
+
 //TODO: (mid-hi) delete/replace MakeAbs. Don't Swallow errors with panic
 
 // makeabs returns absolute path of inpath
 // inpath may or may not be relative from home dir/cwd
 func MakeAbs(inpath string) string {
+	if TildeCheck(inpath) {
+		inpath = TildeExpand(inpath)
+	}
 	if !filepath.IsAbs(inpath) {
 		var e error
 		inpath, e = filepath.Abs(inpath)
@@ -229,6 +240,53 @@ func MakeAbs(inpath string) string {
 	}
 	return inpath
 }
+
+func MakeAbsIfPathlike(inpath string) (string, error) {
+	var e error
+	if !IsPathlike(inpath) {
+		return inpath, ErrNotPathlike
+	}
+	if TildeCheck(inpath) {
+		inpath = TildeExpand(inpath)
+	}
+	if !filepath.IsAbs(inpath) {
+		inpath, e = filepath.Abs(inpath)
+	} else {
+		inpath = filepath.Clean(inpath)
+	}
+	return inpath, e
+}
+
+func IsPathlike(maybepath string) bool {
+	// Just doing IsAbs/IsLocal won't work here; IsLocal is VERY loose.
+	return strings.Contains(maybepath, "\\") || strings.Contains(maybepath, "/") ||
+		maybepath == "." || maybepath == ".." || maybepath == "\\" || len(maybepath) > 1 &&
+		(maybepath[:2] == "./" || maybepath[:2] == ".\\" || maybepath[:2] == "~/" || maybepath[:2] == "~\\") || len(maybepath) > 2 &&
+		(maybepath[:3] == "../" || maybepath[:3] == "..\\" || maybepath[1:3] == ":\\" || maybepath[1:3] == ":/")
+}
+
+// the same exact function as IsPathlike, but code isn't all smashed together
+// func isPathlikeMoreReadable(maybepath string) bool {
+// 	if strings.Contains(maybepath, "\\") || strings.Contains(maybepath, "/") {
+// 		return true
+// 	}
+// 	if maybepath == "." || maybepath == ".." || maybepath == "\\" {
+// 		return true
+// 	}
+// 	if len(maybepath) > 1 {
+// 		if maybepath[:2] == "./" || maybepath[:2] == ".\\" || maybepath[:2] == "~/" || maybepath[:2] == "~\\" {
+// 			return true
+// 		}
+// 		if maybepath[:3] == "../" || maybepath[:3] == "..\\" {
+// 			return true
+// 		}
+// 		if maybepath[1:3] == ":\\" || maybepath[1:3] == ":/" {
+// 			return true
+// 		}
+// 	}
+// 	return false
+// }
+
 func PathExists(path string) (bool, error) {
 
 	path = CleanPath(path)
