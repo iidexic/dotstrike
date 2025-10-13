@@ -56,6 +56,8 @@ func sourceRun(cmd *cobra.Command, args []string) {
 
 }
 
+// TODO:(VERY HIGH) Src Deletion tries to create. Target creation makes source and says "failed (already exists)" FIX PLS
+
 func runComponent(cmp *componentCmd) error {
 	// TODO: 1 arg w/multiple specs; component doesn't exist in all specs
 
@@ -64,6 +66,8 @@ func runComponent(cmp *componentCmd) error {
 
 	}
 	switch {
+	//TODO:(hi) seems like we are NOT handling local  dir correctly. Fix pathComponent functions (should not need to handle on create or delete in cmd)
+
 	// no components found from args -> make new args
 	case numargs > 0 && numcomp == 0:
 		conftxt := fmt.Sprintf("Add path(s) as %s to multiple specs", componentTypeString(cmp.isSource))
@@ -82,7 +86,7 @@ func runComponent(cmp *componentCmd) error {
 				cmp.deleteIgnores()
 			}
 
-		case *cmp.delete: //Delete Sources
+		case *cmp.delete: //Delete components
 			if ls := len(cmp.specs); ls == 1 || *cmp.y ||
 				askConfirmf("Delete %d %ss from %d specs?", numcomp, componentTypeString(cmp.isSource), ls) {
 				cmp.deleteComponents()
@@ -143,7 +147,7 @@ func (C *componentCmd) addAll() error {
 	out := uout.NewOutf("-- add %s(s) --", cmptype)
 	out.WipeOnOutput(true)
 	for _, spec := range C.specs {
-		added := spec.CheckAddMultiplePaths(C.args, true)
+		added := spec.CheckAddMultiplePaths(C.args, C.isSource)
 		out.F("spec %s:", spec.Alias)
 		out.IndR()
 		for i := range added {
@@ -153,6 +157,7 @@ func (C *componentCmd) addAll() error {
 			}
 		}
 		C.Print(out.String())
+		out.Clear() // is there a reason to print each spec?
 	}
 	return nil
 }
@@ -204,7 +209,6 @@ func (C *componentCmd) deleteIgnores() error {
 	return nil
 }
 
-// !!TODO:(HIGHEST:FIX) DECIDE + IMPLEMENT IF GETSPECS INHERENTLY INCLUDES SELECTED & IF GETSPECS PROCESSES NOSELECT
 // getSpecs compiles the list of specs from args of the spec flag
 func getSpecs(cmd *cobra.Command, includeSelected bool) []*dscore.Spec {
 	specs := []*dscore.Spec{}
