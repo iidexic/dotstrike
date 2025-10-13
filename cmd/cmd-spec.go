@@ -100,6 +100,7 @@ func specRun(cmd *cobra.Command, args []string) {
 	}
 
 }
+
 func (op *specOpData) outputSelected() {
 	s := dscore.TempData().SelectedSpec()
 	if s == nil {
@@ -124,7 +125,7 @@ func (op *specOpData) outputSelected() {
 func (op *specOpData) specNew() error {
 	temp := dscore.TempData()
 	if op.reqMultNewWithPaths() {
-		ask := askConfirmf(fmt.Sprintf("make %d specs with same source/target?", len(op.args)))
+		ask := checkConfirmF("make %d specs with same source/target?", op.flags.yconfirm, len(op.args))
 		if !ask {
 			op.cmd.Print("0 specs made")
 			return nil
@@ -219,41 +220,37 @@ Alias not unique (spec '%s' already exists)`, spec.Alias, newAlias, newAlias)
 // }
 
 func (op *specOpData) checkConfirm(detail string) bool {
-	return *op.flags.yconfirm || askConfirmf(detail)
+	return checkConfirmF(detail, op.flags.yconfirm)
 }
 
 func (op *specOpData) processDeletion() error {
 	out := uout.NewOutf("Delete %d Specs. All specs to be deleted:", len(op.existingSpecs))
 	out.IndR()
+	aliases := make([]string, len(op.existingSpecs))
 	for i := range op.existingSpecs {
 		s := op.existingSpecs[i]
+		aliases[i] = s.Alias
 		out.F("%s (%d Sources, %d Targets)", s.Alias, len(s.Sources), len(s.Targets))
-		//names[i]=op.existingSpecs[i].Alias
 	}
+	out.WipeOnOutput(true)
 	if op.checkConfirm(out.String()) {
-		for i := range op.existingSpecs {
-			alias := op.existingSpecs[i].Alias
-			if dscore.TempData().DeleteSpec(op.existingSpecs[i]) {
-				op.cmd.Printf("deleted spec '%s'\n", alias)
-			}
-		}
+		out.IndL().A("Deleting Specs...")
+		out.IndR()
+		deleted := dscore.TempData().DeleteSpecs(aliases)
+		out.IfLN(deleted, "deleted spec '%s'", "failed to delete spec '%s'", aliases)
+		op.cmd.Print(out.String())
 	}
+	return nil
+}
+	return nil
+}
 
 	return nil
 }
 
 // specDelete will perform the required steps to delete an individual spec
 // will not check for confirmation
-func (op *specOpData) specDelete(alias string) bool {
-	sptr := dscore.TempData().GetSpec(alias)
-	if sptr == nil {
-		op.cmd.PrintErrf("specDelete error: %s", dscore.ErrAliasNotFound.Error())
-	} else if op.checkConfirm("Delete spec " + sptr.Alias) {
-		dscore.TempData().Modify()
-		return dscore.TempData().DeleteSpec(sptr)
-	}
-	return false
-}
+// func (op *specOpData) specDelete(alias string) bool { return dscore.TempData().DeleteSpec(alias) }
 
 type specOpData struct {
 	flags         *specFlags
