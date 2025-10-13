@@ -69,14 +69,22 @@ func testCmdRunner(inputs []string) *tRunner {
 	return &tRunner{inputs: inputs, outputs: make([]string, len(inputs)), errors: make([]error, len(inputs))}
 }
 
-func (R *tRunner) addInputs(in ...string) int {
-	R.inputs = append(R.inputs, in...)
-	return len(R.inputs)
-}
 
 func (R *tRunner) Execute() {
 	for i, runarg := range R.inputs {
 		R.outputs[i], R.errors[i] = testExec(rootCmd, runarg)
+	}
+}
+
+func (R *tRunner) ExecuteLog(t *testing.T) {
+	for i, runarg := range R.inputs {
+
+		R.outputs[i], R.errors[i] = testExec(rootCmd, runarg)
+		if R.errors[i] != nil {
+			t.Logf("Executed cmd (%d): ERR: %s", i, R.errors[i].Error())
+		} else {
+			t.Logf("Executed cmd (%d)", i)
+		}
 	}
 }
 
@@ -192,25 +200,58 @@ func runSequential(runargs ...string) ([]string, error) {
 	}
 	return output, err
 }
+func TestStructure(t *testing.T) {
+	ins := []string{"spec srcTest", "src C:/secret/bringo", "src"}
+	_, e := testRunSequence(ins, t)
+	if e != nil {
+		t.Errorf("Failures during run sequence")
+	}
+
+}
 
 // TODO:(mid) finish this guyy
 func TestFeatureset(t *testing.T) {
-	out, err := runSequential(
-		"spec test-audio test-svg",                          // make multiple spec
-		"spec test-imagesets",                               // make  spec
-		"src d:/coding/exampleFiles/imagesets/svg-sizediff", // add src
-		"src d:/coding/exampleFiles/imagesets/svg-x-circle",
-		"src d:/coding/exampleFiles/imagesets/svg_circle d:/coding/exampleFiles/imagesets/svg_png", //add 2 src
-		"tgt d:/coding/exampleFiles/OUTPUT/images",
-		"cfg ",                     //WARN:notdone
-		"spec test-audio --delete", //test deletes
-		"spec  test-svg --delete",
-		// single line new spec with inline paths
-		`spec t-audio --src='d:/coding/exampleFiles/audio' --tgt=='d:/coding/exampleFiles/OUTPUT/audio'`,
-	)
-	if err != nil {
-		t.Error(err)
+	/* When will confirmation be required:
+	- [1] shouldn't but does - fix
+	- [3]
+	- [4]
+	*/
+	in := []string{
+		//[0] make 2 spec (good)
+		"spec test-sound test-svg",
+		// Prep img folder test
+		// [1] make img spec with 2 src, 1 tgt
+		"spec test-img --src='d:/coding/exampleFiles/imagesets/svg-x-circle,d:/coding/exampleFiles/imagesets/svg_circle' --tgt=d:/coding/exampleFiles/OUTPUT/images -y",
+		// [2] add last src
+		"src d:/coding/exampleFiles/imagesets/svg_png",
+		// [3] test delete 2 specs
+		"spec test-sound test-svg --delete -y",
+		// [4] init both audio test specs
+		"spec test-audio test-audiodirs --src=d:/coding/exampleFiles/audio -y",
+		// [5] add tgt to test-audio
+		"tgt d:/coding/exampleFiles/OUTPUT/audio --ignore=*.mp3",
+		// [6] select test-audiodirs
+		"sel iodir",
+		// [7] set cfg for test-audiodirs
+		"cfg dry makealldirs",
+		// [8] add tgt to test-audiodirs
+		"tgt d:/coding/exampleFiles/OUTPUT/audio-structure",
+		// [9] list (check output correct)
+		"list",
+		//cleanup
+		"spec test-img test-audio test-audiodirs --delete -y",
 	}
-	t.Log(out)
+	run := testCmdRunner(in)
+	run.ExecuteLog(t)
+	t.Logf("%v", *run)
+
+	// for i, o := range run.outputs {
+	// 	if e := run.errors[i]; e != nil {
+	// 		t.Errorf("Run %d Error: %v", i, e)
+	// 	}
+	// 	t.Logf(`Run %d
+	// INPUT: %s
+	// OUTPUT: %s`, i, in[i], o)
+	// }
 
 }

@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"iidexic.dotstrike/dscore"
@@ -40,6 +41,7 @@ type cmdData struct {
 	runFunc    func(*cobra.Command, []string)
 }
 
+// NOTE: Not currently used. started as attempt to standardize output regarding operations
 type opString struct {
 	operation, opVerb              string
 	directType, parentType         string
@@ -129,6 +131,10 @@ If you have multiple specs, you will need to either:
 		}
 
 	},
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		persistentFlags.inarg = os.Args[1:]
+		persistentFlags.instr = strings.Join(persistentFlags.inarg, " ")
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -142,6 +148,8 @@ func Execute() {
 
 type persistentData struct {
 	verbose, all, debug *bool
+	inarg               []string
+	instr               string
 	//global *bool
 	//spec, src, tgt       *[]string // source and target currently set as Persistent Flags
 	//bspec, bsrc, btgt    bool      //lazy
