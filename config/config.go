@@ -44,7 +44,6 @@ const (
 	BoolIgnoreRepo
 	BoolIgnoreHidden
 	BoolRootSubdir
-	//BoolSourceSubdirs
 	BoolNoFiles
 	BoolCopyAllDirs
 	BoolUseGlobalTarget // Spec Bools
@@ -124,10 +123,13 @@ func AllOptionIDs() []OptionKey {
 }
 
 //TODO:(HIGHEST) REPLACE LOOKUPS WITH DEFINED FLAGS WHEREVER THEY ARE HAPPENING
+// I think this is done
+
+// TODO:(mid) Replace Lookup system with something more robust or user-friendly
 
 // option spec contains required information for each option.
 // includes name, type, use/purpose, and lookup string slices
-// LookupSubstrings uses `|` to indicate separate values that can be used in the same place
+// LookupSubstrings uses `|` to define values that can be used in the same place (OR)
 type option struct {
 	Type             ValueType
 	LookupSubstrings []string
@@ -159,27 +161,21 @@ Dir is named with spec's alias if possible, else numbers will be added`,
 		ForFileOp: true, LookupSubstrings: []string{"root|make", "root|sub", "dir"},
 		LookupExacts: []string{"mrsd"},
 	},
-	// BoolSourceSubdirs: {
-	// 	Type: Tbool, NameText: "SourceSubdirs", fName: "separate-sources",
-	// 	runUsage:  "Copies each source into a separate subdir; name is source's alias or source path's dir name.",
-	// 	ForFileOp: true, LookupSubstrings: []string{"source|src", "sub|dirs"},
-	// 	LookupExacts: []string{"ssep"},
-	// },
 	BoolNoFiles: {
 		Type: Tbool, NameText: "CopyNoFiles", fName: "no-files", fshort: "n",
 		runUsage:  "Disable filecopy for run. Use for dry runs, or with --all-dir to copy only the directory structure",
-		ForFileOp: true, LookupSubstrings: []string{"no", "files|copy"}, LookupExacts: []string{"dryrun", "dry"},
+		ForFileOp: true, LookupSubstrings: []string{"no", "file|copy"}, LookupExacts: []string{"dryrun", "dry"},
 	},
 	BoolCopyAllDirs: {
 		Type: Tbool, NameText: "CopyAllDirs", fName: "all-dirs", fshort: "d",
 		runUsage: `Copy all Source subdirectories, including empty subdirectories. 
 Use with --no-files to only copy the directories themselves.`,
-		ForFileOp: true, LookupSubstrings: []string{"copy|all", "all|", "dir"}, LookupExacts: []string{"alldirs", "aldr"},
+		ForFileOp: true, LookupSubstrings: []string{"copy|make|", "all", "dir"}, LookupExacts: []string{"ad", "aldr"},
 	},
 	BoolUseGlobalTarget: {
 		Type: Tbool, NameText: "ForceGlobalTarget", fName: "force-globaltarget",
 		runUsage: `--all-globaltarget forces all specs in the run to copy to global target (in addition to their current targets)`,
-		ForSpec:  true, LookupSubstrings: []string{"use|all|force", "global|glb|gtg", "target|tgt|"}, LookupExacts: []string{"usegt", "allgt", "agtg"},
+		ForSpec:  true, LookupSubstrings: []string{"use|all|force", "global|glb|gtg", "target|tgt|"}, LookupExacts: []string{"usegt", "allgt", "agt"},
 	},
 	BoolKillGlobalTarget: {
 		Type: Tbool, NameText: "DisableGlobalTarget", fName: "none-globaltarget",
@@ -252,7 +248,7 @@ func OptFrom(optionName string) OptionKey {
 func (o OptionKey) IsBool() bool   { return AllOptions[o].Type == Tbool }
 func (o OptionKey) IsString() bool { return AllOptions[o].Type == Tstring }
 
-// TODO: (mid-fix) maybe count up the number of matches to ensure only 1? Would require other changes
+// NOTE: Added check of LookupExacts to make life easier
 func LookupOption(input string) OptionKey {
 	input = strings.TrimSpace(strings.ToLower(input))
 	for id, opt := range AllOptions {
@@ -260,22 +256,22 @@ func LookupOption(input string) OptionKey {
 		for _, substr := range opt.LookupSubstrings {
 			match = match && lookupSubstringMatch(input, substr)
 		}
-		if match {
+		if match || slices.Contains(opt.LookupExacts, input) {
 			return id
 		}
 	}
 	return NotAnOption
 }
 
-func LookupOptionExact(input string) (OptionKey, error) {
-	input = strings.TrimSpace(strings.ToLower(input))
-	for id, opt := range AllOptions {
-		if slices.Contains(opt.LookupExacts, input) {
-			return id, nil
-		}
-	}
-	return NotAnOption, nil
-}
+// func LookupOptionExact(input string) (OptionKey, error) {
+// 	input = strings.TrimSpace(strings.ToLower(input))
+// 	for id, opt := range AllOptions {
+// 		if slices.Contains(opt.LookupExacts, input) {
+// 			return id, nil
+// 		}
+// 	}
+// 	return NotAnOption, nil
+// }
 
 // Returns 1 key for each string. If string does not match, returns NotAnOption
 func GetOptionKeys(searches []string) []OptionKey {

@@ -116,15 +116,14 @@ func (E *EZout) WipeOnOutput(b bool) *EZout {
 	return E
 }
 
-func (E EZout) String() string {
+func (E *EZout) String() string {
 	if E.clear {
-		defer func() {
-			E.string = ""
-		}()
+		defer E.Clear()
 	}
 	return E.string
-
 }
+
+func (E *EZout) Clear() { E.string = E.string[:0] }
 
 // pre adds newline and indentation
 func (E *EZout) pre() {
@@ -260,6 +259,16 @@ func (E *EZout) IfF(b bool, s, sNot string, a, aNot any) bool {
 		E.string += fmt.Sprintf(sNot, aNot)
 	}
 	return b
+}
+
+// IfLN effectively prints a pass/fail list of strings. Each string is printed with f(<s/sNot>,snames[i])
+//   - If b[i] is true, prints f(s,snames[i])
+//   - If b[i] is false, prints f(sNot,snames[i])
+//   - if either s or sNot is empty, prints nothing in that respective case
+func (E *EZout) IfLN(b []bool, s, sNot string, snames []string) {
+	for i, nm := range snames {
+		E.IfF(b[i], s, sNot, nm, nm)
+	}
 }
 
 // ILV adds an indexed list of values from sa.
