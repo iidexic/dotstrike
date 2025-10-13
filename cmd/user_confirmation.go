@@ -11,6 +11,13 @@ func checkConfirm(detail string, cflag *bool) bool {
 	return *cflag || askConfirmf(detail)
 }
 
+func checkConfirmF(detail string, cflag *bool, vars ...any) bool {
+	return *cflag || askConfirmf(detail, vars...)
+}
+
+// TODO: (low) Switch to just using cobra.Command.InOrStdin()
+
+// askConfirmF Does NOT check any flags
 func askConfirmf(detail string, vars ...any) bool {
 	reader := bufio.NewReader(os.Stdin)
 	n := 4

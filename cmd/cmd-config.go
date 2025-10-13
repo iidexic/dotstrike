@@ -102,17 +102,17 @@ func cfgPrintErrHelp(cmd *cobra.Command) {
 	cmd.Println("check cfg --help for argument info")
 }
 
-func (c *cfgOp) vprintf(s string, vals ...any) {
-
-	if c.verbose {
-		if len(vals) == 0 {
-			c.Print(s)
-		} else {
-			c.Printf(s, vals...)
-		}
-	}
-
-}
+// func (c *cfgOp) vprintf(s string, vals ...any) {
+//
+//	if c.verbose {
+//		if len(vals) == 0 {
+//			c.Print(s)
+//		} else {
+//			c.Printf(s, vals...)
+//		}
+//	}
+//
+// }
 func (c *cfgOp) vprintSelected() {
 	if c.verbose {
 		c.Print("Selected Specs: ")
@@ -125,37 +125,37 @@ func (c *cfgOp) vprintSelected() {
 func (c *cfgOp) applyToSpecs(args []string) error {
 	temp := dscore.TempData()
 	specs := getSpecs(c.Command, !*c.fNoSelect)
-	var confirmUser bool
-	if ls := len(specs); ls > 1 {
-		confirmUser = checkConfirm(fmt.Sprintf("Apply Options (overrides) to %d specs", ls), c.fYes)
-	} else if ls == 1 {
-		confirmUser = true
-	} else if ls == 0 {
+	// var confirmUser bool
+	// if ls := len(specs); ls > 1 {
+	// 	confirmUser = checkConfirm(fmt.Sprintf("Apply Options (overrides) to %d specs", ls), c.fYes)
+	// } else if ls == 1 {
+	// 	confirmUser = true } else
+	if len(specs) == 0 {
 		return fmt.Errorf("no specs selected")
 	}
-	if confirmUser {
-		c.vprintSelected()
-		mapargs, remainder := c.cfgArgsMap(args)
-		lr := len(remainder)
-		c.outputRemainder(remainder)
-		if len(mapargs) == 0 {
-			//c.Print("Failed\n")
-			return fmt.Errorf("no config options could be made from args")
+	// if confirmUser {
+	c.vprintSelected()
+	mapargs, remainder := c.cfgArgsMap(args)
+	lr := len(remainder)
+	c.outputRemainder(remainder)
+	if len(mapargs) == 0 {
+		//c.Print("Failed\n")
+		return fmt.Errorf("no config options could be made from args")
+	}
+	for i := range specs {
+		failed := temp.SetSpecOverridesMap(specs[i], mapargs)
+		lf := len(failed)
+		if lf > 0 {
+			c.Printf("config options not found for:\n%s", failed)
 		}
-		for i := range specs {
-			failed := temp.SetSpecOverridesMap(specs[i], mapargs)
-			lf := len(failed)
-			if lf > 0 {
-				c.Printf("config options not found for:\n%s", failed)
-			}
-			switch {
-			case lf == 0 && lr == 0:
-				c.Print("Succesfully wrote all values")
-			case lf*2+lr < len(args):
-				c.Print("Succesfully wrote (with failures)")
-			}
+		switch {
+		case lf == 0 && lr == 0:
+			c.Print("Succesfully wrote all values")
+		case lf*2+lr < len(args):
+			c.Print("Succesfully wrote (with failures)")
 		}
 	}
+	// }
 	return nil
 }
 
