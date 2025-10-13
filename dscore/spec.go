@@ -24,7 +24,7 @@ type Spec struct {
 	Ignorepat  preIgnoreList   `toml:"ignores"`    // ignorepat that apply to all sources
 	OverrideOn bool            `toml:"overrideOn"` // enable overrides, prevent Overrides being over-written
 	Overrides  prefs           `toml:"overrides"`  // override global prefs
-	Ctype      componentType
+	Ctype      componentType   // I thought this got deleted
 }
 
 var ErrID error = fmt.Errorf("Identifier not found")
@@ -50,6 +50,8 @@ func specEqual(S, S2 Spec) bool {
 		slices.EqualFunc(S.Targets, S2.Targets, pathComponentEqual) &&
 		slices.Equal(S.Ignorepat, S2.Ignorepat)
 }
+
+func (S Spec) Identify() string { return S.Alias }
 
 func (S *Spec) Detail() string {
 	out := uout.NewOutf("- SPEC: %s ------", S.Alias)
@@ -128,6 +130,33 @@ func (S *Spec) DetailTargets(parentName bool) string {
 
 func (S *Spec) GetLocalPrefs() *prefs { return &S.Overrides }
 
+// SetOverrideMap sets the override map for the spec. returns a slice of failed options
+func (S *Spec) SetOverrideMap(mpref map[string]bool) ([]string, error) {
+	fails := make([]string, len(mpref))
+	n := 0
+	var eout error
+	for k, b := range mpref { // all this to intercept overrideOn
+		if opt := OptionID(k); opt == BoolOverrideOn {
+			tempData.Modify()
+			S.OverrideOn = b
+		} else if opt != NotAnOption {
+			//WARN: never errors for now but may need to check in future
+			// oh it actually can error although still don't think it is able as set
+			e := S.Overrides.setOpt(opt, b)
+			if eout == nil {
+				eout = e
+			} else {
+				eout = fmt.Errorf("%w\n%w", eout, e)
+			}
+		} else {
+			fails[n] = k
+			n++
+		}
+
+	}
+	return fails[:n], eout
+}
+
 // IsPathChild looks for the path within the Spec's pathComponent slices
 func (S *Spec) IsPathChild(path string) bool {
 	for _, src := range S.Sources {
@@ -171,6 +200,7 @@ func (S *Spec) GetExistingChildren(identifiers []string) []*PathComponent {
 	return components
 }
 
+// Does this work right now??
 func (S *Spec) GetMatchingComponents(identifiers []string, isSource bool) []*PathComponent {
 	lenids := len(identifiers)
 	var cmpExisting []PathComponent
@@ -182,8 +212,9 @@ func (S *Spec) GetMatchingComponents(identifiers []string, isSource bool) []*Pat
 	}
 	sm := make(map[string]struct{}, lenids)
 	for _, sid := range identifiers {
-		sm[sid] = struct{}{} //can't clean sid, must match either Alias or Path
-		// break out into separate path/alias functions?
+		// This shit is a mess
+		key := pops.MakeAbs(sid)
+		sm[key] = struct{}{}
 	}
 	n := 0
 	for i, comp := range cmpExisting {
@@ -251,7 +282,7 @@ func (S *Spec) removeTargetByIndex(index int) {
 
 // ── Modifying Spec Data ─────────────────────────────────────────────
 
-// TODO: Replace CheckAddPath with S.AddSource!
+// TODO: Replace CheckAddPath with S.AddSource! why
 func (S *Spec) AddSource(path string, ignorelist ...string) error {
 	if !S.IsPathChild(path) {
 		tempData.Modify()
@@ -272,8 +303,6 @@ func (S *Spec) AddIgnores(ignores []string) {
 	S.Ignorepat = append(S.Ignorepat, ignores...)
 }
 
-// WARNING: Non-Persistent
-// TODO: (mid now that I just added the 1 line) Fix the Non-Persistent thing. I will just add gm.Modify() for now
 func (S *Spec) CheckAddPath(path string, isSource bool) bool {
 	if !S.IsPathChild(path) {
 		path = pops.TildeExpand(path)
@@ -283,6 +312,7 @@ func (S *Spec) CheckAddPath(path string, isSource bool) bool {
 		} else {
 			S.Targets = append(S.Targets, *newPathComponent(path, targetComponent))
 		}
+		return true
 	}
 	return false
 }
