@@ -15,6 +15,7 @@ var ErrParentNotFound error = errors.New("Component.Parent did not match any exi
 var ErrAliasNotFound error = errors.New("Component.Parent did not match any existing alias.")
 var ErrBadKey error = errors.New("Provided map key does not exist")
 
+// don't think this is used
 type Temp interface {
 	NewSpec(string, ...string) (*Spec, error)
 	DeleteSpec(*Spec) bool
@@ -131,7 +132,6 @@ func (gm globalModify) GetSpecs(forceSelected bool, aliases ...string) ([]*Spec,
 	aqty := len(aliases)
 	// TODO:(low)  eliminate the nested loop
 	if aqty == 0 {
-		//WARNING: Probably bad idea to return nil slice instead of an empty one, not sure
 		return []*Spec{gm.SelectedSpec()}, nil
 	}
 	sel, selIn := gm.SelectedSpec(), false
@@ -161,21 +161,70 @@ func (gm globalModify) GetSpecs(forceSelected bool, aliases ...string) ([]*Spec,
 	return specs, notfound
 }
 
-// DeleteSpec deletes the spec *sptr (persistent).
-func (gm *globalModify) DeleteSpec(sptr *Spec) bool {
-	for i := range gm.Specs {
-		if spec := &gm.Specs[i]; spec == sptr {
+// SubstringSearchSpecs searches for substrings in spec aliases
+// one substring per subs arg. Ideally this would only take the closest match for each.
+func (gm *globalModify) SubstringSearchSpecs(subs []string) []string {
+	mout := make(map[string]bool, len(subs))
+	// prob have to nest the loop here
+	for j := range subs {
+		for i := range gm.Specs {
+			ss := standardizeAlias(subs[j])
+			if strings.Contains(gm.Specs[i].Alias, ss) {
+				mout[gm.Specs[i].Alias] = true
+				break
+			}
+		}
+	}
+	out := make([]string, len(mout))
+	n := 0
+	for a := range mout {
+		out[n] = a
+		n++
+	}
+	return out
+}
+
+// DeleteSpec deletes the spec where alias == spec.Alias (persistent).
+// WARNING: don't loop thru pointers and send alias, use DeleteSpecs
+func (gm *globalModify) DeleteSpec(alias string) bool {
+	for i := len(gm.Specs) - 1; i >= 0; i-- {
+		if gm.Specs[i].Alias == alias {
 			gm.Modify()
 			if isLastAndSelectedSpec(i) {
 				ResetSpecSelection()
 			}
-
-			// Does this cause a problem if given
 			gm.Specs = slices.Delete(gm.Specs, i, i+1)
 			return true
 		}
 	}
 	return false
+}
+
+// Delete all specs with given aliases. also it works
+func (gm *globalModify) DeleteSpecs(aliases []string) []bool {
+	mAliasIndex := make(map[string]bool, len(aliases))
+	for _, a := range aliases {
+		mAliasIndex[a] = false
+	}
+	// Check but might need to reverse
+	for i := len(gm.Specs) - 1; i >= 0; i-- {
+		sa := gm.Specs[i].Alias
+		_, ok := mAliasIndex[sa]
+		if ok {
+			gm.Modify()
+			gm.Specs = slices.Delete(gm.Specs, i, i+1)
+			mAliasIndex[sa] = true
+		}
+	}
+
+	deleted := make([]bool, len(aliases))
+	for i, a := range aliases {
+		deleted[i] = mAliasIndex[a]
+	}
+	if gm.Selected >= len(gm.Specs) {
+		gm.Selected = 0
+	}
+	return deleted
 }
 
 func isLastAndSelectedSpec(i int) bool { return i+1 == len(tempData.Specs) && i == tempData.Selected }
@@ -286,7 +335,7 @@ func (gm *globalModify) specByIndex(i int) *Spec {
 // Should function similarly or same to setting GlobalTargetPath
 
 func (gm *globalModify) SetSpecOverridesMap(s *Spec, newValues map[string]bool) []string {
-	fails, e := s.Overrides.setOptMap(newValues)
+	fails, e := s.SetOverrideMap(newValues)
 	if e != nil {
 		for i, f := range fails {
 			// Check to see if

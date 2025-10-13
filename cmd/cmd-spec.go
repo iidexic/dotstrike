@@ -47,6 +47,7 @@ func init() {
 			`--src="c:\srcPath1\, .\path2"`),
 		tgt: specCmd.Flags().StringSlice("tgt", make([]string, 0, 2),
 			`--tgt="c:\target\path1, .\tpath2"`),
+		ignore: specCmd.Flags().StringSlice("ignore", make([]string, 0, 2), "--ignore='ptn1,ptn2'"),
 	}
 }
 
@@ -54,6 +55,7 @@ type specFlags struct {
 	yconfirm, delete *bool
 	alias            *string
 	src, tgt         *[]string
+	ignore           *[]string
 }
 
 var ErrSpecNotMade = errors.New("No spec created; received nil pointer")
@@ -80,9 +82,15 @@ func specRun(cmd *cobra.Command, args []string) {
 			specOps.outputSelected()
 		}
 	case len(notFound) == len(args):
-		err := specOps.specNew()
-		if err != nil {
-			cmd.PrintErr(err)
+		if *specOps.flags.delete {
+			if e := specOps.uncertainDelete(); e != nil {
+				cmd.PrintErr(e)
+			}
+		} else {
+			err := specOps.specNew()
+			if err != nil {
+				cmd.PrintErr(err)
+			}
 		}
 	case len(specOps.existingSpecs) > 0:
 		if *specOps.flags.delete { //TODO: Finish Correcting Spec Delete (processDeletion())
@@ -176,6 +184,7 @@ func (op specOpData) reqMultNewWithPaths() bool {
 	nArgs := len(op.args)
 	nSrcArgs := len(*op.flags.src)
 	nTgtArgs := len(*op.flags.tgt)
+	// true if more than 1 main arg and at least one path flag arg
 	return nArgs > 1 && (nSrcArgs > 0 || nTgtArgs > 0)
 }
 
@@ -209,15 +218,9 @@ Alias not unique (spec '%s' already exists)`, spec.Alias, newAlias, newAlias)
 	}
 }
 
-// func (op *specOpData) checkConfirmExecute(fn func(), detail string) {
-// 	approve := *op.flags.yconfirm
-// 	if !approve {
-// 		approve = askConfirmf(detail)
-// 	}
-// 	if *op.flags.yconfirm || askConfirmf(detail) {
-// 		fn()
-// 	}
-// }
+func (op *specOpData) runargCheck() {
+	rootCmd.InOrStdin()
+}
 
 func (op *specOpData) checkConfirm(detail string) bool {
 	return checkConfirmF(detail, op.flags.yconfirm)
@@ -242,9 +245,22 @@ func (op *specOpData) processDeletion() error {
 	}
 	return nil
 }
-	return nil
-}
 
+func (op *specOpData) uncertainDelete() error {
+	aliases := dscore.TempData().SubstringSearchSpecs(op.args)
+	out := uout.NewOut("Delete attempted, no exact alias matches found.")
+	out.V("Found Specs:")
+	out.IndR().LV(aliases)
+	out.IndL().V("CONFIRM DELETION OF FOUND SPECS")
+	if len(aliases) > 0 && op.checkConfirm(out.String()) {
+		out.Clear()
+		out.A("Deleting Specs...")
+		deleted := dscore.TempData().DeleteSpecs(aliases)
+		out.IfLN(deleted, "deleted spec '%s'", "failed to delete spec '%s'", aliases)
+		op.cmd.Print(out.String())
+	} else {
+		op.cmd.Print("Delete canceled/failed: No Specs found for args.")
+	}
 	return nil
 }
 

@@ -42,7 +42,6 @@ type globalModify struct {
 
 type prefs struct {
 	Bools map[ConfigOption]bool
-	local bool // what is this why here go away
 }
 
 // ── Config Options ──────────────────────────────────────────────────
