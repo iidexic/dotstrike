@@ -2,20 +2,23 @@ package config
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
 	"github.com/BurntSushi/toml"
 )
 
-/* ── NOTES: Where are options being handled in Run Operations? ───────
-
+/*
+	── NOTES: Where are options being handled in Run Operations? ───────
 
 BoolIgnoreRepo
-	- moveOps.CopyJob.Run() -> right before go into the walk
+  - moveOps.CopyJob.Run() -> right before go into the walk
+
 BoolIgnoreHidden
 BoolRootSubdir
 TODO: subdir made on job creation
+
 	-- also, uhh I think rootsubdir and source dirs are the same thing.
 	-- because like we're running by source and making subdir by source.
 	I think all required information to make this happen is already ready there
@@ -23,18 +26,21 @@ TODO: subdir made on job creation
 	and as separate from other pieces as I can make it
 
 	- moveOps.CopyJob.Run() -> right before go into the walk
+
 BoolSourceSubdirs
-	- Not yet implemented (same as rootsubdir)
+  - Not yet implemented (same as rootsubdir)
+
 BoolNoFiles
 BoolCopyAllDirs
 
 TODO: GlobalTargets are not triggering an error as they should.
+
 	Also need protection from recording both as on in global/local prefs.
+
 BoolUseGlobalTarget
 BoolKillGlobalTarget
 
 BoolOverrideOn
-
 */
 
 type OptionKey int
@@ -122,10 +128,42 @@ func AllOptionIDs() []OptionKey {
 	return opts
 }
 
-//TODO:(HIGHEST) REPLACE LOOKUPS WITH DEFINED FLAGS WHEREVER THEY ARE HAPPENING
-// I think this is done
+type ConfigMap map[OptionKey]bool
 
-// TODO:(mid) Replace Lookup system with something more robust or user-friendly
+func (M ConfigMap) String() string {
+	d := "["
+	for k, v := range M {
+		d += k.String() + ":" + fmt.Sprint(v) + ", "
+	}
+	return d[:len(d)-2] + "]" // smart
+}
+
+func (M ConfigMap) IsSet(opt OptionKey) bool { _, ok := M[opt]; return ok }
+
+func (M ConfigMap) IsOn(opt OptionKey) bool { v, ok := M[opt]; return ok && v }
+
+func (M ConfigMap) Matches(opts map[OptionKey]bool) bool { return ConfigsMatch(M, opts) }
+
+func (M ConfigMap) Set(opt OptionKey, val bool) {
+	M[opt] = val
+}
+
+func (M ConfigMap) ApplyMap(opts map[OptionKey]bool, force bool) {
+	if force {
+		maps.Copy(M, opts)
+	} else {
+		for k, v := range opts {
+			if _, ok := M[k]; !ok {
+				M[k] = v
+			}
+		}
+	}
+}
+
+//todo: REPLACE LOOKUPS WITH DEFINED FLAGS WHEREVER THEY ARE HAPPENING
+// Done everywhere EXCEPT the cfg command
+
+// TODO:(low) Replace Lookup system with something more robust or user-friendly
 
 // option spec contains required information for each option.
 // includes name, type, use/purpose, and lookup string slices
@@ -175,7 +213,7 @@ Use with --no-files to only copy the directories themselves.`,
 	BoolUseGlobalTarget: {
 		Type: Tbool, NameText: "ForceGlobalTarget", fName: "force-globaltarget",
 		runUsage: `--all-globaltarget forces all specs in the run to copy to global target (in addition to their current targets)`,
-		ForSpec:  true, LookupSubstrings: []string{"use|all|force", "global|glb|gtg", "target|tgt|"}, LookupExacts: []string{"usegt", "allgt", "agt"},
+		ForSpec:  true, LookupSubstrings: []string{"use|all|force", "global|glb|gtg", "target|tgt|"}, LookupExacts: []string{"usegt", "allgt", "agt", "gton"},
 	},
 	BoolKillGlobalTarget: {
 		Type: Tbool, NameText: "DisableGlobalTarget", fName: "none-globaltarget",
@@ -236,32 +274,9 @@ func (o *OptionKey) UnmarshalText(data []byte) error {
 	}
 	return ErrDecodeOptionKey
 }
-func OptFrom(optionName string) OptionKey {
-	for k, v := range AllOptions {
-		if optionName == v.NameText {
-			return k
-		}
-	}
-	return NotAnOption
-}
 
 func (o OptionKey) IsBool() bool   { return AllOptions[o].Type == Tbool }
 func (o OptionKey) IsString() bool { return AllOptions[o].Type == Tstring }
-
-// NOTE: Added check of LookupExacts to make life easier
-func LookupOption(input string) OptionKey {
-	input = strings.TrimSpace(strings.ToLower(input))
-	for id, opt := range AllOptions {
-		match := true
-		for _, substr := range opt.LookupSubstrings {
-			match = match && lookupSubstringMatch(input, substr)
-		}
-		if match || slices.Contains(opt.LookupExacts, input) {
-			return id
-		}
-	}
-	return NotAnOption
-}
 
 // func LookupOptionExact(input string) (OptionKey, error) {
 // 	input = strings.TrimSpace(strings.ToLower(input))
