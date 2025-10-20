@@ -4,6 +4,8 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 	"iidexic.dotstrike/dscore"
 )
@@ -26,6 +28,9 @@ All modifying commands take a '--spec' flag that takes priority over the selecte
 		temp := dscore.TempData()
 		if len(args) == 0 {
 			selected := temp.SelectedSpec()
+			if selected == nil {
+				return fmt.Errorf("No Spec Selected")
+			}
 			cmd.Printf("Currently Selected: %s", selected.Alias)
 			//cmd.Println("Add partial string to change selection")
 			return nil

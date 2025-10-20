@@ -209,24 +209,6 @@ func (C *componentCmd) deleteIgnores() error {
 	return nil
 }
 
-// getSpecs compiles the list of specs from args of the spec flag
-func getSpecs(cmd *cobra.Command, includeSelected bool) []*dscore.Spec {
-	specs := []*dscore.Spec{}
-	if includeSelected {
-		specs = append(specs, dscore.TempData().SelectedSpec())
-	}
-	if len(*src.spec) > 0 {
-		for _, a := range *src.spec {
-			if s := dscore.TempData().GetSpec(a); s != nil {
-				specs = append(specs, s)
-			} else {
-				cmd.Printf("spec %s not found\n", a)
-			}
-		}
-	}
-	return specs
-}
-
 func makeCmpFlags(cmd *cobra.Command, cmp *componentCmd) {
 	cmp.ignore = cmd.Flags().StringArray("ignore", nil, "ignore")
 	cmp.alias = cmd.Flags().String("alias", "", "set alias")

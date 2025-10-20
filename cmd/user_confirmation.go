@@ -17,6 +17,8 @@ func checkConfirmF(detail string, cflag *bool, vars ...any) bool {
 
 // TODO: (low) Switch to just using cobra.Command.InOrStdin()
 
+// TODO:(med) Add a full prompt for user input
+
 // askConfirmF Does NOT check any flags
 func askConfirmf(detail string, vars ...any) bool {
 	reader := bufio.NewReader(os.Stdin)

@@ -39,16 +39,23 @@ Paths can be provided as arguments after the alias argument.
 func init() {
 	rootCmd.AddCommand(specCmd)
 
+	specMakeFlags()
+
+}
+
+func specMakeFlags() {
+
 	flagDataSpec = specFlags{
 		delete:   specCmd.Flags().Bool("delete", false, "delete spec"),
 		yconfirm: specCmd.Flags().BoolP("autoconfirm user y/n prompts", "y", false, "yes"),
 		alias:    specCmd.Flags().String("set-alias", "", "set-alias ALIAS"),
 		src: specCmd.Flags().StringSlice("src", make([]string, 0, 2),
-			`--src="c:\srcPath1\, .\path2"`),
+			`--src="c:\srcPath1,.\path2"`),
 		tgt: specCmd.Flags().StringSlice("tgt", make([]string, 0, 2),
-			`--tgt="c:\target\path1, .\tpath2"`),
+			`--tgt="c:\target\path1,.\tpath2"`),
 		ignore: specCmd.Flags().StringSlice("ignore", make([]string, 0, 2), "--ignore='ptn1,ptn2'"),
 	}
+	specOps.flags = &flagDataSpec
 }
 
 type specFlags struct {
