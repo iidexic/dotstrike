@@ -22,13 +22,13 @@ var Copier = pops.Copier()
 
 type jobProcessor struct { // uses gd/TempData() for global prefs and global target
 	specs         map[string]*jobSpec
-	runtimeConfig map[config.OptionKey]bool
+	runtimeConfig config.ConfigMap
 	setupComplete bool
 }
 
 var manager = jobProcessor{
 	specs:         make(map[string]*jobSpec),
-	runtimeConfig: make(map[config.OptionKey]bool),
+	runtimeConfig: make(config.ConfigMap),
 }
 
 // Adds specs as partial specs by stripping any source/target

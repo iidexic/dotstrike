@@ -16,7 +16,14 @@ func getcwd(t *testing.T) string {
 	}
 	return cwd
 }
-
+func getHome(t *testing.T) string {
+	home, e := os.UserHomeDir()
+	if e != nil {
+		t.Logf("[home: %e]", e)
+	}
+	HomePath = &home
+	return home
+}
 func TestRead(t *testing.T) {
 	lpath := "../_xtra/dotstrike.toml"
 	abspath, e := filepath.Abs(lpath)
@@ -31,6 +38,25 @@ func TestRead(t *testing.T) {
 }
 
 func TestMakeAbs(t *testing.T) {
+	trials := []string{
+		"Bingo Bongo :)", "C:/Users/derek/.config/wezterm",
+		".", "~", "~/.config/wezterm", "~/../loc/",
+		"C:\\", "C\\", "c:/", "\\C\\",
+		".\\bingo2", `D:\coding\exampleFiles`,
+		"/", "\\", "..\\cmd", "..", "...", "....", "./", "./place/../things"}
+	getHome(t)
+	for i, p := range trials {
+		abs := MakeAbs(p)
+		t.Logf("Trial %d: %s -> %s", i, p, abs)
+	}
+	for i, p := range trials {
+		abs, e := MakeAbsIfPathlike(p)
+		if e != nil && e == ErrNotPathlike {
+			t.Logf("Trial %d: %s -> %s (ErrNotPathlike)", i, p, abs)
+		} else {
+			t.Logf("Trial %d: %s -> %s", i, p, abs)
+		}
+	}
 }
 
 func TestPathIdentification(t *testing.T) {

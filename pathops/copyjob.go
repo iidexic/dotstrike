@@ -296,3 +296,68 @@ func (J *CopyJob) wipeOutputDir() error {
 	}
 	return eout
 }
+
+type checkDir struct {
+	dirpath   string
+	record    fileRecord
+	linkedJob *CopyJob
+	walked    bool
+	walkErr   error
+	hasFiles  bool
+	wipeDirOn bool
+}
+
+// ReadJobdir reads the contents of job.PathIn or job.PathOut
+// and returns a checkDir struct.
+// Walk error logged to checkDir.walkErr
+func ReadJobdir(job *CopyJob, pathIn bool) *checkDir {
+	var dir string
+	if pathIn {
+		dir = job.PathIn
+	} else {
+		dir = job.PathOut
+	}
+	cd := ReadDir(dir)
+	return cd
+}
+
+// ReadDir reads the contents of dirpath and returns a checkDir struct.
+// Walk error logged to checkDir.walkErr
+func ReadDir(dirpath string) *checkDir {
+	cd := &checkDir{dirpath: dirpath, record: fileRecord{files: make(map[string]*filedata)}}
+	err := fs.WalkDir(os.DirFS(dirpath), ".", func(p string, d fs.DirEntry, e error) error {
+		if p == "." {
+			return nil
+		}
+		_, ew := cd.record.newRecord(Joinpath(dirpath, p), p, d.IsDir())
+		if ew != nil {
+			return ew
+		}
+		return nil
+	})
+	cd.walked = true
+	cd.walkErr = err
+	return cd
+}
+
+func (C *checkDir) deleteDir() error {
+	if C.wipeDirOn {
+		return os.RemoveAll(C.dirpath)
+	}
+	return fmt.Errorf("wipeDirOn is false")
+}
+
+func (C *checkDir) String() string {
+	out := uout.NewOutf("Detail dir: '%s'", C.dirpath)
+	out.IndR()
+	if C.linkedJob != nil {
+		out.IfV(C.linkedJob.jobRan, "(job-linked: ran)", "(job-linked: not ran)")
+	}
+	out.IfF(C.walked, "Dir read - %d existing entries", "%s", len(C.record.files), "Dir not read")
+	out.IndR().LV(C.record.files)
+	out.IndL()
+	if C.walkErr != nil {
+		out.F("Walk error: %v", C.walkErr)
+	}
+	return out.String()
+}

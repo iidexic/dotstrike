@@ -60,6 +60,44 @@ func testing_job() *CopyJob {
 
 }
 
+func testing_checkAndDeleteJobOutdir(t *testing.T, job *CopyJob, superConfirmDelete bool) {
+	if job.PathOut != "" {
+		cd := ReadDir(job.PathOut)
+		t.Logf("CheckDir: %s", job.PathOut)
+		t.Logf("DirRead: %+v", cd)
+
+		cd.wipeDirOn = superConfirmDelete
+		e := cd.deleteDir()
+		if e != nil {
+			t.Logf("Error deleting dir: %v", e)
+		}
+	}
+
+}
+
+func CheckDir(t *testing.T, path string) {
+	t.Logf("CheckDir: %s", path)
+	d, e := os.Stat(path)
+	if e != nil {
+		t.Logf("Error getting stat: %v", e)
+	}
+	if d.IsDir() {
+		t.Logf("%s exists as dir", path)
+	} else {
+		t.Logf("%s exists as file", path)
+	}
+	e = fs.WalkDir(os.DirFS(path), ".", func(p string, d fs.DirEntry, e error) error {
+		if e != nil {
+			t.Logf("WalkDir error: %v", e)
+		}
+		if d.IsDir() {
+			t.Logf("WalkDir: %s is a dir", p)
+		}
+		t.Logf("path: %s", p)
+		return nil
+	})
+
+}
 func TestRunFSdry(t *testing.T) {
 	job := testing_job()
 	job.BPrefs[bNoFiles] = true
@@ -89,10 +127,17 @@ func TestRunFSdirs(t *testing.T) {
 	if e != nil {
 		t.Errorf("JobRun Error: %v", e)
 	}
+	t.Log(job.DetailRun())
+
+	for k, d := range job.newDirs {
+		t.Logf("newDir: %s (made: %t)", k, d)
+	}
 
 	for _, e := range job.OpErrors {
-		t.Logf("%v", e)
+		t.Errorf("%+v", e)
 	}
+	t.Log("DOUBLE-CHECKING OUTDIR (also deleting)")
+	testing_checkAndDeleteJobOutdir(t, job, true)
 }
 
 func TestRunFSfull(t *testing.T) {

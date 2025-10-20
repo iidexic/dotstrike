@@ -3,21 +3,17 @@ package pops
 import (
 	"fmt"
 	"io/fs"
-	"maps"
-	"slices"
+	"strconv"
 	"strings"
 
 	"iidexic.dotstrike/config"
+	"iidexic.dotstrike/uout"
 )
 
 type DirEntry = fs.DirEntry
-type boolConfig map[config.OptionKey]bool
+type boolConfig = config.ConfigMap
 
-func (b boolConfig) IsOn(k config.OptionKey) bool { v, ok := b[k]; return ok && v }
-
-func (b *boolConfig) CopyMap(m map[config.OptionKey]bool) {
-	maps.Copy(*b, m)
-}
+//func (b boolConfig) IsOn(k config.OptionKey) bool { v, ok := b[k]; return ok && v }
 
 type stringConfig = map[config.OptionKey]string
 type PathError = fs.PathError
@@ -47,16 +43,6 @@ var cmachine copierMaschine = copierMaschine{
 
 func Copier() *copierMaschine { return &cmachine }
 
-type JobGroup struct {
-	pathSet
-	groupName   string
-	jobNames    []string
-	jobPtrs     []*CopyJob
-	bcfg        boolConfig
-	scfg        stringConfig
-	initialized bool
-}
-
 type pathSet struct {
 	ins  []string
 	outs []string
@@ -84,6 +70,7 @@ func (CM *copierMaschine) RunAll(stopOnError bool) error {
 	//TODO: Return Error?
 	return nil
 }
+func (CM *copierMaschine) String() string { return strings.Join(CM.Detail(), "\n") }
 
 func (CM *copierMaschine) Detail() []string {
 	dtlength := max(len(CM.JobQueue), len(CM.JobGroups)) + 2
@@ -102,45 +89,25 @@ func (CM *copierMaschine) Detail() []string {
 		n++
 	}
 	d[n] = "|-----------------------------------|"
-	d = slices.Clip(d)
+	d = d[:n+1]
 	return d
 }
 
-func (g *JobGroup) Detail() string {
-	sd := make([]string, len(g.jobPtrs)+len(g.bcfg)+len(g.scfg)+3)
-	sd[0] = fmt.Sprintf("|[Group: %s] %d jobs", g.groupName, len(g.jobPtrs))
-	i := 1
-	if len(g.jobPtrs) > 0 {
-		sd[i] = "|--- JOBS:"
-		i++
-		for ijp, j := range g.jobPtrs {
-			detailText := fmt.Sprintf("|---	[%d] ", ijp) + j.DetailLine()
-			sd[i] = detailText
-			i++
-		}
-	}
-	if len(g.scfg)+len(g.bcfg) > 0 {
-		sd[i] = "|-- GROUP CONFIG:"
-		i++
-		for k, bv := range g.bcfg {
-			sd[i] = fmt.Sprintf("|---	%s: %t", k.String(), bv)
-			i++
-		}
-		for k, v := range g.scfg {
-			sd[i] = fmt.Sprintf("|---	%s: '%s'", k.String(), v)
-		}
-	}
-	sd = slices.Clip(sd)
-	return strings.Join(sd, "\n")
+func (CM copierMaschine) GroupDetails() string {
+	out := uout.NewOut("--[Copier Job Groups]--")
+	out.IndR()
+	out.ILV(CM.JobGroups)
+
+	return out.String()
 }
 
 // NewJobGroup takes all required data for a group of related Copy Jobs, and returns a JobGroup ptr.
 //
 // It also automatically creates all copy jobs, and stores the job names in JobGroup.jobNames.
 // Job names are created as (name-[job#])
-func (CM *copierMaschine) NewJobGroup(name string, inPaths []string, outPaths []string, bools boolConfig) *JobGroup {
+func (CM *copierMaschine) NewJobGroup(UniqueName string, inPaths []string, outPaths []string, bools boolConfig) *JobGroup {
 	numJobs := len(inPaths) * len(outPaths)
-	group := &JobGroup{groupName: name, bcfg: bools,
+	group := &JobGroup{groupName: UniqueName, bcfg: bools,
 		jobNames: make([]string, numJobs),
 		jobPtrs:  make([]*CopyJob, numJobs),
 		pathSet:  pathSet{ins: inPaths, outs: outPaths},
@@ -148,45 +115,26 @@ func (CM *copierMaschine) NewJobGroup(name string, inPaths []string, outPaths []
 
 	group.makeJobs()
 	group.initialized = true
+	//  what is happening here
 	key := group.groupName
 	_, ok := CM.JobGroups[key]
-	if ok {
-		n := 1
-		for {
-			key += fmt.Sprintf("%2d", n)
+
+	// lazy way to make sure group names are unique.
+	n := 0
+	k := key
+	for {
+		if ok {
+			n++
+			k = key + strconv.Itoa(n)
+			_, ok = CM.JobGroups[k]
+			continue
 		}
+		key = k
+		break
 	}
-	CM.JobGroups[group.groupName] = group
+
+	CM.JobGroups[key] = group
 	return group
-}
-
-func (g *JobGroup) makeJobs() {
-	for x, in := range g.ins {
-		for y, out := range g.outs {
-			i := x*len(g.outs) + y
-			jname := fmt.Sprintf("%s.in-%d.out-%d", g.groupName, x, y)
-			g.jobPtrs[i] = cmachine.NewJob(jname, in, out)
-			g.jobNames[i] = jname
-		}
-	}
-
-}
-
-func (g *JobGroup) RunAll(abortOnError bool) error {
-	var outError error
-	for i := range g.jobPtrs {
-		e := g.jobPtrs[i].RunFS()
-		if e != nil && abortOnError {
-			return e
-		} else if e != nil {
-			if outError == nil {
-				outError = fmt.Errorf("Copy Errors: %w", e)
-			} else {
-				outError = fmt.Errorf("%w\n%w", outError, e)
-			}
-		}
-	}
-	return outError
 }
 
 // NewJob creates a new job and adds to the JobQueue; returns a ptr to created job if successful

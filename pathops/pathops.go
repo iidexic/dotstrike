@@ -196,18 +196,6 @@ func HaveHome() bool {
 	return false
 }
 
-// // TildeDirty replaces a leading ~ with home path using HomeDirtyJoin
-// // errors will panic.
-// func TildeDirty(ospath string) string {
-// 	// tilde code: 126
-// 	if c1 := ospath[0]; c1 == tilde && *HomePath != "" {
-// 		return HomeJoinC(ospath[0:])
-// 	} else if c1 == tilde {
-// 		return HomeDirtyJoin(ospath[0:])
-// 	}
-// 	return ospath
-// }
-
 // TildeExpand replaces a leading tilde in path string with the actual home path
 func TildeExpand(ospath string) string {
 	// tilde code: 126

@@ -38,13 +38,6 @@ func (J *CopyJob) RunFS() error {
 		J.OpErrors = append(J.OpErrors, fs.PathError{Path: J.PathIn, Err: e, Op: ""})
 		return e
 	}
-	// move to be inside the walk?
-	if J.BPrefs[bAllDirs] {
-		for relDir := range J.newDirs {
-			e := os.MkdirAll(Joinpath(J.PathOut, relDir), 0)
-			J.checkAndLogError(relDir, "MakeDirectory", e)
-		}
-	}
 	return nil
 }
 
