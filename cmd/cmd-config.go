@@ -22,24 +22,25 @@ var configCmd = &cobra.Command{
 cfg expects arguments in pairs, with each pair containing:
 	- Name of the option to be changed
 	- New value of that option
+	EX: '> ds cfg ignorehidden true'
 To modify global config options, use the '--global' flag.
 ALL OPTIONS:
 	Booleans(true/false or 1/0)
-	 - ignore-repo [norepo/nore]: 
-	 - ignore-hidden [nohidden/nohi]:
-	 - root-subdir [mrsd]:
-	- source-subdir [ssep]:
-	- no-copy [dryrun]:
-	- copy-all-dir [aldr]: 
-	- killglobtarget [gtoff]:
+	 - ignore-repo [norepo/nore]: ignore ./.git dir when copying
+	 - ignore-hidden [nohidden/nohi]: ignore hidden files/dirs when copying
+	 - root-subdir [mrsd]: make a new dir in target folder to copy a spec into
+	- no-copy [dryrun]: disable filecopy for run. Use for dry runs, or with --all-dir to copy only the directory structure
+	- copy-all-dir [aldr]:  Copy all Source subdirectories, including empty subdirectories. 
+				Use with --no-copy to only copy the directories themselves.
+	- useglobaltarget [gton]: copy to global target
+	- killglobtarget [gtoff]: disable copy to global target
 
 	--- Strings ---
+	-globaltargetpath [gtpath]: set global target path
 	`,
 	// global flag as bool? as arg list?
 	Run: cfg.run,
 }
-
-//TODO: This will just be way easier if it's a struct
 
 type cfgOp struct {
 	*cobra.Command
@@ -53,6 +54,10 @@ type cfgOp struct {
 func init() {
 	rootCmd.AddCommand(configCmd)
 	cfg.Command = configCmd
+	configMakeFlags()
+
+}
+func configMakeFlags() {
 	cfg.fYes = configCmd.Flags().BoolP("confirm", "y", false, "--confirm/-y")
 	cfg.fNoSelect = configCmd.Flags().Bool("noselect", false, "disable all action on selected spec")
 	cfg.fForceWrite = configCmd.Flags().Bool("force-write", false, "force write config to file.")
@@ -60,7 +65,6 @@ func init() {
 	cfg.fSource = configCmd.Flags().StringSlice("src", []string{}, `--src="srcId1,  c:\path" to select/limit sources`)
 	cfg.fTarget = configCmd.Flags().StringSlice("tgt", []string{}, `--tgt="tgtId1,  c:\path" to select/limit targets`)
 	cfg.fGlobal = configCmd.Flags().BoolP("global", "g", false, "Operate on global preferences")
-
 }
 
 var cfg cfgOp
@@ -94,7 +98,7 @@ func (c *cfgOp) run(cmd *cobra.Command, args []string) {
 				cfgPrintErrHelp(cmd)
 			}
 		default:
-			//TODO:(Very highh) uh make it work for selected spec
+
 		}
 	}
 }
@@ -124,7 +128,13 @@ func (c *cfgOp) vprintSelected() {
 
 func (c *cfgOp) applyToSpecs(args []string) error {
 	temp := dscore.TempData()
-	specs := getSpecs(c.Command, !*c.fNoSelect)
+	specs, nf := getSpecs(!*c.fNoSelect, *c.fSpec...)
+	switch {
+	case len(nf) == 1:
+		c.Printf("'%s' spec not found", nf[0])
+	case len(nf) > 0:
+		c.Printf("No Specs found for args: %s", nf)
+	}
 	// var confirmUser bool
 	// if ls := len(specs); ls > 1 {
 	// 	confirmUser = checkConfirm(fmt.Sprintf("Apply Options (overrides) to %d specs", ls), c.fYes)
@@ -278,6 +288,24 @@ func textOptionModified(val string, modified bool) string {
 		return fmt.Sprintf("failed to update %s", val)
 	}
 
+}
+
+func getSpecs(includeSelected bool, args ...string) ([]*dscore.Spec, []string) {
+	specs := make([]*dscore.Spec, 0, len(args)+1)
+	notfound := make([]string, 0, len(args))
+	if includeSelected {
+		specs = append(specs, dscore.TempData().SelectedSpec())
+	}
+	if len(args) > 0 {
+		for _, a := range args {
+			if s := dscore.TempData().GetSpec(a); s != nil {
+				specs = append(specs, s)
+			} else {
+				notfound = append(notfound, a)
+			}
+		}
+	}
+	return specs, notfound
 }
 
 // // what was this for (unused?)

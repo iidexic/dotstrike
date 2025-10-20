@@ -79,6 +79,27 @@ func (S *Spec) Detail() string {
 	}
 	return out.String()
 }
+func (S *Spec) DetailFlat() string {
+	out := uout.NewOutf("|'%s' SRC:", S.Alias)
+	for _, src := range S.Sources {
+		out.AF(" ..\\%s,", pops.Base(src.Path))
+	}
+	out.A(" TGT:")
+	for _, tgt := range S.Targets {
+		out.AF(" ..\\%s,", pops.Base(tgt.Path))
+	}
+	if S.OverrideOn && len(S.Overrides.Bools) > 0 {
+		out.A(" Prefs:")
+		for opt, b := range S.Overrides.Bools {
+			if b {
+				out.AF(" %s,", opt)
+			} else {
+				out.AF(" !%s,", opt)
+			}
+		}
+	}
+	return out.String()
+}
 
 func (S *Spec) ShortDetail() string {
 	line := fmt.Sprintf("%s, ", S.Alias)
@@ -157,15 +178,21 @@ func (S *Spec) SetOverrideMap(mpref map[string]bool) ([]string, error) {
 	return fails[:n], eout
 }
 
+//TODO: (VERY HIGH) IsPathChild failing to determine match. Fix
+
 // IsPathChild looks for the path within the Spec's pathComponent slices
 func (S *Spec) IsPathChild(path string) bool {
 	for _, src := range S.Sources {
-		if src.Alias == path || src.Path == pops.MakeAbs(path) {
+		if src.Alias == path || src.Path == pops.MakeAbs(path) ||
+			src.Path == path || src.Path == pops.CleanPath(path) ||
+			src.Path == pops.TildeExpand(path) {
 			return true
 		}
 	}
 	for _, tgt := range S.Targets {
-		if tgt.Alias == path || tgt.Path == pops.MakeAbs(path) {
+		if tgt.Alias == path || tgt.Path == pops.MakeAbs(path) ||
+			tgt.Path == path || tgt.Path == pops.CleanPath(path) ||
+			tgt.Path == pops.TildeExpand(path) {
 			return true
 		}
 	}
