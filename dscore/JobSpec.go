@@ -6,6 +6,7 @@ import (
 
 	"iidexic.dotstrike/config"
 	pops "iidexic.dotstrike/pathops"
+	"iidexic.dotstrike/uout"
 )
 
 type jobSpec struct {
@@ -16,6 +17,25 @@ type jobSpec struct {
 	configApplied, madeJobs bool
 }
 
+func (js jobSpec) String() string {
+	out := uout.NewOut(js.Alias)
+	if js.partialSpec {
+		out.A(" (partial job-spec)")
+	} else if js.manualSpec {
+		out.A(" (manual job-spec)")
+	} else {
+		out.A(" (normal job-spec)")
+	}
+	out.IndR()
+	out.F("base spec -> %v", *js.Spec)
+	if len(js.config) > 0 {
+		out.V("Job-Spec Config:")
+		out.IndR().LV(js.config)
+	} else {
+		out.V("(no job-spec config)")
+	}
+	return out.String()
+}
 func (js *jobSpec) briefDetail() string {
 	detail := fmt.Sprintf("spec %s - ", js.Alias)
 	if js.partialSpec {
@@ -34,11 +54,7 @@ func (js *jobSpec) briefDetail() string {
 // The only error that can be returned is from contradiction; currently kill/useglobal
 func (js *jobSpec) applyAndCheckConfigs(lowPriority, highPriority map[ConfigOption]bool) error {
 	if js.config == nil {
-		mlen := len(lowPriority) + len(highPriority)
-		if js.OverrideOn {
-			mlen += len(js.Overrides.Bools)
-		}
-		js.config = make(map[ConfigOption]bool, mlen)
+		js.config = make(map[ConfigOption]bool, int(config.NumberOfOptions))
 	}
 	maps.Copy(js.config, lowPriority)
 	if js.OverrideOn && len(js.Overrides.Bools) > 0 {

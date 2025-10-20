@@ -3,9 +3,9 @@ package dscore
 import (
 	"fmt"
 	"maps"
-	"strings"
 	"testing"
 
+	"iidexic.dotstrike/config"
 	pops "iidexic.dotstrike/pathops"
 )
 
@@ -123,9 +123,28 @@ func TestManagerToCopier(t *testing.T) {
 	t.Logf("%+v", mgr)
 	// groups := pops.Copier().JobGroups
 	// _ = groups
-	sstr := pops.Copier().Detail()
-	jstr := strings.Join(sstr, "\n")
-	t.Logf("Copier Detail:\n%s", jstr)
+	//copier := pops.Copier()
+	//cpstr := copier.String()
+	//t.Logf("Copier Detail:\n%s", cpstr)
+	for _, spec := range mgr.specs {
+		t.Logf("SPEC CONFIG:\n%+v", spec.config)
+		if spec.group != nil {
+			t.Logf("Spec %s -> Group %s", spec.Alias, spec.group.Name())
+			groupConfig := spec.group.Config()
+			t.Logf("GROUP CONFIG:\n%+v", groupConfig)
+			if config.ConfigsMatch(spec.config, groupConfig) {
+				t.Logf("Group Config Matches Spec Config")
+			} else {
+				t.Errorf("Group Config does not match Spec Config")
+			}
+			for _, job := range spec.group.CopyJobs() {
+				t.Logf("JOB CONFIG:\n%+v", job.BPrefs)
+				if !config.ConfigsMatch(groupConfig, job.BPrefs) {
+					t.Errorf("Job Config does not match Job Group Config")
+				}
+			}
+		}
+	}
 }
 
 func TestRunCopy(t *testing.T) {

@@ -3,14 +3,13 @@ package dscore
 import (
 	"fmt"
 	"maps"
-	"strings"
 
 	"iidexic.dotstrike/config"
 	pops "iidexic.dotstrike/pathops"
+	"iidexic.dotstrike/uout"
 )
 
 //TODO: (hi-postrelease) Move job/execute code to pops package?
-//	For the copy running, dscore is exclusively acting as middle man from cmd to pops
 //	At the very least, find what makes more sense in pops and pull it over there.
 
 var (
@@ -60,14 +59,14 @@ func (J *jobProcessor) SetupAndRunAll(abortOnError bool) error {
 	for i, s := range J.specs {
 
 		cerr := s.applyAndCheckConfigs(gd.data.Prefs.Bools, J.runtimeConfig)
-		//HANDLE UseGlobalTarget, KillGlobalTarget before groups made
 		if cerr != nil {
 			return cerr
 		}
 
+		// HANDLE UseGlobalTarget, KillGlobalTarget before groups made
 		switch {
 		case s.config[BoolUseGlobalTarget] && s.config[BoolKillGlobalTarget]:
-			return fmt.Errorf("Confligting config options; UseGlobal, KillGlobal both true")
+			return fmt.Errorf("Confliggting config options; UseGlobal, KillGlobal both true")
 		case s.config[BoolUseGlobalTarget]:
 			s.addGlobalTarget()
 		case s.config[BoolKillGlobalTarget]:
@@ -75,6 +74,7 @@ func (J *jobProcessor) SetupAndRunAll(abortOnError bool) error {
 		}
 
 		s.group = Copier.NewJobGroup(J.specs[i].groupExport())
+		s.group.ConfigToJobs()
 		J.setupComplete = true
 		e := J.specs[i].group.RunAll(abortOnError)
 		if e != nil {
@@ -109,6 +109,7 @@ func (J *jobProcessor) SetupOnly() error {
 			}
 		}
 		J.specs[i].group = Copier.NewJobGroup(J.specs[i].groupExport())
+		J.specs[i].group.ConfigToJobs()
 	}
 
 	if specErrors != nil {
@@ -118,19 +119,33 @@ func (J *jobProcessor) SetupOnly() error {
 	return nil
 }
 
-// TODO: (LOW-later) re-do configs so a priority can be attached (then only need to write overrides at spec-level)
-
 func JobManager() *jobProcessor {
-	//1. sort out config as is
-	maps.Copy(manager.runtimeConfig, gd.data.Prefs.Bools)
+	//bug: Copying to runtimeConfig breaks priority. Removed Copy()
+	if manager.runtimeConfig == nil {
+		manager.runtimeConfig = make(map[ConfigOption]bool)
+	}
 	return &manager
 }
 
+func (J jobProcessor) String() string {
+	out := uout.NewOut("==[JOB MANAGER]==")
+	out.F("Setup Complete: %t", J.setupComplete)
+	out.V("Job Specs:")
+	out.IndR()
+	for name, js := range J.specs {
+		out.F("%s: %s", name, js.String())
+	}
+
+	return out.String()
+}
+
 // RuntimeConfigure Directly overwrites JobProcessor runtime config.
-// This is the highest priority set of
-// Remove any unnecessary key/value pairs before calling RuntimeConfigure.
+// This is the highest priority set of prefs?
+// ---> Remove any unnecessary key/value pairs before calling RuntimeConfigure. (what)
 func (J *jobProcessor) RuntimeConfigure(opts map[ConfigOption]bool) {
-	maps.Copy(J.runtimeConfig, opts)
+	if len(opts) > 0 {
+		maps.Copy(J.runtimeConfig, opts)
+	}
 }
 
 func (J *jobProcessor) SetupManual(sourcePaths, targetPaths []string) (*jobSpec, error) {
@@ -148,19 +163,13 @@ func (J *jobProcessor) SetupManual(sourcePaths, targetPaths []string) (*jobSpec,
 
 func (J *jobProcessor) WriteJobDetail() string {
 	//len==
-	dtl := make([]string, len(J.runtimeConfig)+len(J.specs)+2)
-	i := 0
-	dtl[i] = "COPIER\nConfig  for Copy Jobs:"
-	i++
+	out := uout.NewOut("JOBMANAGER:")
 	// J.runtimeConfig should have Everything in it before now;
-	for k, v := range J.runtimeConfig {
-		dtl[i] = fmt.Sprintf("[%s] = %t", k.String(), v)
-		i++
-	}
-	dtl[i] = "Job Specs:"
-	i++
+	out.V("Runtime Config:")
+	out.IndR().ILV(J.runtimeConfig)
+	out.H("Job Specs:")
 	for _, js := range J.specs {
-		dtl[i] = js.briefDetail()
+		out.V(js.briefDetail())
 	}
-	return strings.Join(dtl, "\n")
+	return out.String()
 }

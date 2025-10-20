@@ -120,12 +120,9 @@ func TestGlobalEncodeSoftAssign(t *testing.T) {
 		t.Error(err)
 	}
 
-	failed, e := st1.Overrides.setOptMap(map[string]bool{"useglobaltarget": true})
+	failed := st1.Overrides.setOptMap(map[string]bool{"useglobaltarget": true})
 	if len(failed) > 0 {
 		t.Error("failed set option globaltarget")
-		if e != nil {
-			t.Log(e)
-		}
 	}
 	if tmp.getSpec("gamer") == nil {
 		t.Error("nil pointer from created spec")

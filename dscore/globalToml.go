@@ -41,7 +41,7 @@ func (p *prefs) UnmarshalTOML(data any) error {
 	for k, val := range anymap {
 		switch val := val.(type) {
 		case bool:
-			p.Bools[config.OptFrom(k)] = val
+			p.Bools[config.OptByNameExact(k)] = val
 		default:
 			return fmt.Errorf("Not good type bad type :(")
 

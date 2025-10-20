@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"iidexic.dotstrike/config"
 	"iidexic.dotstrike/match"
 	pops "iidexic.dotstrike/pathops"
 )
@@ -358,7 +359,13 @@ func (gm *globalModify) SetSpecEnableOverrides(s *Spec, enable bool) bool {
 	}
 	return false
 }
-func (gm *globalModify) SelectedSpec() *Spec { return gm.specByIndex(gm.Selected) }
+func (gm *globalModify) SelectedSpec() *Spec {
+	if gm.Selected >= len(gm.Specs) {
+		gm.Modify()
+		gm.Selected = 0
+	}
+	return gm.specByIndex(gm.Selected)
+}
 
 // findAliasIndex searches for alias within []Specs
 // probably remove
@@ -384,23 +391,24 @@ func (gm *globalModify) CountComponents() int {
 // Accepted keys are in dsconfig.go or config package
 //
 // Returns list of strings that failed to correspond to an option
-func (p *prefs) setOptMap(mpref map[string]bool) ([]string, error) {
-	fails := make([]string, 0, len(mpref))
-	var ferr error
-	for k, b := range mpref {
-		err := p.setByName(k, b)
-		if err != nil {
-			fails = append(fails, k)
-			if ferr == nil {
-				ferr = fmt.Errorf("%w", err)
-			} else {
-				ferr = fmt.Errorf("%w\n%w", ferr, err)
-			}
-		} else {
-			//IDEA: Try stripping map of values that have been written with no return.
-		}
-	}
-	return fails, ferr
+func (p *prefs) setOptMap(mpref map[string]bool) []string {
+	newprefs, fails := config.CopyToConfig(mpref, p.Bools, true)
+	p.Bools = newprefs
+	// var ferr error
+	// for k, b := range mpref {
+	// 	err := p.setByName(k, b)
+	// 	if err != nil {
+	// 		fails = append(fails, k)
+	// 		if ferr == nil {
+	// 			ferr = fmt.Errorf("%w", err)
+	// 		} else {
+	// 			ferr = fmt.Errorf("%w\n%w", ferr, err)
+	// 		}
+	// 	} else {
+	// 		//IDEA: Try stripping map of values that have been written with no return.
+	// 	}
+	// }
+	return fails
 }
 
 // TODO:(low-refactor) clean up the SetOption mess.
@@ -408,13 +416,15 @@ func (p *prefs) setByName(name string, val bool) error {
 	if opt := OptionID(name); opt != NotAnOption {
 		e := p.setOpt(opt, val)
 		if e != nil {
-			return fmt.Errorf("prefs.setOpt error 0 name='%s',OptionID='%s';\n%w", name, opt.String(), e)
+			return fmt.Errorf("prefs.setOpt error 0 name='%s',OptionID='%s';\n%w",
+				name, opt.String(), e)
 		}
 		return nil
 	}
 	return fmt.Errorf("OptionID: String %s produced NotAnOption", name)
 }
 
+// BUG: Testing assigns to nil map
 func (p *prefs) setOpt(opt ConfigOption, val bool) error {
 	if opt.IsBool() && opt.IsRealOption() {
 		p.Bools[opt] = val

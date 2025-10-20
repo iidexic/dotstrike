@@ -71,7 +71,7 @@ var OptionID = config.LookupOption
 func OptionIsBool(opt ConfigOption) bool   { return config.AllOptions[opt].Type == config.Tbool }
 func OptionIsString(opt ConfigOption) bool { return config.AllOptions[opt].Type == config.Tstring }
 
-var GetOption = config.OptFrom
+//var GetOption = config.OptByNameExact
 
 // ──────────────────────────────────────────────────────────────────────
 
@@ -92,6 +92,15 @@ Globals Log (instance):
 	}
 
 	return strings.Join(lines, "\n")
+}
+func (gd *globalData) DetailFlat() string {
+	out := uout.NewOut("[ User Data ]")
+	out.V("specs:")
+	s := gd.Specs
+	for i := range gd.Specs {
+		out.AF("%s", s[i].DetailFlat())
+	}
+	return out.String()
 }
 
 func (gd *globalData) Detail(verbose bool) string {

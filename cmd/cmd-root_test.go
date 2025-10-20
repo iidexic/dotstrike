@@ -11,17 +11,6 @@ import (
 	"iidexic.dotstrike/uout"
 )
 
-// honestly probably not using this
-var testCmdMap = map[string][]string{
-	"makeDeleteMult": {"spec test-sound test-svg", "spec test-sound test-svg --delete -y"},
-	"newspec-pathFlags": {"spec test-img --src='d:/coding/exampleFiles/imagesets/svg-x-circle,d:/coding/exampleFiles/imagesets/svg_circle' --tgt=d:/coding/exampleFiles/OUTPUT/images -y",
-		"src d:/coding/exampleFiles/imagesets/svg_png"},
-	"full-run": {"spec test-audio test-audiodirs --src=d:/coding/exampleFiles/audio -y", "tgt d:/coding/exampleFiles/OUTPUT/audio --ignore=*.mp3",
-		"sel iodir", "cfg dry makealldirs", "tgt d:/coding/exampleFiles/OUTPUT/audio-structure"},
-	"cleanup":         {"spec test-img test-audio test-audiodirs --delete -y"},
-	"makeRun-DirOnly": {"spec test-audiodirs --src=d:/coding/exampleFiles/audio --tgt=d:/coding/exampleFiles/OUTPUT/audio-structure -y", "run"},
-}
-
 type tRunner struct {
 	inputs   []string
 	outputs  []string
