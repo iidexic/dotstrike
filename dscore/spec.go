@@ -156,6 +156,10 @@ func (S *Spec) SetOverrideMap(mpref map[string]bool) ([]string, error) {
 	fails := make([]string, len(mpref))
 	n := 0
 	var eout error
+	// Here to fix a testing bug.
+	if S.Overrides.Bools == nil {
+		S.Overrides.Bools = make(map[ConfigOption]bool)
+	}
 	for k, b := range mpref { // all this to intercept overrideOn
 		if opt := OptionID(k); opt == BoolOverrideOn {
 			tempData.Modify()
@@ -173,7 +177,6 @@ func (S *Spec) SetOverrideMap(mpref map[string]bool) ([]string, error) {
 			fails[n] = k
 			n++
 		}
-
 	}
 	return fails[:n], eout
 }

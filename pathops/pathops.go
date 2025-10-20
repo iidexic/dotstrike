@@ -23,8 +23,8 @@ const (
 )
 
 var (
-	HomePath  *string = nil
-	DirConfig *string = nil
+	HomePath   *string = nil
+	ConfigPath *string = nil
 )
 
 // is this used? just use path errors or whatever
@@ -162,10 +162,28 @@ func HomeJoinC(suffix string) string { return Joinpath(*HomePath, suffix) }
 
 // HomeDirtyJoin retrieves abs homedir path, adds suffix to the end, and returns.
 // errors will panic
-// func HomeDirtyJoin(suffix string) string {
-// 	home, e := os.UserHomeDir()
-// 	return filepath.Join(home, suffix)
-// }
+//
+//	func HomeDirtyJoin(suffix string) string {
+//		home, e := os.UserHomeDir()
+//		return filepath.Join(home, suffix)
+//	}
+func SystemDirectories() bool {
+	if HomePath != nil && ConfigPath != nil {
+		return true
+	}
+	home, ehome := os.UserHomeDir()
+	cdir, ecdir := os.UserConfigDir()
+	good := ehome == nil && ecdir == nil
+	ErrGetHomedir = ehome
+	ErrGetConfigdir = ecdir
+	if HomePath == nil {
+		HomePath = &home
+	}
+	if ConfigPath == nil {
+		ConfigPath = &cdir
+	}
+	return good
+}
 
 func GetSysDirs() {
 	home, e := os.UserHomeDir()
@@ -184,17 +202,12 @@ func GetSysDirs() {
 	} else if cdir == "" {
 		ErrGetConfigdir = fmt.Errorf("os gave empty string for config dir (exists in sys env but is empty)")
 	}
-	if DirConfig == nil || *DirConfig == "" {
-		DirConfig = &cdir
+	if ConfigPath == nil || *ConfigPath == "" {
+		ConfigPath = &cdir
 	}
 }
 
-func HaveHome() bool {
-	if HomePath != nil && filepath.IsAbs(*HomePath) {
-		return true
-	}
-	return false
-}
+func HaveHome() bool { return HomePath != nil && filepath.IsAbs(*HomePath) }
 
 // TildeExpand replaces a leading tilde in path string with the actual home path
 func TildeExpand(ospath string) string {

@@ -72,6 +72,7 @@ GlobalMessage []string */
 const globalsFilename = "dotstrikeData.toml"
 const globalPathHomeRelative = ".config/dotstrike/dotstrikeData.toml"
 const globalDirHomeRelative = ".config/dotstrike"
+const globalDirConfigRelative = "/dotstrike"
 
 var ErrorFindMakeToml = fmt.Errorf(`Failed writing default config to file; User data file not found and could not be made.`)
 
@@ -101,6 +102,20 @@ func (g *globalData) getSpec(alias string) *Spec {
 	}
 	return nil
 }
+func (G *globals) GetConfigFrom(filepath string) bool {
+	readfile := pops.ReadFile(filepath)
+	if !readfile.Failed() {
+		G.rawContents = string(readfile.Contents)
+		G.dsconfigPath = filepath
+		return true
+	} else if readfile.Fail == pops.FailedOpen {
+		G.status = badRead
+	} else if readfile.Fail == pops.FileNotExist {
+		G.status = noInit
+	}
+	G.logG(readfile.Fail.Detail())
+	return false
+}
 
 // TODO: move to (val, error) format so can directly diagnose os.ErrNotExist
 // GetConfig reads dotstrikeData.toml in provided directory.
@@ -129,7 +144,7 @@ func (G *globals) GetConfig(dirpath string) bool {
 	return false
 }
 
-// TODO: Establish better separation of functionality between CoreConfig and GetConfig
+// TODO: (low) rewrite
 
 // CoreConfig called to find ds data file in all possible locations
 // ?TODO: If no config file exists, create one and encode gd defaults
@@ -139,6 +154,53 @@ func (G *globals) makeCfgPath(suffix string) string {
 	}
 	return pops.HomeJoinC(suffix)
 }
+
+func (G *globals) makeCfgPaths(filename string) []string {
+	var homecfgpath, configpath string
+	// superfluous
+	if !pops.HaveHome() && pops.ErrGetHomedir == nil && pops.ErrGetConfigdir == nil {
+		pops.GetSysDirs()
+	}
+	configpath = pops.Joinpath(*pops.ConfigPath, globalDirConfigRelative, filename)
+	homecfgpath = pops.Joinpath(*pops.HomePath, globalDirHomeRelative, filename)
+	return []string{configpath, homecfgpath}
+}
+func InitGlobals() error {
+	if !pops.SystemDirectories() || !pops.HaveHome() {
+		return fmt.Errorf("Failed to get system directories")
+	}
+	paths := gd.makeCfgPaths(globalsFilename)
+	for _, p := range paths {
+		if gd.GetConfigFrom(p) {
+			e := decodeGlobals()
+
+			if e != nil {
+				return e
+			}
+		}
+	}
+	if !gd.loaded {
+		gd.status = noInit
+		return fmt.Errorf("No config file found")
+	}
+	if lk := len(gd.md.Keys()); lk > 0 {
+		gd.status = success
+	}
+	return nil
+}
+func decodeGlobals() error {
+	gd.decodeRawData()
+	gd.loaded = true
+	if undecoded := gd.md.Undecoded(); len(undecoded) > 0 {
+		gd.logfG("undecoded toml keys: %v", undecoded)
+	}
+	for i := range gd.data.Specs {
+		gd.data.Specs[i].initializeInherent()
+	}
+
+	return nil
+}
+
 func CoreConfig() error {
 	if pops.HomePath == nil {
 		pops.GetSysDirs()
@@ -146,6 +208,7 @@ func CoreConfig() error {
 
 	//TODO: clean up this homepath/GlobalTargetPath solution
 	cfgdir := gd.makeCfgPath(globalDirHomeRelative)
+	// for default config
 	gd.data.GlobalTargetPath = pops.TildeExpand(gd.data.GlobalTargetPath)
 	gotConfig := gd.GetConfig(cfgdir)
 	if gotConfig {
@@ -154,7 +217,7 @@ func CoreConfig() error {
 		gd.loaded = true
 		// better way to do this?
 		for _, c := range gd.data.Specs {
-			c.initializeInherent()
+			c.initializeInherent() // BUG:this isnt gonna work duh
 		}
 		undecoded := gd.md.Undecoded()
 		if len(undecoded) > 0 {
