@@ -23,7 +23,8 @@ import (
 //     *
 //     *
 
-// TODO:(low) Find out if there's a nicer way to handle the issue of indentation - make line, flatten line?
+// ── Reflect slice/map unwrapping ────────────────────────────────────
+// NOTE: These are basically just methods, might want to change to actual methods or string functions
 
 func ezunwrap(a any, index bool, ez *EZout) {
 	rv := reflect.ValueOf(a)
@@ -88,6 +89,7 @@ func flattenLines(ss []string) []string {
 	return nsl
 }
 
+// what was this even supposed to be?
 /* The starting to go crazy section
 type ( ezFuncID  int; OutSelect map[string]EZout;
 	EZmanager struct { OutSelect; ezbuilder }
@@ -101,6 +103,7 @@ type EZout struct {
 	string
 	Ind   int
 	clear bool
+	sub   bool
 }
 
 func NewOut(s string) EZout {
@@ -111,25 +114,18 @@ func NewOutf(s string, a ...any) EZout {
 
 	return EZout{string: fmt.Sprintf(s, a...), Ind: 0}
 }
-func (E *EZout) WipeOnOutput(b bool) *EZout {
-	E.clear = b
-	return E
-}
 
-func (E *EZout) String() string {
-	if E.clear {
-		defer E.Clear()
-	}
-	return E.string
-}
+// ── Private Utilities ───────────────────────────────────────────────
 
-func (E *EZout) Clear() { E.string = E.string[:0] }
+// indents returns n*tab spaces
+func indents(n int) string { return strings.Repeat("	", n) }
 
 // pre adds newline and indentation
 func (E *EZout) pre() {
 	E.string += E.getpre()
 }
 
+// getpre returns a newline and indentation string
 func (E *EZout) getpre() string {
 	out := "\n"
 	if E.Ind > 0 {
@@ -138,6 +134,7 @@ func (E *EZout) getpre() string {
 	return out
 }
 
+// getInd returns indentation string
 func (E *EZout) getInd() string { return indents(E.Ind) }
 
 // post iterates over lines in s and applies them to the string with proper indentation
@@ -149,9 +146,67 @@ func (E *EZout) post(s string) {
 	})
 }
 
-func indents(n int) string { return strings.Repeat("	", n) }
+// NOTE: Privated; requires adding Sub to all newline public methods
 
-// Ln adds one or more strings, each on a new line
+// Sub will add an indentation for one newline operation.
+//
+// Run in place of IndR if the indentation will only be used once
+func (E *EZout) indSub() *EZout { // Sub(), change back when implemented
+	E.sub = true
+	E.Ind++
+	return E
+}
+
+func (E *EZout) endOp() {
+	if E.sub {
+		E.Ind--
+	}
+}
+
+// ── Public Util Methods ─────────────────────────────────────────────
+
+func (E *EZout) WipeOnOutput(b bool) *EZout {
+	E.clear = b
+	return E
+}
+
+// String returns E.string. If E.clear is true, it also empties E.string
+func (E *EZout) String() string {
+	if E.clear {
+		defer E.Clear()
+	}
+	return E.string
+}
+
+// Clear empties E.string
+func (E *EZout) Clear() { E.string = E.string[:0] }
+
+// Indent+1
+// Returns ptr to itself for chaining
+func (E *EZout) IndR() *EZout {
+	E.Ind++
+	return E
+}
+
+// Indent-1
+// Returns ptr to itself for chaining
+func (E *EZout) IndL() *EZout {
+	if E.Ind > 0 {
+		E.Ind--
+	}
+	return E
+}
+
+// Indent to 0
+// Returns ptr to itself for chaining
+func (E *EZout) Ind0() *EZout {
+	E.Ind = 0
+	return E
+}
+
+// ── Public String Builder Methods ───────────────────────────────────
+
+// Ln adds one or more strings, each on a new line.
 //
 // If no strings are passed, it adds a new line. Indents will not be added.
 func (E *EZout) Ln(s ...string) {
@@ -164,6 +219,7 @@ func (E *EZout) Ln(s ...string) {
 	}
 }
 
+// PrefixF adds a formatted prefix line to E.string, with ind*tab spaces before s
 func (E *EZout) PrefixF(ind int, s string, a ...any) {
 	prefix := ""
 	if ind > 0 {
@@ -172,6 +228,7 @@ func (E *EZout) PrefixF(ind int, s string, a ...any) {
 	E.string = prefix + fmt.Sprintf(s, a...) + E.string
 }
 
+// PrefixV adds a prefix line to E.string, with ind*tab spaces before a
 func (E *EZout) PrefixV(ind int, a any) {
 	prefix := ""
 	if ind > 0 {
@@ -180,6 +237,8 @@ func (E *EZout) PrefixV(ind int, a any) {
 	E.string = prefix + fmt.Sprintf("%+v", a) + E.string
 }
 
+// LnSplit splits s on newlines and adds each line to E.string
+// This allows to maintain consistent indentation
 func (E *EZout) LnSplit(s string) {
 	lns := strings.Split(s, "\n")
 	switch {
@@ -201,6 +260,7 @@ func (E *EZout) F(s string, a ...any) {
 	E.string += fmt.Sprintf(s, a...)
 }
 
+// AF formats s without a new line, and adds a space before s
 func (E *EZout) AF(s string, a ...any) {
 	E.string += " " + fmt.Sprintf(s, a...)
 }
@@ -217,6 +277,16 @@ func (E *EZout) ILns(l []string) {
 func (E *EZout) V(a any) {
 	E.pre()
 	E.string += fmt.Sprintf("%+v", a)
+}
+
+// H adds a header on a new line with %v, indented one less
+//
+// Effectively a shortcut for: E.IndL().V(a); E.IndR()
+func (E *EZout) H(a any) {
+	E.Ind--
+	E.pre()
+	E.string += fmt.Sprintf("%v", a)
+	E.Ind++
 }
 
 // NfnV (No field name) prints with %v on a new line
@@ -287,7 +357,7 @@ func (E *EZout) LV(sa any) {
 	ezunwrap(sa, false, E)
 }
 
-// Like ILV but Variadic. Does NOT take structs
+// Like ILV but Variadic. Doesn't take structs, doesn't unwrap slices or maps
 func (E *EZout) ILVV(sa ...any) {
 	if len(sa) == 1 {
 		E.F("%+v", sa[0])
@@ -303,34 +373,15 @@ func (E *EZout) FlatLV(sa any) {
 	flatunwrap(sa, false, E)
 }
 
+// IStringerV prints a list of Stringer values
 func (E *EZout) IStringerV(sa ...fmt.Stringer) {
 	for i, a := range sa {
 		E.F("[%d] %+v", i, a)
 	}
 }
-func (E *EZout) Sep() {
-	E.V("------------------------------")
-}
 
-// Indent+1
-// Returns ptr to itself for chaining
-func (E *EZout) IndR() *EZout {
-	E.Ind++
-	return E
-}
+// Sep adds a separator line of 30 dashes
+func (E *EZout) Sep() { E.V("------------------------------") }
 
-// Indent-1
-// Returns ptr to itself for chaining
-func (E *EZout) IndL() *EZout {
-	if E.Ind > 0 {
-		E.Ind--
-	}
-	return E
-}
-
-// Indent to 0
-// Returns ptr to itself for chaining
-func (E *EZout) Ind0() *EZout {
-	E.Ind = 0
-	return E
-}
+// Sep adds a separator line of 30x r
+func (E *EZout) Sepr(r rune) { E.V(strings.Repeat(string(r), 30)) }
