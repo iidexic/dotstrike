@@ -16,15 +16,6 @@ var ErrParentNotFound error = errors.New("Component.Parent did not match any exi
 var ErrAliasNotFound error = errors.New("Component.Parent did not match any existing alias.")
 var ErrBadKey error = errors.New("Provided map key does not exist")
 
-// don't think this is used
-type Temp interface {
-	NewSpec(string, ...string) (*Spec, error)
-	DeleteSpec(*Spec) bool
-	Select(string) bool
-	SelectedSpec() *Spec
-	GetSpec(string) *Spec
-}
-
 // TODO: add to cmd-spec in place of NewSpec
 func (gm *globalModify) NewSpecEmpty(alias string) (*Spec, error) {
 	cAlias, err := uniqueSpecAlias(alias)
@@ -284,7 +275,8 @@ func (gm *globalModify) SelectFirstMatch(sub string) (string, error) {
 	}
 	for i := range gm.Specs {
 		if alias := gm.Specs[i].Alias; sp.Matches(alias) {
-			gm.SelectPtr(&gm.Specs[i])
+			gm.Select(alias)
+			//gm.SelectPtr(&gm.Specs[i])
 			return alias, nil
 		}
 	}
@@ -292,7 +284,7 @@ func (gm *globalModify) SelectFirstMatch(sub string) (string, error) {
 }
 
 func (gm *globalModify) Select(alias string) bool {
-
+	alias = standardizeAlias(alias)
 	index := gm.globalData.findAliasIndex(alias)
 	if index < 0 {
 		return false

@@ -58,30 +58,21 @@ var gd = globals{
 	},
 }
 
-// GD fields
-/* status        globalsReadResult
-loaded        bool
-cfgs          []cfg
-preferences   prefs
-dsconfigPath  string
-checkedpaths  []string
-rawContents   []byte
-GlobalMessage []string */
-
 // globalsFilename is the file that ds looks to pull settings and userdata from
 const globalsFilename = "dotstrikeData.toml"
-const globalPathHomeRelative = ".config/dotstrike/dotstrikeData.toml"
 const globalDirHomeRelative = ".config/dotstrike"
 const globalDirConfigRelative = "/dotstrike"
 
-var ErrorFindMakeToml = fmt.Errorf(`Failed writing default config to file; User data file not found and could not be made.`)
+var GlobalConfigPath string
 
 func globalsFilepath() string {
-	gpath, e := pops.HomeJoin(globalPathHomeRelative)
-	if e != nil {
-		panic(e)
+	if GlobalConfigPath != "" {
+		return GlobalConfigPath
 	}
-	return gpath
+	if gd.dsconfigPath != "" {
+		return gd.dsconfigPath
+	}
+	panic(fmt.Errorf("Global config path not set"))
 }
 
 func ConfigTomlPath() string {
@@ -155,50 +146,29 @@ func (G *globals) makeCfgPath(suffix string) string {
 	return pops.HomeJoinC(suffix)
 }
 
-func (G *globals) makeCfgPaths(filename string) []string {
-	var homecfgpath, configpath string
-	// superfluous
-	if !pops.HaveHome() && pops.ErrGetHomedir == nil && pops.ErrGetConfigdir == nil {
-		pops.GetSysDirs()
+func LoadGlobals() error {
+	var errinit error
+	INIT := initializer{
+		filename:      globalsFilename,
+		SysFileErrors: make(map[string]error),
 	}
-	configpath = pops.Joinpath(*pops.ConfigPath, globalDirConfigRelative, filename)
-	homecfgpath = pops.Joinpath(*pops.HomePath, globalDirHomeRelative, filename)
-	return []string{configpath, homecfgpath}
-}
-func InitGlobals() error {
-	if !pops.SystemDirectories() || !pops.HaveHome() {
-		return fmt.Errorf("Failed to get system directories")
-	}
-	paths := gd.makeCfgPaths(globalsFilename)
-	for _, p := range paths {
-		if gd.GetConfigFrom(p) {
-			e := decodeGlobals()
-
+	e := INIT.Config()
+	if e != nil {
+		errinit = e
+		if e == pops.ErrorUserDirs {
+			gd.logfG("System config/home directories not found in env")
+		} else {
+			gd.logfG("Failed to load config: %s", e.Error())
+			e = INIT.WriteConfigDefaults()
 			if e != nil {
-				return e
+				errinit = extenderror(errinit, e, "write defaults to toml")
+				gd.logfG("%s", e.Error())
+			} else {
+				gd.logfG("Wrote defaults to toml at %s", GlobalConfigPath)
 			}
 		}
 	}
-	if !gd.loaded {
-		gd.status = noInit
-		return fmt.Errorf("No config file found")
-	}
-	if lk := len(gd.md.Keys()); lk > 0 {
-		gd.status = success
-	}
-	return nil
-}
-func decodeGlobals() error {
-	gd.decodeRawData()
-	gd.loaded = true
-	if undecoded := gd.md.Undecoded(); len(undecoded) > 0 {
-		gd.logfG("undecoded toml keys: %v", undecoded)
-	}
-	for i := range gd.data.Specs {
-		gd.data.Specs[i].initializeInherent()
-	}
-
-	return nil
+	return e
 }
 
 func CoreConfig() error {

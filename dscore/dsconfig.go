@@ -75,6 +75,40 @@ func OptionIsString(opt ConfigOption) bool { return config.AllOptions[opt].Type 
 
 // ──────────────────────────────────────────────────────────────────────
 
+func Undecoded() []string {
+	ud := make([]string, len(gd.md.Undecoded()))
+	keys := gd.md.Undecoded()
+	for i := range keys {
+		ud[i] = fmt.Sprintf("%v", keys[i])
+	}
+	return ud
+}
+
+// For Debug
+func UndecodedType() map[string]string {
+	ud := make(map[string]string, len(gd.md.Undecoded()))
+	keys := gd.md.Undecoded()
+	for i := range keys {
+		key := fmt.Sprintf("%v", keys[i])
+		ud[key] = fmt.Sprintf("%s", gd.md.Type(key))
+	}
+	return ud
+}
+
+// No idea how this will work out
+func TomlKeys() map[string]string {
+	d := make(map[string]string, len(gd.data.Specs))
+	for i := range gd.md.Keys() {
+		key := fmt.Sprintf("%v", gd.md.Keys()[i])
+		d[key] = fmt.Sprintf("%s", gd.md.Type(key))
+	}
+	return d
+}
+
+func MD() string {
+	return fmt.Sprintf("%+v", gd.md)
+}
+
 func (G *globals) Detail() string {
 	lines := make([]string, 1, 32) //arbitrary
 	lines[0] = fmt.Sprintf(`GLOBAL USER DATA:
@@ -155,12 +189,25 @@ func (G *globals) decodeRawData() {
 	if err != nil {
 		panic(fmt.Errorf("Error in dscore DecodeRawData() from data toml\n%w", err))
 	}
-	//TODO:(VO.1) REMOVE UNUSED
 	G.md = md //? Is this used at all
+}
 
-	// don't remember what this one is about
-	//TODO: run CheckDataDecode on debug flag
-	//CheckDataDecode(G.data, md)
+func (G *globals) decodeAsConfig(data []byte) error {
+	md, err := toml.Decode(string(data), &G.data)
+	if err != nil {
+		return fmt.Errorf("%w\n%w", ErrorDecodeToml, err)
+	}
+	G.md = md
+	ndecoded := len(md.Keys())
+	if ndecoded == 0 && len(md.Undecoded()) > 0 {
+		return ErrorAllUndecoded
+	}
+	G.status = success // probably get rid of this
+	G.rawContents = string(data)
+	if len(md.Undecoded()) > 0 {
+		return ErrorPartialUndecoded
+	}
+	return nil
 }
 
 // TempData returns ptr to the central userdata editing struct var of the dscore package.

@@ -13,6 +13,7 @@ var (
 	ErrNotModified    error = fmt.Errorf("Attempted write of un-modified temp data")
 	ErrModifiedNoInit       = fmt.Errorf("Attempted write of modified UN-INITIALIZED temp data")
 	ErrNoInit               = fmt.Errorf("Attempted write of un-initialized temp data")
+	ErrNewToml              = fmt.Errorf("Failed write of new toml file")
 )
 
 // For some reason BurntSushi/toml always puts "varname =", even if I'm doing all marshaling
@@ -50,9 +51,41 @@ func (p *prefs) UnmarshalTOML(data any) error {
 	return nil
 }
 
+// TODO: # 1 - FINISH
+// should only be used when very first writing a non-existent dotstrikeData.toml
+
+func (G *globals) encodeNew(fpath string) error {
+	file, e := pops.MakeOpenFileF(fpath)
+	if e != nil {
+		return e
+	}
+	defer file.Close()
+	encode := toml.NewEncoder(file)
+	e = encode.Encode(G.data)
+	if e != nil {
+		return e
+	} else {
+		return nil
+	}
+}
+
 // should only be used when very first writing a non-existent dotstrikeData.toml
 func (G *globals) encodeDefaults() error {
 	file, e := pops.MakeOpenFileF(globalsFilepath())
+	if e != nil {
+		return e
+	}
+	defer file.Close()
+	encode := toml.NewEncoder(file)
+	e = encode.Encode(G.data)
+	if e != nil {
+		return e
+	} else {
+		return nil
+	}
+}
+func (G *globals) encodeDefaultsTo(fpath string) error {
+	file, e := pops.MakeOpenFileF(fpath)
 	if e != nil {
 		return e
 	}
