@@ -2,7 +2,6 @@ package dscore
 
 import (
 	"fmt"
-	"path"
 
 	pops "iidexic.dotstrike/pathops"
 )
@@ -47,7 +46,7 @@ var gd = globals{
 			Bools: map[ConfigOption]bool{
 				BoolIgnoreHidden:    false,
 				BoolIgnoreRepo:      false,
-				BoolUseGlobalTarget: true,
+				BoolUseGlobalTarget: false,
 				//BoolSeparateSources: true,
 				BoolCopyAllDirs: false,
 				BoolNoFiles:     false,
@@ -65,6 +64,7 @@ const globalDirConfigRelative = "/dotstrike"
 
 var GlobalConfigPath string
 
+// TODO: # 2 0- FINISH
 func globalsFilepath() string {
 	if GlobalConfigPath != "" {
 		return GlobalConfigPath
@@ -83,67 +83,6 @@ func ConfigTomlPath() string {
 	} else {
 		return "CONFIG PATH NOT POPULATED"
 	}
-}
-
-func (g *globalData) getSpec(alias string) *Spec {
-	for _, s := range g.Specs {
-		if s.Alias == alias {
-			return &s
-		}
-	}
-	return nil
-}
-func (G *globals) GetConfigFrom(filepath string) bool {
-	readfile := pops.ReadFile(filepath)
-	if !readfile.Failed() {
-		G.rawContents = string(readfile.Contents)
-		G.dsconfigPath = filepath
-		return true
-	} else if readfile.Fail == pops.FailedOpen {
-		G.status = badRead
-	} else if readfile.Fail == pops.FileNotExist {
-		G.status = noInit
-	}
-	G.logG(readfile.Fail.Detail())
-	return false
-}
-
-// TODO: move to (val, error) format so can directly diagnose os.ErrNotExist
-// GetConfig reads dotstrikeData.toml in provided directory.
-// on success: populates G.dsconfigPath, reads file into G.rawContents
-func (G *globals) GetConfig(dirpath string) bool {
-	fpath := path.Join(dirpath, globalsFilename)
-	fread := pops.ReadFile(fpath) // None|FileNotExist|FailedOpen
-	// if ReadFile succeeded
-	if !fread.Failed() {
-		if !G.loaded {
-			G.rawContents = string(fread.Contents)
-			G.dsconfigPath = fpath
-			return true
-		} else {
-			G.checkedpaths = append(G.checkedpaths, dirpath)
-			G.status = extraInit
-			return false
-		}
-
-	} else if fread.Fail == pops.FailedOpen {
-		G.status = badRead
-	} else if fread.Fail == pops.FileNotExist {
-		G.status = noInit
-	}
-	G.logG(fread.Fail.Detail())
-	return false
-}
-
-// TODO: (low) rewrite
-
-// CoreConfig called to find ds data file in all possible locations
-// ?TODO: If no config file exists, create one and encode gd defaults
-func (G *globals) makeCfgPath(suffix string) string {
-	if !pops.HaveHome() && pops.ErrGetHomedir == nil && pops.ErrGetConfigdir == nil {
-		pops.GetSysDirs()
-	}
-	return pops.HomeJoinC(suffix)
 }
 
 func LoadGlobals() error {
@@ -171,48 +110,9 @@ func LoadGlobals() error {
 	return e
 }
 
-func CoreConfig() error {
-	if pops.HomePath == nil {
-		pops.GetSysDirs()
-	}
-
-	//TODO: clean up this homepath/GlobalTargetPath solution
-	cfgdir := gd.makeCfgPath(globalDirHomeRelative)
-	// for default config
-	gd.data.GlobalTargetPath = pops.TildeExpand(gd.data.GlobalTargetPath)
-	gotConfig := gd.GetConfig(cfgdir)
-	if gotConfig {
-		gd.status = badToml //pre-emptive
-		gd.decodeRawData()
-		gd.loaded = true
-		// better way to do this?
-		for _, c := range gd.data.Specs {
-			c.initializeInherent() // BUG:this isnt gonna work duh
-		}
-		undecoded := gd.md.Undecoded()
-		if len(undecoded) > 0 {
-			gd.logfG("undecoded values from .toml:\n%+v", undecoded)
-		}
-		//TODO: better way of determining success
-		if len(undecoded) < len(gd.md.Keys()) {
-			gd.status = success
-		}
-
-	} else {
-		// load modify and write defaults to file first thing
-		// Option 1: use the function I wrote literally for this
-		ee := gd.encodeDefaults()
-		if ee != nil {
-			panic(fmt.Errorf(
-				`Failed writing default config to file (%w)
-User data file not found and could not be made.`, ee))
-		}
-
-	}
-	return nil
-
-}
-
+// EndEncode writes any changes made to tempData to the global toml file
+//
+// runs on cobra finalize
 func EndEncode() {
 	if tempData.Modified {
 		e := tempData.encodeModified()

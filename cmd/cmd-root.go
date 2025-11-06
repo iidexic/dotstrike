@@ -97,11 +97,13 @@ Dotstrike is a file management tool that can group files/directories and sync th
 
 Super quick start:
 To start, first create a spec:
-	> ds spec "myspec"
+	> ds spec myspec
 From there, the spec needs a source (src) and a target (tgt)
 	> ds src c:/my_files/
 	> ds tgt 'd:/backups/personal files/'
-
+Then you can run the spec with:
+	> ds run myspec
+Running a spec	will copy all source paths to all target paths.
 
 Specs are the primary method of defining and storing copy job details. The spec command creates a new spec when provided with an alias.
 The spec alias is the identifier for the spec; as such, it must be unique. All aliases are made lowercase, and stripped of spaces/tabs, forward slash/backslash, and at signs. Other symbols should be fine.
@@ -111,7 +113,6 @@ As your first spec has just been created, it will be automatically selected, and
 If you have multiple specs, you will need to either:
 	- select the spec you want to modify (using spec command with an existing spec name) before running other commands.
 	- use the --spec flag at the end of the command to change selection for only that operation.
-	
 `,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
@@ -172,7 +173,7 @@ var persistentFlags persistentData
 var version *bool
 
 func configLoadInit() {
-	e := dscore.CoreConfig()
+	e := dscore.LoadGlobals()
 	if e != nil {
 		panic(e)
 	}

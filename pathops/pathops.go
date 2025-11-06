@@ -22,35 +22,20 @@ const (
 	AbsFilePath
 )
 
-var (
-	HomePath   *string = nil
-	ConfigPath *string = nil
-)
-
 // is this used? just use path errors or whatever
-type errCtr struct {
-	etext string
-	err   error
-}
-
-func (e errCtr) String() string { return e.Error() }
-
-func (e errCtr) Error() string {
-	if e.err != nil {
-		return fmt.Sprintf("%s: [%s]", e.etext, e.err.Error())
-	}
-	return e.etext
-}
 
 var (
 	ErrGetHomedir   error
 	ErrGetConfigdir error
-	ErrEmptyHome          = fmt.Errorf("Home path is empty string")
-	ErrNilInfo            = fmt.Errorf("nil os.FileInfo")
-	ErrNotAbs             = fmt.Errorf("Path can't be resolved to an absolute path")
-	ErrNotDir             = fmt.Errorf("Path is not a directory path")
-	ErrNotPathlike  error = errCtr{etext: "Path is not path-like"}
+	ErrEmptyHome    = fmt.Errorf("Home path is empty string")
+	ErrEmptySystem  = fmt.Errorf("The system path is an empty string")
+	ErrNilInfo      = fmt.Errorf("nil os.FileInfo")
+	ErrNotAbs       = fmt.Errorf("Path can't be resolved to an absolute path")
+	ErrNotDir       = fmt.Errorf("Path is not a directory path")
+	ErrNotPathlike  = fmt.Errorf("Path is not path-like")
 )
+
+var EnvPathError = []os.SyscallError{}
 
 var (
 	Open     = os.Open
@@ -71,7 +56,28 @@ func ce(e error, msg ...string) {
 //TODO:(med-feat) Replace current config path system with more robust system with fallbacks
 
 // enum type for file op outcomes
-type failureType int16 //TODO:(med-recl) replace system with errors; currently basically converting errors to enum
+
+type failureType int16
+
+func (ft failureType) Error() string {
+	switch ft {
+	case None:
+		return "Path Operation successful"
+	case BadPattern:
+		return "bad pattern provided"
+	case DirNotExist:
+		return "directory does not exist"
+	case FileNotExist:
+		return "file does not exist"
+	case FileExist:
+		return "file already exists"
+	case FailedOpen:
+		return "file seems to exist, but failed to open"
+	case Error:
+		return "General Error"
+	}
+	return "UNKNOWN-CASE-ERROR"
+}
 
 // Possible outcomes for attempting filesystem operations
 // Different operations have the potential to trigger different subsets of these outcomes
@@ -160,13 +166,9 @@ func HomeJoin(suffix string) (string, error) {
 // HomeJoinC uses HomePath var (populated on init) to prepend homedir to suffix
 func HomeJoinC(suffix string) string { return Joinpath(*HomePath, suffix) }
 
-// HomeDirtyJoin retrieves abs homedir path, adds suffix to the end, and returns.
-// errors will panic
-//
-//	func HomeDirtyJoin(suffix string) string {
-//		home, e := os.UserHomeDir()
-//		return filepath.Join(home, suffix)
-//	}
+// TODO: (mid-high) Clean up the multiple system dir functions
+
+// SystemDirectories populates HomePath and ConfigPath if they are nil
 func SystemDirectories() bool {
 	if HomePath != nil && ConfigPath != nil {
 		return true
@@ -183,6 +185,50 @@ func SystemDirectories() bool {
 		ConfigPath = &cdir
 	}
 	return good
+}
+
+// populateSysDirs populates HomePath, ConfigPath, and CachePath if they are nil
+func PopulateSysDirs() (bool, []error) {
+	good := true
+	eout := make([]error, 0, 3)
+	if ConfigPath == nil || *ConfigPath == "" {
+		cdir, ecdir := os.UserConfigDir()
+		if ecdir != nil {
+			eout = append(eout, ecdir)
+		} else if cdir == "" {
+			eout = append(eout,
+				fmt.Errorf("os gave empty string for config dir"))
+		} else {
+			ConfigPath = &cdir
+		}
+	}
+	if HomePath == nil || *HomePath == "" {
+		home, e := os.UserHomeDir()
+		if e != nil {
+			eout = append(eout, e)
+		} else if home == "" {
+			eout = append(eout, fmt.Errorf("os gave empty string for homedir"))
+		} else {
+			HomePath = &home
+		}
+	}
+	if CachePath == nil || *CachePath == "" {
+		cdir, ecdir := os.UserCacheDir()
+		if ecdir != nil {
+			eout = append(eout, ecdir)
+		} else if cdir == "" {
+			eout = append(eout,
+				fmt.Errorf("os gave empty string for cache dir"))
+		} else {
+			CachePath = &cdir
+		}
+	}
+	for _, e := range eout {
+		if e != nil {
+			good = false
+		}
+	}
+	return good, eout
 }
 
 func GetSysDirs() {
@@ -303,6 +349,15 @@ func PathExists(path string) (bool, error) {
 	return true, ErrNilInfo
 }
 
+// PathExistsUsable simplifies PathExists; returns true if path exists and no error on os.Stat
+func PathExistsUsable(path string) bool {
+	exists, e := PathExists(path)
+	if e != nil {
+		return false
+	}
+	return exists
+}
+
 func PathTypeIfExists(path string) (pathType, error) {
 	path = CleanPath(path)
 	s, e := os.Stat(path)
@@ -410,6 +465,18 @@ func CopyFileME(toPath, fromPath string) []error {
 	return ers
 }
 
+func GetDirContents(dirpath string) (map[string]bool, error) {
+	contentsIsDir := make(map[string]bool)
+	e := filepath.WalkDir(dirpath, func(p string, d DirEntry, e error) error {
+		if d.IsDir() {
+			contentsIsDir[p] = true
+		}
+		contentsIsDir[p] = false
+		return nil
+	})
+	return contentsIsDir, e
+}
+
 // ReadFile will read contents of file into a ReadResult object and return a ptr
 // result contains file and/or operation outcome/error if e!=nil
 func ReadFile(pathElements ...string) *ReadResult {
@@ -453,11 +520,27 @@ func ReadFileOrErr(pathElements ...string) *ReadResult {
 	return result
 }
 
+// CalledFrom returns the path of the file that called the current program, or panics
 func CalledFrom() string {
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
 		panic(err)
 		//what
+	}
+	return dir
+}
+
+// Cwd returns the current working dir or error text
+func Cwd() string {
+	dir, err := os.Getwd()
+	if err != nil && dir == "" {
+		if errors.Is(err, os.ErrNotExist) {
+			return "Error: cwd does not exist"
+		} else if errors.Is(err, os.ErrInvalid) {
+			return "Error: cwd is invalid"
+		} else {
+			return fmt.Sprintf("Error getting cwd: %s", err.Error())
+		}
 	}
 	return dir
 }
