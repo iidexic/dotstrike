@@ -22,3 +22,16 @@ func TestRunDetail(t *testing.T) {
 	t.Log(pops.Copier().Detail())
 
 }
+
+func TestRunMultiSource(t *testing.T) {
+	testseq := []string{
+		"spec test-run-multi --src=d:/coding/exampleFiles/OUTPUT/images,d:/coding/exampleFiles/OUTPUT/audio --tgt=d:/coding/exampleFiles/OUTPUT/multi",
+		"run"}
+	runner := testCmdRunner(testseq)
+	for !runner.Done() {
+		runner.ExecuteNextLog(t)
+		t.Logf("run %d in - %s", runner.runIndex, runner.inputs[runner.runIndex-1])
+		t.Logf("run %d out - %s", runner.runIndex, runner.outputs[runner.runIndex-1])
+
+	}
+}

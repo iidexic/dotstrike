@@ -2,43 +2,13 @@ package pops
 
 import (
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"testing"
 )
 
 // ──────────────────────────────────────────────────────────────────────
-
-func TestPathExplore(t *testing.T) {
-	pfile := "D:/coding/exampleFiles/INPUT/file_format/bad-gif.gif"
-	split := filepath.SplitList(pfile)
-	clean := filepath.Clean(pfile)
-	t.Logf("clean:%s\nsplit:%v", clean, split)
-	localize, err := filepath.Localize(filepath.Clean(pfile))
-	t.Logf("Localized = %s (err %v)", localize, err)
-}
-
-func readDirWalkTest(dirpath string, t *testing.T) {
-	dfs := os.DirFS(dirpath)
-	e := fs.WalkDir(dfs, ".", func(p string, d fs.DirEntry, e error) error {
-		t.Logf("- %s (isDir: %t)", p, d.IsDir())
-		return nil
-	})
-	if e != nil {
-		t.Logf("ReadWalkDir error: %v", e)
-	}
-}
-
-func TestPathTear(t *testing.T) {
-	usepath := "D:/coding/exampleFiles/INPUT"
-	t.Logf("Split path: %s", usepath)
-	listp := splitPath(usepath)
-	t.Log("List Path:")
-	for i, bp := range listp {
-		t.Logf("[%d] %s", i, bp)
-	}
-	t.Logf("recombined: %s", filepath.Join(listp...))
-}
 
 func testing_job() *CopyJob {
 	in := CleanPath(`d:\coding\exampleFiles\INPUT\`)
@@ -60,6 +30,45 @@ func testing_job() *CopyJob {
 
 }
 
+func testing_multiple_job() []*CopyJob {
+	inpics := CleanPath(`d:\coding\exampleFiles\INPUT\pics`)
+	inaudio := CleanPath(`d:\coding\exampleFiles\audio`)
+	infilestruct := CleanPath(`d:\coding\exampleFiles\filestruct`)
+	out := CleanPath(`d:\coding\exampleFiles\OUTPUT\Multiple`)
+	out2 := CleanPath(`d:\coding\exampleFiles\OUTPUT\Multiple2`)
+	jobs := make([]*CopyJob, 4)
+	bprefs := make(boolConfig)
+	bprefs[bNoRepo] = false
+	bprefs[bUseGlobal] = false
+	bprefs[bRootSubdir] = true
+	bprefs[bNoFiles] = false
+	bprefs[bNoHidden] = false
+	jobs[0] = cmachine.NewJob("test-mult-pics", inpics, out)
+	jobs[1] = cmachine.NewJob("test-mult-audio", inaudio, out)
+	jobs[2] = cmachine.NewJob("test-mult-filestruct", infilestruct, out)
+	jobs[3] = cmachine.NewJob("test-mult-filestruct2", infilestruct, out2)
+	maps.Copy(jobs[0].BPrefs, bprefs)
+	maps.Copy(jobs[1].BPrefs, bprefs)
+	maps.Copy(jobs[2].BPrefs, bprefs)
+	bprefs[bNoFiles] = true
+	bprefs[bAllDirs] = true
+	bprefs[bRootSubdir] = false
+	maps.Copy(jobs[3].BPrefs, bprefs)
+
+	return jobs
+}
+
+func readDirWalkTest(dirpath string, t *testing.T) {
+	dfs := os.DirFS(dirpath)
+	e := fs.WalkDir(dfs, ".", func(p string, d fs.DirEntry, e error) error {
+		t.Logf("- %s (isDir: %t)", p, d.IsDir())
+		return nil
+	})
+	if e != nil {
+		t.Logf("ReadWalkDir error: %v", e)
+	}
+}
+
 func testing_checkAndDeleteJobOutdir(t *testing.T, job *CopyJob, superConfirmDelete bool) {
 	if job.PathOut != "" {
 		cd := ReadDir(job.PathOut)
@@ -75,29 +84,29 @@ func testing_checkAndDeleteJobOutdir(t *testing.T, job *CopyJob, superConfirmDel
 
 }
 
-func CheckDir(t *testing.T, path string) {
-	t.Logf("CheckDir: %s", path)
-	d, e := os.Stat(path)
+func TestNonexistentPath(t *testing.T) {
+	job := cmachine.NewJob("test-nonexistent-path", "D:/coding/exampleFiles/INPUT/the_secret/the_secret_2/TheMostSecretestSecretOfAll", "D:/coding/exampleFiles/OUTPUT")
+	e := job.RunFS()
 	if e != nil {
-		t.Logf("Error getting stat: %v", e)
+		t.Logf("JobRun Error (successfully didn't panic): %v", e)
 	}
-	if d.IsDir() {
-		t.Logf("%s exists as dir", path)
-	} else {
-		t.Logf("%s exists as file", path)
-	}
-	e = fs.WalkDir(os.DirFS(path), ".", func(p string, d fs.DirEntry, e error) error {
-		if e != nil {
-			t.Logf("WalkDir error: %v", e)
-		}
-		if d.IsDir() {
-			t.Logf("WalkDir: %s is a dir", p)
-		}
-		t.Logf("path: %s", p)
-		return nil
-	})
-
 }
+
+func testPathExists(t *testing.T, path string) bool {
+	t.Logf("PathExists: %s", path)
+	exists, e := PathExists(path)
+	if exists {
+		if e != nil {
+			t.Logf("%s probably exists but got an error: %v", path, e)
+		} else {
+			t.Logf("%s exists", path)
+		}
+	} else {
+		t.Logf("%s does not exist", path)
+	}
+	return exists
+}
+
 func TestRunFSdry(t *testing.T) {
 	job := testing_job()
 	job.BPrefs[bNoFiles] = true
@@ -168,6 +177,20 @@ func TestRunFSfull(t *testing.T) {
 	t.Log("------ DELETE ALL DIR CHECK ------")
 	readDirWalkTest(job.parentPathOut, t)
 
+}
+
+func TestRunMultipleJobs(t *testing.T) {
+	jobs := testing_multiple_job()
+	for _, job := range jobs {
+		e := job.RunFS()
+		t.Log(job.DetailRun())
+		if e != nil {
+			t.Errorf("JobRun Error: %v", e)
+		}
+	}
+	for _, job := range jobs {
+		testing_checkAndDeleteJobOutdir(t, job, true)
+	}
 }
 
 func TestDirFS(t *testing.T) {

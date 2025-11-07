@@ -82,3 +82,14 @@ func TestIsPathChild(t *testing.T) {
 		t.Errorf("Spec added existing path as target")
 	}
 }
+
+func TestDeleteIfChildTilde(t *testing.T) {
+	testConfig()
+	S := &Spec{Alias: "test", Ctype: specComponent, Sources: make([]PathComponent, 1), Targets: make([]PathComponent, 1)}
+	S.AddSource("~")
+	t.Logf("1. Spec: %v", S.DetailFlat())
+	S.CheckAddPath("~", true)
+	t.Logf("2. Spec: %v", S.DetailFlat())
+	S.DeleteIfChild("~", false, true)
+	t.Logf("3. Spec %v", S.DetailFlat())
+}

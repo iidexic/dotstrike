@@ -9,8 +9,7 @@ import (
 )
 
 func TestDecodeMainPell(t *testing.T) {
-	cfgdir := gd.makeCfgPath(globalDirHomeRelative)
-	gotcfg := gd.GetConfig(cfgdir)
+	gotcfg := loadTestBasic(t)
 	if gotcfg {
 		raw := []byte(gd.rawContents)
 		bread := bytes.NewReader(raw)
@@ -29,8 +28,7 @@ func TestDecodeMainPell(t *testing.T) {
 }
 
 func TestDecodeMainBurn(t *testing.T) {
-	cfgdir := gd.makeCfgPath(globalDirHomeRelative)
-	gotcfg := gd.GetConfig(cfgdir)
+	gotcfg := loadTestBasic(t)
 	if gotcfg {
 		e := burntDecode(gd.rawContents)
 		if e != nil {
@@ -54,8 +52,7 @@ func TestDecodeMainBurn(t *testing.T) {
 }
 
 func TestDecodeMainTrueBurn(t *testing.T) {
-	cfgdir := gd.makeCfgPath(globalDirHomeRelative)
-	gotcfg := gd.GetConfig(cfgdir)
+	gotcfg := loadTestBasic(t)
 	if gotcfg {
 		raw := []byte(gd.rawContents)
 		bread := bytes.NewReader(raw)

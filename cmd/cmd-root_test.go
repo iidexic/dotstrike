@@ -85,9 +85,27 @@ func (R *tRunner) ExecuteLog(t *testing.T) {
 	}
 }
 func (R *tRunner) ExecuteNext() {
-	R.outputs[R.runIndex], R.errors[R.runIndex] = testExec(rootCmd, R.inputs[R.runIndex])
-	R.runIndex++
+	if R.runIndex < len(R.inputs) {
+		R.outputs[R.runIndex], R.errors[R.runIndex] = testExec(rootCmd, R.inputs[R.runIndex])
+		R.runIndex++
+	}
 }
+
+func (R *tRunner) ExecuteNextLog(t *testing.T) {
+	if R.runIndex < len(R.inputs) {
+		R.outputs[R.runIndex], R.errors[R.runIndex] = testExec(rootCmd, R.inputs[R.runIndex])
+		if R.errors[R.runIndex] != nil {
+			t.Logf("Executed cmd (%d): ERR: %s", R.runIndex, R.errors[R.runIndex].Error())
+		} else {
+			t.Logf("Executed cmd (%d)", R.runIndex)
+		}
+		R.runIndex++
+		testSetFlagsDefault()
+		cycleCoreForTest()
+	}
+}
+
+func (R *tRunner) Done() bool { return R.runIndex >= len(R.inputs) }
 
 func runSequential(t *testing.T, runargs ...string) []string {
 	output := make([]string, len(runargs))
