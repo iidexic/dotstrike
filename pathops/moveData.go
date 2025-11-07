@@ -36,6 +36,9 @@ func (J *CopyJob) RunFS() error {
 	e := fs.WalkDir(df, ".", J.WalkFS)
 	if e != nil {
 		J.OpErrors = append(J.OpErrors, fs.PathError{Path: J.PathIn, Err: e, Op: ""})
+		if e == ErrNilDirEntry {
+			return fmt.Errorf("(nil DirEntry) The Input path is not a direcory or does not exist")
+		}
 		return e
 	}
 	return nil
@@ -48,6 +51,9 @@ func (J *CopyJob) WalkFS(p string, d DirEntry, e error) error {
 	var inpath, outpath string
 	if filepath.IsAbs(p) {
 		return fmt.Errorf("Abspath FS paths not supported. Use Absolute FS & Local Root")
+	}
+	if d == nil {
+		return ErrNilDirEntry
 	}
 	inpath = Joinpath(J.PathIn, p)
 	outpath = Joinpath(J.PathOut, p)

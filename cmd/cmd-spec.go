@@ -12,8 +12,6 @@ import (
 	"iidexic.dotstrike/uout"
 )
 
-var temp dscore.Temp
-
 //TODO: (mid-doc) Update/Correct Long detail to match current function
 
 // specCmd represents the cfg command
@@ -53,7 +51,8 @@ func specMakeFlags() {
 			`--src="c:\srcPath1,.\path2"`),
 		tgt: specCmd.Flags().StringSlice("tgt", make([]string, 0, 2),
 			`--tgt="c:\target\path1,.\tpath2"`),
-		ignore: specCmd.Flags().StringSlice("ignore", make([]string, 0, 2), "--ignore='ptn1,ptn2'"),
+		ignore:   specCmd.Flags().StringSlice("ignore", make([]string, 0, 2), "--ignore='ptn1,ptn2'"),
+		validate: specCmd.Flags().Bool("validate", false, "validate that spec's source paths exist. If not, remove them."),
 	}
 	specOps.flags = &flagDataSpec
 }
@@ -63,6 +62,7 @@ type specFlags struct {
 	alias            *string
 	src, tgt         *[]string
 	ignore           *[]string
+	validate         *bool
 }
 
 var ErrSpecNotMade = errors.New("No spec created; received nil pointer")
@@ -186,6 +186,13 @@ func (op *specOpData) specNew() error {
 	return nil
 }
 
+func (op *specOpData) validateSpecs() {
+	for _, s := range op.existingSpecs {
+		badPaths := s.ValidateAndCleanSources()
+		op.cmd.Printf("Spec %s: Removed %d bad paths:\n%s", s.Alias, len(badPaths), badPaths)
+	}
+}
+
 // checks args and flag args, returns true if more than 1 main arg and at least one path flag arg
 func (op specOpData) reqMultNewWithPaths() bool {
 	nArgs := len(op.args)
@@ -209,6 +216,10 @@ func (op *specOpData) checkFlagActions() bool {
 		case op.argcount > 1:
 			op.cmd.Print("Error - cannot change alias of multiple specs!")
 		}
+		return true
+	}
+	if *op.flags.validate {
+		op.validateSpecs()
 		return true
 	}
 	return false

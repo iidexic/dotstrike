@@ -220,6 +220,17 @@ func (S *Spec) IsPathTarget(path string) bool {
 	return false
 }
 
+func (S *Spec) ValidateAndCleanSources() []string {
+	badPaths := make([]string, 0, len(S.Sources))
+	for i, src := range S.Sources {
+		if !pops.PathExistsUsable(src.Path) {
+			badPaths = append(badPaths, src.Path)
+			S.removeSourceByIndex(i)
+		}
+	}
+	return badPaths
+}
+
 func (S *Spec) GetExistingChildren(identifiers []string) []*PathComponent {
 	components := make([]*PathComponent, 0, len(identifiers))
 	for _, id := range identifiers {
@@ -347,10 +358,20 @@ func (S *Spec) CheckAddPath(path string, isSource bool) bool {
 	return false
 }
 
+// TODO: Clean this up. Should not be possible to be deleting multiple components
+// for now it works
+
+// DeteIfChild deletes all components matching the identifier, returning the number of deleted components
 func (S *Spec) DeleteIfChild(identifier string, isSource bool, singleDelete bool) int {
 	tempData.Modify()
 	count := 0
 	if isSource {
+		// --- temporary ---
+		if S.Sources != nil {
+			fmt.Printf("S.Sources is nil")
+			return -100
+		}
+		// -----------------
 		for i := range S.Sources {
 			if S.Sources[i].MatchesID(identifier) {
 				S.removeSourceByIndex(i)
@@ -376,6 +397,8 @@ func (S *Spec) DeleteIfChild(identifier string, isSource bool, singleDelete bool
 	return count
 }
 
+// BUG: Nil Ptr
+// TODO: (VERY HIGH) Fix DeleteByPtr
 func (S *Spec) DeleteByPtr(components ...*PathComponent) error {
 	mc := make(map[string]bool, len(components))
 	for _, c := range components {
