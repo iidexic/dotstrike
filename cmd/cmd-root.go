@@ -148,9 +148,9 @@ func Execute() {
 }
 
 type persistentData struct {
-	verbose, all, debug *bool
-	inarg               []string
-	instr               string
+	verbose, all, debug, status *bool
+	inarg                       []string
+	instr                       string
 	//global *bool
 	//spec, src, tgt       *[]string // source and target currently set as Persistent Flags
 	//bspec, bsrc, btgt    bool      //lazy
@@ -181,13 +181,16 @@ func configLoadInit() {
 
 func init() {
 	cobra.OnInitialize(configLoadInit, dscore.InitTempData) // pass all initialization functions here
+	// move to post-init (?)
 	cobra.OnFinalize(dscore.EndEncode)
 	persistentFlags = persistentData{
 		verbose: rootCmd.PersistentFlags().BoolP("verbose", "v", false, "shows additional details on execution"),
 		all:     rootCmd.PersistentFlags().BoolP("all", "a", false, "applies command to 'all' applicable items (see command help for more detail)"),
-		debug:   rootCmd.PersistentFlags().Bool("debug-secret", false, ""), //hide
+		debug:   rootCmd.PersistentFlags().Bool("debug-secret", false, ""),                    //hide
+		status:  rootCmd.PersistentFlags().Bool("status-report", false, "print status of ds"), //hide
 	}
 	rootCmd.PersistentFlags().MarkHidden("debug-secret")
+	rootCmd.PersistentFlags().MarkHidden("status-report")
 	persistentFlags.setup()
 	// version is not default
 	version = rootCmd.Flags().Bool("version", false, "print application version")

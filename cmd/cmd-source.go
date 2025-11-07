@@ -32,11 +32,21 @@ var srcCmd = &cobra.Command{
 var src = componentCmd{}
 
 func sourceRun(cmd *cobra.Command, args []string) {
+	if *persistentFlags.debug {
+		cmd.Printf("DEBUG")
+		gdump := dscore.DumpGlobals()
+		for _, l := range gdump {
+			cmd.Println(l)
+		}
+	}
+	if *persistentFlags.status {
+		cmd.Print(dscore.Status())
+		cmd.Print(dscore.InitString())
+	}
 	src.cmdData = newCmdData(cmd, args)
 	src.isSource = true
 	specFlagArgs := *src.spec
 	ns := src.getSpecs(false, specFlagArgs...)
-
 	if len(args) > 0 {
 		for _, spec := range src.specs {
 			src.components = append(src.components,
@@ -45,7 +55,15 @@ func sourceRun(cmd *cobra.Command, args []string) {
 
 	}
 
+	if *persistentFlags.debug {
+		sn := ""
+		for _, spec := range src.specs {
+			sn = sn + spec.Alias + ", "
+		}
+		cmd.Printf("===dbg===\nSPECS: (%s)\nCOMPONENTS: %v\n=========", sn, src.components)
+	}
 	if ns > 0 {
+
 		e := runComponent(&src)
 		if e != nil {
 			cmd.Print(e.Error())
@@ -82,11 +100,12 @@ func runComponent(cmp *componentCmd) error {
 	case numcomp > 0:
 		switch {
 		case *cmp.delete && len(*cmp.ignore) > 0: //Delete Ignores
-			if len(cmp.components) == 0 {
+			if len(cmp.components) > 0 {
 				cmp.deleteIgnores()
 			}
 
 		case *cmp.delete: //Delete components
+			// if have exactly 1 spec or -y, or user confirm; delete
 			if ls := len(cmp.specs); ls == 1 || *cmp.y ||
 				askConfirmf("Delete %d %ss from %d specs?", numcomp, componentTypeString(cmp.isSource), ls) {
 				cmp.deleteComponents()
@@ -181,7 +200,7 @@ func (C *componentCmd) deleteComponents() int {
 			C.Printf("Error on delete: %v", e)
 		}
 	}
-	C.Printf("Deleted %d components: %v", len(C.components), deleted)
+	C.Printf("Deleted %d components: %v", len(deleted), deleted)
 	return len(C.components)
 }
 

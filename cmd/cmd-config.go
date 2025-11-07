@@ -249,6 +249,11 @@ func (c *cfgOp) cfgApplyGlobalTargetCautious(newpath string) {
 
 func cfgPrintGlobalPrefs(cmd *cobra.Command) {
 	temp := dscore.TempData()
+	if dscore.GlobalConfigPath == "" {
+		cmd.Printf("No config file found?\n")
+	} else {
+		cmd.Printf("Config File: %s\n", dscore.GlobalConfigPath)
+	}
 	cmd.Printf(`Global Config Options:
 	GlobalTarget Path = '%s'
 `, temp.GlobalTargetPath)
@@ -267,6 +272,7 @@ func cfgPrintSelectedSpec(cmd *cobra.Command) {
 
 // cfgPrintFlagSpecs finds specs from aliases passed via the spec persistent flag, and outputs their override information.
 func (c *cfgOp) cfgPrintFlagSpecs() {
+	temp := dscore.TempData()
 	if len(c.specs) > 0 {
 		for _, arg := range c.args {
 			if spec := temp.GetSpec(arg); spec != nil {
