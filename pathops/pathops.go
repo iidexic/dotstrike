@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"iidexic.dotstrike/uout"
 )
 
 // enum for path format
@@ -30,6 +32,7 @@ var (
 	ErrEmptyHome    = fmt.Errorf("Home path is empty string")
 	ErrEmptySystem  = fmt.Errorf("The system path is an empty string")
 	ErrNilInfo      = fmt.Errorf("nil os.FileInfo")
+	ErrNilDirEntry  = fmt.Errorf("nil DirEntry")
 	ErrNotAbs       = fmt.Errorf("Path can't be resolved to an absolute path")
 	ErrNotDir       = fmt.Errorf("Path is not a directory path")
 	ErrNotPathlike  = fmt.Errorf("Path is not path-like")
@@ -270,7 +273,7 @@ func TildeCheck(ospath string) bool {
 
 //TODO: (mid-hi) delete/replace MakeAbs. Don't Swallow errors with panic
 
-// makeabs returns absolute path of inpath
+// MakeAbs returns absolute path of inpath
 // inpath may or may not be relative from home dir/cwd
 func MakeAbs(inpath string) string {
 	if TildeCheck(inpath) {
@@ -334,14 +337,17 @@ func IsPathlike(maybepath string) bool {
 // 	return false
 // }
 
+// PathExists attempts to check if a path exists
+// returns true unless received a NotExist error from os.Stat
+// This should work in most cases, but probably not all
 func PathExists(path string) (bool, error) {
 
 	path = CleanPath(path)
 	s, e := os.Stat(path)
 	if e != nil && errors.Is(e, os.ErrNotExist) {
-		return false, e
-	} else if e != nil && errors.Is(e, os.ErrExist) {
-
+		return false, nil
+	} else if e != nil {
+		return true, e
 	}
 	if s != nil {
 		return true, nil
@@ -397,6 +403,19 @@ func MakeOpenFileF(fpath string) (*os.File, error) {
 		return file, e
 	}
 	return file, e
+}
+
+// DeleteDirContents will delete all contents of a directory
+func DeleteDirContents(path string) error {
+	e := os.RemoveAll(path)
+	if e != nil {
+		return e
+	}
+	e = os.MkdirAll(path, os.ModeDir)
+	if errors.Is(e, os.ErrExist) {
+		return nil
+	}
+	return e
 }
 
 // ForceMakeFile will make a new file at fpath, overwriting any file that already exists there.
@@ -566,84 +585,42 @@ func Cwd() string {
 // returns the string ".".
 var CleanPath = filepath.Clean
 
-// dirContents returns a map describing contents of dirpath and subdirectories
+// DirContents returns a map describing contents of dirpath and subdirectories
 // although not in very clear detail and it probably should not be used
 // map keys are paths of existing filesystem objects
 // value bool indicates whether or not that object is a directory
 // it returns nil if - dir doesn't exist, path is not a dir, any os.Stat error, any WalkDir error
-func DirContents(dirpath string) *map[string]bool {
+func PrintDir(dirpath string) string {
+	apath := MakeAbs(dirpath)
+	out := uout.NewOutf("DirContents: %s", apath)
 	dirstat, e := os.Stat(dirpath)
-	if e != nil || !dirstat.IsDir() {
-		// no reason to check IsNotExists; we can only return nil
-		return nil
-	}
-	contentsIsDir := make(map[string]bool)
-	e = filepath.WalkDir(dirpath, func(p string, d DirEntry, e error) error {
-		if d.IsDir() {
-			contentsIsDir[p] = true
-		}
-		contentsIsDir[p] = false
-		return nil
-	})
 	if e != nil {
-		return nil
+		out.F("Failure to stat: %s", e.Error())
+
+	} else if !dirstat.IsDir() {
+		out.F("Path is not a directory")
+	} else {
+		dir, e := os.ReadDir(dirpath)
+		if e != nil {
+			out.F("Error reading dir: %s", e.Error())
+		}
+		out.IndR()
+		for _, f := range dir {
+			if f.IsDir() {
+				out.F("\\%s\\", f.Name())
+			} else {
+				info, e := f.Info()
+				if e != nil {
+					out.F("\\%s (error getting info)", f.Name())
+				} else if info.Size() > (1 << 20) {
+					out.F("\\%s %.2f mb", f.Name(), float64(info.Size())/(1<<20))
+				} else {
+					out.F("\\%s %.2f kb", f.Name(), float64(info.Size())/1024)
+				}
+			}
+
+		}
 	}
-	return &contentsIsDir
-}
 
-// MaybePasicPath just checks if p IsAbs or IsLocal
-// So it probably should not be used
-func MaybeBasicPath(p string) bool {
-	return filepath.IsAbs(p) || filepath.IsLocal(p) //No symlink check/condition right now.
-
-}
-func IsSymlink(p string) bool {
-	symP, e := filepath.EvalSymlinks(p)
-	ce(e)
-	//TODO: symlink testing
-	return symP == p
-}
-
-// CheckPathDebug for debug. TODO:remove when done
-func CheckPathDebug(p string) string {
-	abs, e := filepath.Abs(p)
-	ce(e)
-	isabs := filepath.IsAbs(p)
-	// abs: `//` or `\\`
-	// loc:  (letters-only)||(starts with .)||(non-legal shit like '&', '^')
-	// NEITHER: - `` (backticks - empty str)||(starts with single backslash or forward slash)||:(colon)
-
-	/* NOTE:
-	1. what needs to be handled?
-		- forward slash/back slash
-	*/
-	isloc := filepath.IsLocal(p)
-	var ptypestr string
-	if isabs {
-		ptypestr = ptypestr + "[absolute]"
-	}
-	//why not check for both
-	if isloc {
-		ptypestr = ptypestr + "[local]"
-	}
-	if !isabs && !isloc {
-		ptypestr = ptypestr + "[UNKNOWN]"
-	}
-	filepath.Clean(p)
-
-	locpls := filepath.Clean(p)
-	base := filepath.Base(p)
-	dir := filepath.Dir(p)
-	return fmt.Sprintf(`
----| Check Path: '%s'
----------
-abs:%t | local:%t
-
-make abs path: 
-	%s
-clean/shorten path:
-	%s
-base = %s, dir = %s
-`, p, isabs, isloc, abs, locpls, base, dir)
-
+	return out.String()
 }

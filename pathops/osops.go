@@ -9,6 +9,7 @@ var (
 	HomePath    *string          = nil
 	ConfigPath  *string          = nil
 	CachePath   *string          = nil
+	CWD         *string          = nil
 	OsDirErrors map[string]error = make(map[string]error)
 )
 
@@ -20,50 +21,36 @@ var (
 )
 
 func SysHomepath() (string, error) {
-	if HomePath != nil && *HomePath != "" {
-		return *HomePath, nil
-	}
-	if h, e := os.UserHomeDir(); e != nil {
-		OsDirErrors["home"] = e
-		return h, ErrorUserDir
-	} else if h == "" {
-		OsDirErrors["home"] = ErrEmptyHome
-		return h, ErrEmptyHome
-	} else {
-		HomePath = &h
-		return *HomePath, nil
-	}
+	return runSysDir(HomePath, "home", os.UserHomeDir)
 }
 
 func SysConfigpath() (string, error) {
-	if ConfigPath != nil && *ConfigPath != "" {
-		return *ConfigPath, nil
-	}
-	if c, e := os.UserConfigDir(); e != nil {
-		OsDirErrors["config"] = e
-		return c, ErrorUserDir
-	} else if c == "" {
-		OsDirErrors["config"] = ErrEmptyHome
-		return c, ErrEmptySystem
-	} else {
-		ConfigPath = &c
-		return c, nil
-	}
+	return runSysDir(ConfigPath, "config", os.UserConfigDir)
+}
+
+func SysCWD() (string, error) {
+	return runSysDir(CWD, "cwd", os.Getwd)
 }
 
 func SysCachepath() (string, error) {
-	if CachePath != nil && *CachePath != "" {
-		return *CachePath, nil
+	return runSysDir(CachePath, "cache", os.UserCacheDir)
+}
+
+func runSysDir(pstore *string, name string, f func() (string, error)) (string, error) {
+	if pstore != nil && *pstore != "" {
+		return *pstore, nil
 	}
-	if c, e := os.UserCacheDir(); e != nil {
-		OsDirErrors["cache"] = e
-		return c, ErrorUserDir
-	} else if c == "" {
-		OsDirErrors["cache"] = ErrEmptyHome
-		return c, ErrEmptySystem
+	str, e := f()
+	if e != nil {
+		OsDirErrors[name] = e
+		return *pstore, ErrorUserDir
+	} else if str == "" {
+		OsDirErrors[name] = ErrEmptyHome
+		return *pstore, ErrEmptySystem
 	} else {
-		CachePath = &c
-		return c, nil
+		pstore = &str
+		return *pstore, nil
+
 	}
 }
 

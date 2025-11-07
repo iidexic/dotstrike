@@ -124,23 +124,10 @@ func startswith(s, prefix string) bool {
 	return false
 }
 
-// splitPath takes a path and returns a slice of segments separated by \ or / delimiters.
-// The output is formed such that filepath.Join(splitPath(path)...) == path
-func splitPath(path string) []string {
-	countBS := strings.Count(path, `\`)
-	countFS := strings.Count(path, "/")
-	plist := make([]string, max(countBS, countFS)+1)
-	path = filepath.Clean(path)
-
-	for i := len(plist) - 1; i > 0; i-- {
-		subp, basep := filepath.Split(path)
-		plist[i] = basep
-		path = filepath.Clean(subp)
-		if i == 1 {
-			plist[0] = subp
-		}
-	}
-	return plist
+// "D:/coding/exampleFiles/OUTPUT" -> ["D:", "coding", "exampleFiles", "OUTPUT"]
+func SplitAbsPath(path string) []string {
+	path = CleanPath(path)
+	return strings.Split(path, `\`)
 }
 
 func stripRoot(root, path string) (string, error) {

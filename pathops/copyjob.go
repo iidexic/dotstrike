@@ -324,6 +324,7 @@ func ReadJobdir(job *CopyJob, pathIn bool) *checkDir {
 // ReadDir reads the contents of dirpath and returns a checkDir struct.
 // Walk error logged to checkDir.walkErr
 func ReadDir(dirpath string) *checkDir {
+	dirpath = MakeAbs(dirpath)
 	cd := &checkDir{dirpath: dirpath, record: fileRecord{files: make(map[string]*filedata)}}
 	err := fs.WalkDir(os.DirFS(dirpath), ".", func(p string, d fs.DirEntry, e error) error {
 		if p == "." {
