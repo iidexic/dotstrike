@@ -1,7 +1,6 @@
 package dscore
 
 import (
-	"errors"
 	"fmt"
 	"io"
 
@@ -9,21 +8,13 @@ import (
 	toml2 "github.com/pelletier/go-toml/v2"
 )
 
-type PelDecErr struct {
-	toml2.DecodeError
-}
-
-func (P PelDecErr) Error() string {
-	return P.DecodeError.Error()
-}
-
 func DecodeTomlDataP(r io.Reader) error {
 	//CoreConfig()
 	dc := toml2.NewDecoder(r)
 	e := dc.Decode(&gd.data)
 	if e != nil {
-		if errors.Is(e, PelDecErr{}) {
-			return fmt.Errorf("Ok Error is a DecodeError")
+		if _, ok := any(e).(toml2.DecodeError); ok {
+			return fmt.Errorf("Error is a DecodeError: %w", e)
 		}
 	}
 	return e
@@ -31,8 +22,10 @@ func DecodeTomlDataP(r io.Reader) error {
 
 func burntDecode(tomldata string) error {
 	md, err := toml.Decode(tomldata, &gd.data)
-	if err != nil && errors.Is(err, toml.ParseError{}) {
-		return (fmt.Errorf("YES ITS A PARSE ERROR JESUS: %w", err))
+	if err != nil {
+		if _, ok := any(err).(toml.ParseError); ok {
+			return fmt.Errorf("Error is a ParseError: %w", err)
+		}
 	}
 	gd.md = md
 	return err
