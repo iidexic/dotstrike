@@ -122,6 +122,7 @@ func indents(n int) string { return strings.Repeat("	", n) }
 
 // pre adds newline and indentation
 func (E *EZout) pre() {
+	defer E.endOp()
 	E.string += E.getpre()
 }
 
@@ -146,12 +147,10 @@ func (E *EZout) post(s string) {
 	})
 }
 
-// NOTE: Privated; requires adding Sub to all newline public methods
-
 // Sub will add an indentation for one newline operation.
 //
 // Run in place of IndR if the indentation will only be used once
-func (E *EZout) indSub() *EZout { // Sub(), change back when implemented
+func (E *EZout) Sub() *EZout { // Sub(), change back when implemented
 	E.sub = true
 	E.Ind++
 	return E
@@ -160,6 +159,7 @@ func (E *EZout) indSub() *EZout { // Sub(), change back when implemented
 func (E *EZout) endOp() {
 	if E.sub {
 		E.Ind--
+		E.sub = false
 	}
 }
 
@@ -301,6 +301,15 @@ func (E *EZout) NV(name string, a any) {
 	E.string += fmt.Sprintf("%s: %+v", name, a)
 }
 
+// IfNN prints a if a!=nil, or nothing if a==nil. Returns a!=nil
+func (E *EZout) IfNN(a any) bool {
+	if a == nil {
+		return false
+	}
+	E.V(a)
+	return true
+}
+
 // IfV prints a if b and aNot if !b, on a new line. Returns b
 //
 // Always prints a new line
@@ -338,6 +347,26 @@ func (E *EZout) IfF(b bool, s, sNot string, a, aNot any) bool {
 func (E *EZout) IfLN(b []bool, s, sNot string, snames []string) {
 	for i, nm := range snames {
 		E.IfF(b[i], s, sNot, nm, nm)
+	}
+}
+
+// Ifer prints a if e is nil, or e.Error() if e!=nil
+func (E *EZout) Ifer(a any, e error) {
+	if e != nil {
+		E.F("Error: %s", e.Error())
+	} else {
+		E.V(a)
+	}
+}
+
+// IferF will print e if e!=nil and F(s,a) if s!="" and a!=nil
+func (E *EZout) IferF(s string, a any, e error) {
+	if e != nil {
+		E.F("Error: %s", e.Error())
+
+	}
+	if s != "" && a != nil {
+		E.F(s, a)
 	}
 }
 
