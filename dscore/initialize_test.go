@@ -2,15 +2,7 @@ package dscore
 
 import (
 	"testing"
-
-	"iidexic.dotstrike/uout"
 )
-
-func dumpGlobalLog(t *testing.T) {
-	out := uout.NewOut("[ Global Log ]")
-	out.ILV(gd.GlobalMessage)
-	t.Log(out.String())
-}
 
 func TestInitialize(t *testing.T) {
 	I := initializer{
@@ -24,7 +16,7 @@ func TestInitialize(t *testing.T) {
 		dumpGlobalLog(t)
 		t.Logf("%v", gd)
 	}
-
+	t.Log(InitString())
 }
 
 func TestLengthNamedPaths(t *testing.T) {

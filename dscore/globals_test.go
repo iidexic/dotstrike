@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/BurntSushi/toml"
 	pops "iidexic.dotstrike/pathops"
 )
 
@@ -12,24 +11,6 @@ var (
 	errorEmpty  = fmt.Errorf("toml file exists but has no data")
 	errorNoToml = fmt.Errorf("no toml file at path")
 )
-
-// same as globalModify_test.go encodeTomltesting
-func encodeTestfile(path string, data *globalData) error {
-	file, e := pops.OpenFileRW(pops.CleanPath(path))
-	if file != nil {
-		defer file.Close()
-	}
-	if e != nil || file == nil {
-		return fmt.Errorf("Error opening toml for write: %w", e)
-	}
-	encode := toml.NewEncoder(file)
-	e = encode.Encode(*data)
-	if e != nil {
-		return e
-	} else {
-		return nil
-	}
-}
 
 func TestLoadOrEncodeDefaults(t *testing.T) {
 	e := loadTestconfig(t)
@@ -45,17 +26,26 @@ func TestLoadOrEncodeDefaults(t *testing.T) {
 
 func TestCoreConfig(t *testing.T) {
 	t.Log(gd.Detail())
-	CoreConfig()
+	LoadGlobals()
 	t.Log(gd.Detail())
 }
 func TestForceEncodeDefaults(t *testing.T) {
 	encodeDefaultsToTestfile(t)
 }
 
+func loadTestBasic(t *testing.T) bool {
+	abstestdir := pops.MakeAbs("../_xtra/[samplefiles]")
+	init, err := loadConfigFromDir(abstestdir) //NOTE: requires dotstrikeData.toml
+	gotConfig := err == nil && gd.status == success
+	t.Logf("initializer: %v", init)
+	return gotConfig
+}
 func loadTestconfig(t *testing.T) error {
 	// Executs from dscore subdir, so using ../ below
 	abstestdir := pops.MakeAbs("../_xtra/[samplefiles]")
-	gotConfig := gd.GetConfig(abstestdir) //NOTE: uses dotstrikeData.toml
+	init, err := loadConfigToml(abstestdir) //NOTE: requires dotstrikeData.toml
+	gotConfig := err == nil && gd.status == success
+	t.Logf("initializer: %v", init)
 
 	fpath := pops.Joinpath(abstestdir, globalsFilename)
 	t.Logf("filepath used in GetConfig: '%s'", fpath)

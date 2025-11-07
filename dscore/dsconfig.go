@@ -195,16 +195,19 @@ func (G *globals) decodeRawData() {
 func (G *globals) decodeAsConfig(data []byte) error {
 	md, err := toml.Decode(string(data), &G.data)
 	if err != nil {
+		initlog.F("X error decoding toml file: %s", G.dsconfigPath)
 		return fmt.Errorf("%w\n%w", ErrorDecodeToml, err)
 	}
 	G.md = md
 	ndecoded := len(md.Keys())
 	if ndecoded == 0 && len(md.Undecoded()) > 0 {
+		initlog.F("X all toml keys were not decoded: %s", G.dsconfigPath)
 		return ErrorAllUndecoded
 	}
 	G.status = success // probably get rid of this
 	G.rawContents = string(data)
 	if len(md.Undecoded()) > 0 {
+		initlog.F("X some toml keys were not decoded: %s", G.dsconfigPath)
 		return ErrorPartialUndecoded
 	}
 	return nil

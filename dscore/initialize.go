@@ -19,13 +19,7 @@ var (
 	ErrorAllUndecoded     = fmt.Errorf(`all toml keys were not decoded`)
 )
 
-type initializer struct {
-	tomlpaths     namedpaths
-	failpaths     []string
-	SysFileErrors map[string]error
-	filename      string
-	configpath    string
-}
+var initlog = uout.NewOut("Initializer Log:")
 
 type initpath struct {
 	path   string
@@ -52,6 +46,7 @@ func (np namedpaths) String() string {
 	}
 	return out.String()
 }
+func InitString() string { return initlog.String() }
 
 func (ip *initpath) String() string {
 	return fmt.Sprintf("path: %s, exists: %t, err: %s", ip.path, ip.exists, ip.err)
@@ -71,35 +66,87 @@ func (np namedpaths) AddErr(name string, path string, e error) {
 		np.Add(name, path)
 	}
 }
+
 func MakeSysConfigPaths(filename string) namedpaths {
 	npaths := make(namedpaths, 3)
 	// cache path not needed for now
 	//cachegood, ecache := pops.SysCachepath()
 	if cpath, e := pops.SysConfigpath(); e != nil {
 		npaths.AddErr("config", pops.Joinpath(cpath, globalDirConfigRelative, filename), e)
+		initlog.F("config path not found: %s", e.Error())
 	} else {
 		npaths.Add("config", pops.Joinpath(cpath, globalDirConfigRelative, filename))
 	}
 	if hpath, e := pops.SysHomepath(); e != nil {
 		npaths.AddErr("home", pops.Joinpath(hpath, globalDirHomeRelative, filename), e)
+		initlog.F("home path not found: %s", e.Error())
 	} else {
 		npaths.Add("home", pops.Joinpath(hpath, globalDirHomeRelative, filename))
 	}
 	return npaths
 }
 
+// Performs no checks to the path of the toml file beforehand
+func loadConfigToml(path string) (*initializer, error) {
+	s, e := pops.PathExists(path)
+	if e != nil {
+		return nil, e
+	}
+	ip := initpath{path: path, exists: s}
+	I := initializer{
+		tomlpaths:     make(namedpaths, 1),
+		failpaths:     make([]string, 0),
+		SysFileErrors: make(map[string]error),
+		filename:      pops.Base(path),
+		configpath:    path,
+	}
+	I.tomlpaths[pops.Base(path)] = &ip
+
+	e = I.populateGlobalData()
+
+	return &I, e
+}
+func loadConfigFromDir(dirpath string) (*initializer, error) {
+	return loadConfigToml(pops.Joinpath(dirpath, globalsFilename))
+}
+
+type initializer struct {
+	tomlpaths     namedpaths
+	failpaths     []string
+	SysFileErrors map[string]error
+	filename      string
+	configpath    string
+}
+
+func (I *initializer) String() string {
+	out := uout.NewOut("[ Initializer ]")
+	out.V(I.tomlpaths)
+	out.V("Failed Toml Paths:")
+	out.Sub().FlatLV(I.failpaths)
+	out.V("SysFileErrors:")
+	out.IndR().LV(I.SysFileErrors)
+	out.IndL().F("filename: %s", I.filename)
+	out.F("configpath: %s", I.configpath)
+	return out.String()
+}
+
 func (I *initializer) populateGlobalData() error {
 	if len(I.tomlpaths) == 0 {
+		initlog.F("X init tomlpaths: %v", I.tomlpaths)
 		return fmt.Errorf("init tomlpaths: %v", I.tomlpaths)
 	}
 	for _, p := range I.tomlpaths {
 		if data, e := p.ReadFile(); e != nil && e != pops.None {
 			p.SetError(e)
+			initlog.F("X failed to read toml file: %s", p.path)
 		} else if len(data) == 0 {
 			p.SetError(ErrorEmptyToml)
+			initlog.F("X toml file is empty: %s", p.path)
 		} else {
+			initlog.F("run gd.decodeAsConfig on %s", p.path)
 			e = gd.decodeAsConfig(data)
 			if e != nil {
+				initlog.F("X error decoding toml file: %s", p.path)
 				p.SetError(e)
 			}
 		}
@@ -107,8 +154,10 @@ func (I *initializer) populateGlobalData() error {
 		if gd.status == success {
 			GlobalConfigPath = p.path
 			gd.dsconfigPath = p.path
+			gd.loaded = true
 			return nil
 		}
+		initlog.F("X failed to decode toml file: %s", p.path)
 	}
 	return ErrorDecodeToml
 }
@@ -123,6 +172,7 @@ func (I *initializer) Config() error {
 	}
 	e := I.populateGlobalData()
 	if e != nil {
+
 		return e
 	}
 	return nil

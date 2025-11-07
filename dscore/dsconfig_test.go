@@ -34,7 +34,7 @@ func TestOptionNameAndOrder(t *testing.T) {
 }
 
 func TestMarshal(t *testing.T) {
-	CoreConfig()
+	LoadGlobals()
 	t.Logf("%v", gd.data.Prefs.Bools)
 	data, e := toml.Marshal(gd.data.Prefs)
 	if e != nil {

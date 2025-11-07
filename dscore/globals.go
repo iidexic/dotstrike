@@ -57,6 +57,9 @@ var gd = globals{
 	},
 }
 
+func Status() string    { return fmt.Sprintf("Status: %s", gd.status) }
+func GlobalLog() string { return fmt.Sprintf("Global Log: %s", gd.GlobalMessage) }
+
 // globalsFilename is the file that ds looks to pull settings and userdata from
 const globalsFilename = "dotstrikeData.toml"
 const globalDirHomeRelative = ".config/dotstrike"
@@ -84,7 +87,13 @@ func ConfigTomlPath() string {
 		return "CONFIG PATH NOT POPULATED"
 	}
 }
-
+func InitSpecs() {
+	if gd.loaded {
+		for i := range gd.data.Specs {
+			gd.data.Specs[i].initializeInherent()
+		}
+	}
+}
 func LoadGlobals() error {
 	var errinit error
 	INIT := initializer{
@@ -106,6 +115,8 @@ func LoadGlobals() error {
 				gd.logfG("Wrote defaults to toml at %s", GlobalConfigPath)
 			}
 		}
+	} else {
+		InitSpecs()
 	}
 	return e
 }

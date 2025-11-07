@@ -1,61 +1,12 @@
 package dscore
 
 import (
-	"bytes"
-	"fmt"
 	"testing"
 
-	"github.com/BurntSushi/toml"
 	pops "iidexic.dotstrike/pathops"
 )
 
 var testTOMLpath = `D:\coding\github\dotstrike\_xtra\[samplefiles]\test_dotstrikeData.toml`
-
-// ── Error logging ───────────────────────────────────────────────────
-func tLogErr(context string, e error, t *testing.T) {
-	if e != nil {
-		t.Logf("%s: %s", context, e.Error())
-	}
-}
-
-// ── Decoding ────────────────────────────────────────────────────────
-
-func initForTest(t *testing.T) *globalModify {
-	CoreConfig()   // decode globals
-	InitTempData() // load tempdata struct with globals details
-	temp := TempData()
-	if temp == nil {
-		t.Error("Temp Data not initialized")
-	}
-	return temp
-}
-
-// ── Encoding ────────────────────────────────────────────────────────
-
-func encodeTomltesting(path string, data *globalData) error {
-	file, e := pops.OpenFileRW(pops.CleanPath(path))
-	if file != nil {
-		defer file.Close()
-	}
-	if e != nil || file == nil {
-		return fmt.Errorf("Error opening toml for write: %w", e)
-	}
-	encode := toml.NewEncoder(file)
-	e = encode.Encode(*data)
-	if e != nil {
-		return e
-	} else {
-		return nil
-	}
-}
-func encodeToBuffer(data *globalData) (bytes.Buffer, error) {
-	buf := bytes.Buffer{}
-	e := toml.NewEncoder(&buf).Encode(*data)
-	if e != nil {
-		return buf, e
-	}
-	return buf, nil
-}
 
 // ┌─────────────────────────────────────────────────────────┐
 // │                          Tests                          │
@@ -111,7 +62,7 @@ func TestEncodeHardAssign(t *testing.T) {
 }
 
 func TestGlobalEncodeSoftAssign(t *testing.T) {
-	//CoreConfig() // need to run CoreConfig?
+	//LoadGlobals() // need to run CoreConfig?
 	InitTempData()
 	t.Log("Performed Init")
 	tmp := TempData()
@@ -124,7 +75,7 @@ func TestGlobalEncodeSoftAssign(t *testing.T) {
 	if len(failed) > 0 {
 		t.Error("failed set option globaltarget")
 	}
-	if tmp.getSpec("gamer") == nil {
+	if tmp.GetSpec("gamer") == nil {
 		t.Error("nil pointer from created spec")
 	}
 	if !tmp.Modified {
@@ -134,7 +85,7 @@ func TestGlobalEncodeSoftAssign(t *testing.T) {
 }
 
 func TestPrefSetByName(t *testing.T) {
-	CoreConfig()
+	LoadGlobals()
 	InitTempData()
 	set := map[string]bool{"ignorehidden": false, "nohidden": true, "copyalldirs": true}
 	spec := tempData.SelectedSpec()
@@ -159,7 +110,7 @@ func TestOptionID(t *testing.T) {
 }
 
 func TestSetOverridesMap(t *testing.T) {
-	CoreConfig()
+	LoadGlobals()
 	InitTempData()
 	if !tempData.initialized {
 		t.Errorf("tempData not initialized")
