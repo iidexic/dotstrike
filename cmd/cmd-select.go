@@ -13,13 +13,14 @@ import (
 // selectCmd represents the select command
 var selectCmd = &cobra.Command{
 	Use:   "sel [pattern]",
-	Short: "Selects the first spec whose name/alias contains [pattern]",
-	Long: `Select('sel') is used to check or modify the currently selected Spec.
+	Short: "Select a spec by alias, either selects an exact match or the first substring match",
+	Long: `Select('sel') is used to check the currently selected spec, or to select a different spec by alias.
 
 RUNNING:
-	Select will check spec aliases against [pattern] arg.
-	The first spec with [pattern] as a substring of its alias is selected.
-	i.e. '> ds sel a' selects the first spec with 'a' in its name.
+Select will check spec aliases against the first arg.
+	An exact match between arg and spec alias will be attempted first.
+	If no match is found, the first spec with the arg text in its alias is selected.
+	i.e. '> ds sel a' selects the first spec with 'a' in its alias.
 
 By default, all commands will operate on the current selection.
 (selected spec will be marked with asterisks when displayed) 
@@ -35,13 +36,17 @@ All modifying commands take a '--spec' flag that takes priority over the selecte
 			//cmd.Println("Add partial string to change selection")
 			return nil
 		}
-		for _, arg := range args {
+		if temp.Select(args[0]) {
+			cmd.Printf("Spec '%s' selected.", args[0])
+			return nil
+		}
+		for _, arg := range args { //why
 			newsel, e := temp.SelectFirstMatch(arg)
 			if e != nil {
 				cmd.Printf("error while selecting (%s)\n", e.Error())
 			}
 			if newsel != "" {
-				cmd.Printf("Spec '%s' selected.", newsel)
+				cmd.Printf("Selected '%s' (first with '%s')", newsel, arg)
 				return nil
 			}
 		}

@@ -12,8 +12,9 @@ import (
 
 // cleanCmd represents the clean command
 var cleanCmd = &cobra.Command{
-	Use:   "clean",
-	Short: "Use to clean up malformed specs or specs with duplicate aliases",
+	Use:    "clean",
+	Hidden: true,
+	Short:  "Use to clean up malformed specs or specs with duplicate aliases",
 	Long: `Use to clean up improperly aliased specs.
 
 All specs with empty, blank, or space-only aliases will be marked for deletion.
