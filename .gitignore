@@ -7,3 +7,4 @@ dsutil.py
 notes.md
 tomlutil.py
 tu.py
+./bin/*
