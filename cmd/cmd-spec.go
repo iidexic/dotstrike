@@ -23,13 +23,18 @@ var specCmd = &cobra.Command{
 			 all other paths will be set as sources.
 		ds spec term vim`,
 	Short: "make a new spec by providing a unique alias and paths(optional)",
-	Long: `Make one new spec using the first argument as the alias. 
-	All specs must have a unique alias; creation will fail if alias is not unique.
+	Long: ` Create new specs or delete existing specs.
 
-Paths can be provided as arguments after the alias argument. 
-	If one path is provided: it will be added as a child source to the new spec.
-	If two paths are provided: the first path will be added as a source, the second will be added as a target.
-	if n > 2 paths are passed: paths 1 to (n-1) will be added as sources, and the final path will be added as a target.`,
+	Create a new spec by passing a name/unique alias:
+		'> ds spec term'
+	All specs must have a unique alias, as this is their primary identifier.
+	
+	Behavior:
+	- 1 argument: If matches an existing spec, that spec will be selected.
+		If no existing spec matches the alias, a new spec will be created.
+	- 2 or more arguments: If the first argument matches an existing spec, that spec will be selected.
+		If the first argument is unique, new specs will be created for each unique argument.
+	`,
 
 	Run: specRun,
 }
@@ -44,7 +49,7 @@ func init() {
 func specMakeFlags() {
 
 	flagDataSpec = specFlags{
-		delete:   specCmd.Flags().Bool("delete", false, "delete spec"),
+		delete:   specCmd.Flags().BoolP("delete", "d", false, "delete spec"),
 		yconfirm: specCmd.Flags().BoolP("autoconfirm user y/n prompts", "y", false, "yes"),
 		alias:    specCmd.Flags().String("set-alias", "", "set-alias ALIAS"),
 		src: specCmd.Flags().StringSlice("src", make([]string, 0, 2),

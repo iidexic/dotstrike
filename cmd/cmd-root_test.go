@@ -11,12 +11,22 @@ import (
 	"iidexic.dotstrike/uout"
 )
 
+// honestly probably not using this
+var testCmdMap = map[string][]string{
+	"makeDeleteMult": {"spec test-sound test-svg", "spec test-sound test-svg --delete -y"},
+	"newspec-pathFlags": {"spec test-img --src='d:/coding/exampleFiles/imagesets/svg-x-circle,d:/coding/exampleFiles/imagesets/svg_circle' --tgt=d:/coding/exampleFiles/OUTPUT/images -y",
+		"src d:/coding/exampleFiles/imagesets/svg_png"},
+	"full-run": {"spec test-audio test-audiodirs --src=d:/coding/exampleFiles/audio -y", "tgt d:/coding/exampleFiles/OUTPUT/audio --ignore=*.mp3",
+		"sel iodir", "cfg dry makealldirs", "tgt d:/coding/exampleFiles/OUTPUT/audio-structure"},
+	"cleanup":         {"spec test-img test-audio test-audiodirs --delete -y"},
+	"makeRun-DirOnly": {"spec test-audiodirs --src=d:/coding/exampleFiles/audio --tgt=d:/coding/exampleFiles/OUTPUT/audio-structure -y", "run"},
+}
+
 type tRunner struct {
 	inputs   []string
 	outputs  []string
 	errors   []error
 	runIndex int
-	verbose  bool
 }
 
 func testRunSequence(inputs []string, t *testing.T) (*tRunner, error) {
@@ -71,17 +81,6 @@ func (R *tRunner) ExecuteLog(t *testing.T) {
 		} else {
 			t.Logf("Executed cmd (%d)", i)
 		}
-		// oh boy
-		if R.verbose {
-			t.Logf("TEMPDATA BEFORE RESET:\n%s", dscore.TempData().DetailFlat())
-		}
-		testSetFlagsDefault()
-		cycleCoreForTest()
-		//
-		if R.verbose {
-			t.Logf("TEMPDATA:\n%s", dscore.TempData().DetailFlat())
-		}
-		R.runIndex++
 	}
 }
 func (R *tRunner) ExecuteNext() {
@@ -101,25 +100,12 @@ func (R *tRunner) ExecuteNextLog(t *testing.T) {
 		}
 		R.runIndex++
 		testSetFlagsDefault()
-		cycleCoreForTest()
+		shutdown()
 	}
 }
 
 func (R *tRunner) Done() bool { return R.runIndex >= len(R.inputs) }
 
-func runSequential(t *testing.T, runargs ...string) []string {
-	output := make([]string, len(runargs))
-	for i, a := range runargs {
-		s, e := testRoot(a)
-		t.Logf("Run %d\nIN: %s\nOUT: %s", i, a, s)
-		if e != nil {
-			t.Errorf("Run %d Error: %v", i, e)
-		}
-
-		output[i] = s
-	}
-	return output
-}
 func testClearFlags() { // Run into reinitialization error
 	runCmd.ResetFlags()
 	specCmd.ResetFlags()
@@ -141,12 +127,9 @@ func testSetFlagsDefault() {
 
 }
 
-func cycleCoreForTest() {
-	dscore.EndEncode()
+func shutdown() {
 	dscore.TempData().Modified = false
-	// Any Other Resets Needed?
-	configLoadInit()
-	dscore.InitTempData()
+
 }
 
 // idk
@@ -258,6 +241,7 @@ func TestTestReset(t *testing.T) {
 
 }
 
+// TODO:(low) finish this test
 func TestFeatureset(t *testing.T) {
 	/* When will confirmation be required:
 	- [1] shouldn't but does - fix
@@ -289,9 +273,8 @@ func TestFeatureset(t *testing.T) {
 		//cleanup
 		"spec test-img test-audio test-audiodirs --delete -y",
 	}
-	//TODO: Fix Cobra/Command/Flag variables not being cleared/initialized each run
+	// may need to fix multi-run issues still
 	run := testCmdRunner(in)
-	run.verbose = true
 	run.ExecuteLog(t)
 	t.Logf("%v", *run)
 
@@ -354,7 +337,6 @@ OUT: Deleting Specs...
 */
 
 /* Output Text:
-//TODO: commands are running multiple times. fix
 
 Run 0: spec test-sound test-svg
 	OUTPUT: Selected test-sound. //WEIRD BUT I THINK FINE

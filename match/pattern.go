@@ -44,7 +44,7 @@ type PathPattern struct {
 	local     bool
 }
 
-// TODO:(hi) Uh test/document all this
+// TODO:(hi) Test/document all this
 func (pp *PathPattern) Set(ptn string, overwrite bool) bool {
 	switch {
 	case pp.IsSet() && !overwrite:

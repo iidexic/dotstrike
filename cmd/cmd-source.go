@@ -74,17 +74,13 @@ func sourceRun(cmd *cobra.Command, args []string) {
 
 }
 
-// TODO:(VERY HIGH) Src Deletion tries to create. Target creation makes source and says "failed (already exists)" FIX PLS
-
 func runComponent(cmp *componentCmd) error {
-	// TODO: 1 arg w/multiple specs; component doesn't exist in all specs
 
 	numargs, numcomp := len(cmp.args), len(cmp.components)
 	if numargs > 0 {
 
 	}
 	switch {
-	//TODO:(hi) seems like we are NOT handling local  dir correctly. Fix pathComponent functions (should not need to handle on create or delete in cmd)
 
 	// no components found from args -> make new args
 	case numargs > 0 && numcomp == 0:

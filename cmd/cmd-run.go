@@ -13,7 +13,7 @@ import (
 	"iidexic.dotstrike/dscore"
 )
 
-var ( //TODO: (low) simplify with map/etc.
+var ( //TODO: (low) simplify with map (?)
 	// ── config.OptionKeys: ──────────────────────────
 	NotAnOption               = dscore.NotAnOption
 	bNoRepo, bNoHidden        = dscore.BoolIgnoreRepo, dscore.BoolIgnoreHidden
@@ -260,8 +260,7 @@ func (r *runner) prepAndRun() error {
 		return nil
 	} else {
 		r.runTriggered = true
-		// TODO: Now that there are Spec Setup Errors, split those into a different function.
-		//	Then will be able to react to  spec failures
+		// some todo here about splitting up the setup and run? or something to do with spec setup errors
 		err := jm.SetupAndRunAll(true)
 		return err
 	}
@@ -337,8 +336,6 @@ func (r *runner) process(f *pflag.Flag) {
 		r.FinalConfig[key] = *r.rtPrefs[key]
 	}
 }
-
-//TODO:(mid) Take a step back; determine if there is a way besides loop Visit({get names}) then loop(names){if = loop(flagOptIDs) then add 2 finalconfig}
 
 // handleFlags applies the remainder of flags that aren't checked in-process.
 // Flags not handled by handleFlags+makeRuntimeConfig: All, NoSelect, Src, Tgt, Y
