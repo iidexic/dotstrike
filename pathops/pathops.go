@@ -393,7 +393,7 @@ var Abs = filepath.Abs
 // and it will make any missing directories necessary.
 func MakeOpenFileF(fpath string) (*os.File, error) {
 	// makedir->create+open|if exists->open
-	e := os.MkdirAll(filepath.Dir(fpath), os.ModeDir)
+	e := os.MkdirAll(filepath.Dir(fpath), 0o755)
 	if e != nil {
 		return nil, e
 	}
@@ -411,7 +411,7 @@ func DeleteDirContents(path string) error {
 	if e != nil {
 		return e
 	}
-	e = os.MkdirAll(path, os.ModeDir)
+	e = os.MkdirAll(path, 0o755)
 	if errors.Is(e, os.ErrExist) {
 		return nil
 	}
@@ -421,7 +421,7 @@ func DeleteDirContents(path string) error {
 // ForceMakeFile will make a new file at fpath, overwriting any file that already exists there.
 // Returns the opened file or an error (either from os.MkdirAll or os.Create).
 func ForceMakeFile(fpath string) (*os.File, error) {
-	e := os.MkdirAll(filepath.Dir(fpath), os.ModeDir)
+	e := os.MkdirAll(filepath.Dir(fpath), 0o755)
 	if e != nil {
 		return nil, e
 	}
@@ -439,6 +439,29 @@ func NoError(errors []error) bool {
 		}
 	}
 	return true
+}
+func CopyFile(fromPath, toPath string) error {
+	fromPath, e := filepath.Abs(fromPath)
+	if e != nil {
+		return e
+	}
+	toPath, e = filepath.Abs(toPath)
+	if e != nil {
+		return e
+	}
+	fromFile, e := OpenExistingFile(fromPath)
+	if e != nil {
+		return e
+	}
+	defer fromFile.Close()
+	toFile, e := ForceMakeFile(toPath)
+	if e != nil {
+		return e
+	}
+	defer toFile.Close()
+	_, e = io.CopyBuffer(toFile, fromFile, nil)
+	return e
+
 }
 func CopyFileME(toPath, fromPath string) []error {
 	var e error

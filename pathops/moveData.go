@@ -122,7 +122,7 @@ func (J *CopyJob) walkPathDir(inPath, outPath string) error {
 	}
 
 	if J.BPrefs[bAllDirs] {
-		e := os.MkdirAll(outPath, 0)
+		e := os.MkdirAll(outPath, 0755) // MkdirAll(outPath,0) - no permission bits == no permissions
 		if e != nil {
 			J.logError(outPath, "walkPathDir-Mkdir", e)
 			return e
