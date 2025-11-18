@@ -3,35 +3,98 @@ package pops
 import (
 	"errors"
 	"fmt"
-	"log"
+	"io"
 	"os"
-	"path"
 	"path/filepath"
-	"syscall"
+	"strings"
+
+	"iidexic.dotstrike/uout"
 )
 
-type failureType int
+// enum for path format
+type pathType int16
 
+const (
+	UnknownPath pathType = iota - 1
+	InaccessiblePath
+	//---
+	LocalDirPath
+	AbsDirPath
+	LocalFilePath
+	AbsFilePath
+)
+
+// is this used? just use path errors or whatever
+
+var (
+	ErrGetHomedir   error
+	ErrGetConfigdir error
+	ErrEmptyHome    = fmt.Errorf("Home path is empty string")
+	ErrEmptySystem  = fmt.Errorf("The system path is an empty string")
+	ErrNilInfo      = fmt.Errorf("nil os.FileInfo")
+	ErrNilDirEntry  = fmt.Errorf("nil DirEntry")
+	ErrNotAbs       = fmt.Errorf("Path can't be resolved to an absolute path")
+	ErrNotDir       = fmt.Errorf("Path is not a directory path")
+	ErrNotPathlike  = fmt.Errorf("Path is not path-like")
+)
+
+var EnvPathError = []os.SyscallError{}
+
+var (
+	Open     = os.Open
+	Base     = filepath.Base
+	Joinpath = filepath.Join
+)
+
+func ce(e error, msg ...string) {
+	if e != nil {
+		if len(msg) > 0 {
+			panic(e)
+		}
+	}
+}
+
+//TODO:(low-recl) Replace ALL os.IsExist/os.IsNotExist with errors.Is()
+//TODO:(med-recl) Clean up Home functions - here and where used
+//TODO:(med-feat) Replace current config path system with more robust system with fallbacks
+
+// enum type for file op outcomes
+
+type failureType int16
+
+func (ft failureType) Error() string {
+	switch ft {
+	case None:
+		return "Path Operation successful"
+	case BadPattern:
+		return "bad pattern provided"
+	case DirNotExist:
+		return "directory does not exist"
+	case FileNotExist:
+		return "file does not exist"
+	case FileExist:
+		return "file already exists"
+	case FailedOpen:
+		return "file seems to exist, but failed to open"
+	case Error:
+		return "General Error"
+	}
+	return "UNKNOWN-CASE-ERROR"
+}
+
+// Possible outcomes for attempting filesystem operations
+// Different operations have the potential to trigger different subsets of these outcomes
 const (
 	None failureType = iota
 	BadPattern
 	DirNotExist
 	FileNotExist
 	FileExist
+	PermissionDenied
 	FailedOpen
 	Error // if error is returned, an error will also be returend in PathActionResult.Err
 )
-
-type PathEvent interface {
-	opfail(failureType, error)
-	explain() string
-	OpPath() string
-}
-type MakeOpenResult struct {
-	PathsMade []string
-	Fail      failureType
-	Err       error
-}
+const tilde = byte('~')
 
 type ReadResult struct {
 	Contents []byte
@@ -41,94 +104,425 @@ type ReadResult struct {
 	Err      error
 }
 
-func (rr *ReadResult) opfail(t failureType, e error) {
-	rr.Fail = t
-	rr.Err = e
-}
 func (rr ReadResult) OpPath() string { return rr.readpath }
-func (rr *ReadResult) explain() string {
+func (rr ReadResult) Failed() bool   { return rr.Fail != None } //in use
+
+/* func (rr *ReadResult) Explain() string {
+return rr.Fail.Detail(rr.readpath, rr.Err) } */
+
+func (f failureType) Detail() string {
 	var rstr string
-	switch rr.Fail {
+	switch f {
+	//TODO: check later to see if I actually ever use the fmt.Sprintf
 	case None:
-		rstr = fmt.Sprintf("No failure type. Data read:\n %s", string(rr.Contents))
+		rstr = "Path Operation successful"
 	case BadPattern:
 		rstr = "bad pattern provided"
 	case DirNotExist:
 		rstr = "directory does not exist"
 	case FileNotExist:
-		rstr = fmt.Sprintf("file %s does not exist", rr.readpath)
+		rstr = "file does not exist"
 	case FileExist:
-		rstr = fmt.Sprintf("file %s already exists", rr.readpath)
+		rstr = "file already exists"
 	case FailedOpen:
-		rstr = fmt.Sprintf("file %s seems to exist, but failed to open", rr.readpath)
+		rstr = "file seems to exist, but failed to open"
 	case Error:
-		rstr = fmt.Sprintf("General Error: %e\nPath: %s", rr.Err, rr.readpath)
+		rstr = "General Error"
 	}
 	return rstr
+
 }
 
-//var errDie []error = []error{filepath.ErrBadPattern, path.ErrBadPattern, os.ErrExist, os.ErrNotExist,os.ErrPermission}
-
-func ce(e error, msg ...string) {
-	if e != nil {
-		if len(msg) > 0 {
-			log.Panic(e)
-		}
-	}
-}
-
-// OpenFile(fpath) opens a file; whether or not it or its parent directories exist
-func OpenFileF(fpath string) *os.File {
-	file, err := os.Open(fpath)
+// OpenExistingFile attempts to open an existing file
+// on success: returns open *os.File, nil. on fail: returns nil, error
+// NOTE: Read-Only
+func OpenExistingFile(ospath string) (*os.File, error) {
+	file, err := os.Open(ospath)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) || errors.Is(err, syscall.ENOTDIR) {
-			// not exist
-			e := os.MkdirAll(filepath.Dir(fpath), os.ModeDir) // os.ModeDir right? check what is expected
-			if e != nil {
-				panic(e)
-			}
-			file, e = os.Create(fpath)
-			if e != nil {
-				panic(e)
-			}
+		return file, err
+	}
+	return file, nil
+}
+
+// OpenFileRW wraps os.OpenFile(ospath, os.O_RDWR,0)
+func OpenFileRW(ospath string) (*os.File, error) {
+	return os.OpenFile(ospath, os.O_RDWR, 0)
+	//Q: need check error before?
+}
+
+// ── HOME PATH FUNCTIONS ─────────────────────────────────────────────
+
+// HomeJoin retrieves abs homedir path, adds suffix to the end, and returns.
+// Directly returns error from os.UserHomeDir().
+func HomeJoin(suffix string) (string, error) {
+	if HaveHome() {
+		return HomeJoinC(suffix), nil
+	}
+	home, e := os.UserHomeDir()
+	if e != nil {
+		return "", e
+	}
+	HomePath = &home
+	return Joinpath(home, suffix), nil
+}
+
+// HomeJoinC uses HomePath var (populated on init) to prepend homedir to suffix
+func HomeJoinC(suffix string) string { return Joinpath(*HomePath, suffix) }
+
+// TODO: (mid-high) Clean up the multiple system dir functions
+
+// SystemDirectories populates HomePath and ConfigPath if they are nil
+func SystemDirectories() bool {
+	if HomePath != nil && ConfigPath != nil {
+		return true
+	}
+	home, ehome := os.UserHomeDir()
+	cdir, ecdir := os.UserConfigDir()
+	good := ehome == nil && ecdir == nil
+	ErrGetHomedir = ehome
+	ErrGetConfigdir = ecdir
+	if HomePath == nil {
+		HomePath = &home
+	}
+	if ConfigPath == nil {
+		ConfigPath = &cdir
+	}
+	return good
+}
+
+// populateSysDirs populates HomePath, ConfigPath, and CachePath if they are nil
+func PopulateSysDirs() (bool, []error) {
+	good := true
+	eout := make([]error, 0, 3)
+	if ConfigPath == nil || *ConfigPath == "" {
+		cdir, ecdir := os.UserConfigDir()
+		if ecdir != nil {
+			eout = append(eout, ecdir)
+		} else if cdir == "" {
+			eout = append(eout,
+				fmt.Errorf("os gave empty string for config dir"))
 		} else {
-			panic(err)
+			ConfigPath = &cdir
 		}
 	}
-	return file
+	if HomePath == nil || *HomePath == "" {
+		home, e := os.UserHomeDir()
+		if e != nil {
+			eout = append(eout, e)
+		} else if home == "" {
+			eout = append(eout, fmt.Errorf("os gave empty string for homedir"))
+		} else {
+			HomePath = &home
+		}
+	}
+	if CachePath == nil || *CachePath == "" {
+		cdir, ecdir := os.UserCacheDir()
+		if ecdir != nil {
+			eout = append(eout, ecdir)
+		} else if cdir == "" {
+			eout = append(eout,
+				fmt.Errorf("os gave empty string for cache dir"))
+		} else {
+			CachePath = &cdir
+		}
+	}
+	for _, e := range eout {
+		if e != nil {
+			good = false
+		}
+	}
+	return good, eout
 }
-func Result() {
 
+func GetSysDirs() {
+	home, e := os.UserHomeDir()
+	if e != nil {
+		ErrGetHomedir = e
+	} else if home == "" {
+		ErrGetHomedir = fmt.Errorf("os gave empty string for homedir (exists in sys env but is empty)")
+	}
+
+	// It doesn't make sense to need to check whether the HomePath is an empty string
+	// But for some reason it also feels weird not doing it
+	HomePath = &home
+	cdir, e := os.UserConfigDir()
+	if e != nil {
+		ErrGetConfigdir = e
+	} else if cdir == "" {
+		ErrGetConfigdir = fmt.Errorf("os gave empty string for config dir (exists in sys env but is empty)")
+	}
+	if ConfigPath == nil || *ConfigPath == "" {
+		ConfigPath = &cdir
+	}
 }
-func makeabs(inpath string) string {
-	if !path.IsAbs(inpath) {
+
+func HaveHome() bool { return HomePath != nil && filepath.IsAbs(*HomePath) }
+
+// TildeExpand replaces a leading tilde in path string with the actual home path
+func TildeExpand(ospath string) string {
+	// tilde code: 126
+	if ospath[0] == tilde {
+		return HomeJoinC(ospath[1:])
+	}
+	return ospath
+}
+
+func TildeCheck(ospath string) bool {
+	return ospath[0] == tilde && (len(ospath) == 1 || ospath[1] == '/' || ospath[1] == '\\')
+}
+
+//TODO: (mid-hi) delete/replace MakeAbs. Don't Swallow errors with panic
+
+// MakeAbs returns absolute path of inpath
+// inpath may or may not be relative from home dir/cwd
+func MakeAbs(inpath string) string {
+	if TildeCheck(inpath) {
+		inpath = TildeExpand(inpath)
+	}
+	if !filepath.IsAbs(inpath) {
 		var e error
 		inpath, e = filepath.Abs(inpath)
 		if e != nil {
 			panic(e)
 		}
+	} else {
+		inpath = filepath.Clean(inpath)
 	}
 	return inpath
 }
 
-// MakeOpenFileF will open the given fpath as a file. It will make the file if it does not exist,
-//  and it will make any missing directories necessary.
-/* Basically, it will tear its way to whatever you give it, even if it doesn't exist */
-func MakeOpenFileF(fpath string) *os.File {
-	// Check 3 locationsthat
-	e := os.MkdirAll(filepath.Dir(fpath), os.ModeDir)
-	ce(e)
-	file, e := os.OpenFile(fpath, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
-	if os.IsExist(e) {
-		file, e = os.Open(fpath)
-		if e != nil {
-			panic(fmt.Errorf("error: %w \ndatafile: %s exists but failed to open file", e, fpath))
-		}
+func MakeAbsIfPathlike(inpath string) (string, error) {
+	var e error
+	if !IsPathlike(inpath) {
+		return inpath, ErrNotPathlike
 	}
-	return file
+	if TildeCheck(inpath) {
+		inpath = TildeExpand(inpath)
+	}
+	if !filepath.IsAbs(inpath) {
+		inpath, e = filepath.Abs(inpath)
+	} else {
+		inpath = filepath.Clean(inpath)
+	}
+	return inpath, e
+}
+
+func IsPathlike(maybepath string) bool {
+	// Just doing IsAbs/IsLocal won't work here; IsLocal is VERY loose.
+	return strings.Contains(maybepath, "\\") || strings.Contains(maybepath, "/") ||
+		maybepath == "." || maybepath == ".." || maybepath == "\\" || len(maybepath) > 1 &&
+		(maybepath[:2] == "./" || maybepath[:2] == ".\\" || maybepath[:2] == "~/" || maybepath[:2] == "~\\") || len(maybepath) > 2 &&
+		(maybepath[:3] == "../" || maybepath[:3] == "..\\" || maybepath[1:3] == ":\\" || maybepath[1:3] == ":/")
+}
+
+// the same exact function as IsPathlike, but code isn't all smashed together
+// func isPathlikeMoreReadable(maybepath string) bool {
+// 	if strings.Contains(maybepath, "\\") || strings.Contains(maybepath, "/") {
+// 		return true
+// 	}
+// 	if maybepath == "." || maybepath == ".." || maybepath == "\\" {
+// 		return true
+// 	}
+// 	if len(maybepath) > 1 {
+// 		if maybepath[:2] == "./" || maybepath[:2] == ".\\" || maybepath[:2] == "~/" || maybepath[:2] == "~\\" {
+// 			return true
+// 		}
+// 		if maybepath[:3] == "../" || maybepath[:3] == "..\\" {
+// 			return true
+// 		}
+// 		if maybepath[1:3] == ":\\" || maybepath[1:3] == ":/" {
+// 			return true
+// 		}
+// 	}
+// 	return false
+// }
+
+// PathExists attempts to check if a path exists
+// returns true unless received a NotExist error from os.Stat
+// This should work in most cases, but probably not all
+func PathExists(path string) (bool, error) {
+
+	path = CleanPath(path)
+	s, e := os.Stat(path)
+	if e != nil && errors.Is(e, os.ErrNotExist) {
+		return false, nil
+	} else if e != nil {
+		return true, e
+	}
+	if s != nil {
+		return true, nil
+	}
+	return true, ErrNilInfo
+}
+
+// PathExistsUsable simplifies PathExists; returns true if path exists and no error on os.Stat
+func PathExistsUsable(path string) bool {
+	exists, e := PathExists(path)
+	if e != nil {
+		return false
+	}
+	return exists
+}
+
+func PathTypeIfExists(path string) (pathType, error) {
+	path = CleanPath(path)
+	s, e := os.Stat(path)
+	if e != nil && errors.Is(e, os.ErrNotExist) {
+		return UnknownPath, e
+	} else if e != nil {
+
+	}
+	isdir := s.IsDir()
+	isabs := filepath.IsAbs(path)
+	switch {
+	case isdir && isabs:
+		return AbsDirPath, nil
+	case isdir:
+		return LocalDirPath, nil
+	case isabs:
+		return AbsFilePath, nil
+	default:
+		return LocalFilePath, nil
+	}
 
 }
-func ReadFile(fpath string) *ReadResult {
+
+var Abs = filepath.Abs
+
+// MakeOpenFileF will open the given fpath as a file. It will make the file if it does not exist,
+// and it will make any missing directories necessary.
+func MakeOpenFileF(fpath string) (*os.File, error) {
+	// makedir->create+open|if exists->open
+	e := os.MkdirAll(filepath.Dir(fpath), 0o755)
+	if e != nil {
+		return nil, e
+	}
+	file, e := os.OpenFile(fpath, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o666)
+	if os.IsExist(e) {
+		file, e = os.OpenFile(fpath, os.O_RDWR, 0)
+		return file, e
+	}
+	return file, e
+}
+
+// DeleteDirContents will delete all contents of a directory
+func DeleteDirContents(path string) error {
+	e := os.RemoveAll(path)
+	if e != nil {
+		return e
+	}
+	e = os.MkdirAll(path, 0o755)
+	if errors.Is(e, os.ErrExist) {
+		return nil
+	}
+	return e
+}
+
+// ForceMakeFile will make a new file at fpath, overwriting any file that already exists there.
+// Returns the opened file or an error (either from os.MkdirAll or os.Create).
+func ForceMakeFile(fpath string) (*os.File, error) {
+	e := os.MkdirAll(filepath.Dir(fpath), 0o755)
+	if e != nil {
+		return nil, e
+	}
+	f, e := os.Create(fpath)
+	if e != nil {
+		return f, e
+	}
+	return f, nil
+}
+
+func NoError(errors []error) bool {
+	for _, e := range errors {
+		if e != nil {
+			return false
+		}
+	}
+	return true
+}
+func CopyFile(fromPath, toPath string) error {
+	fromPath, e := filepath.Abs(fromPath)
+	if e != nil {
+		return e
+	}
+	toPath, e = filepath.Abs(toPath)
+	if e != nil {
+		return e
+	}
+	fromFile, e := OpenExistingFile(fromPath)
+	if e != nil {
+		return e
+	}
+	defer fromFile.Close()
+	toFile, e := ForceMakeFile(toPath)
+	if e != nil {
+		return e
+	}
+	defer toFile.Close()
+	_, e = io.CopyBuffer(toFile, fromFile, nil)
+	return e
+
+}
+func CopyFileME(toPath, fromPath string) []error {
+	var e error
+	//TODO: deal with these errors in a better way
+	ers := make([]error, 7)
+	//e0- getabs(to)
+	//e1-getabs(from)
+	//e2-OpenExisting(from)
+	//e3-stat(from)
+	//e4-MakeOpen(to)
+	//e5-Copy(to/from)
+	//e6-writtenBytes vs size(from) custom error
+	if !filepath.IsAbs(fromPath) {
+		fromPath, e = filepath.Abs(toPath)
+		ers[0] = e
+	}
+	if !filepath.IsAbs(toPath) {
+		toPath, e = filepath.Abs(toPath)
+		ers[1] = e
+	}
+	// 2. open fromPath
+	fromFile, e := OpenExistingFile(fromPath)
+	ers[2] = e
+	defer fromFile.Close()
+	fromStat, e := fromFile.Stat()
+	ers[3] = e
+	fromSize := fromStat.Size()
+
+	toFile, e := MakeOpenFileF(toPath)
+	ers[4] = e
+	defer toFile.Close()
+
+	writtenBytes, e := io.CopyBuffer(toFile, fromFile, nil)
+	ers[5] = e
+	if fromSize != writtenBytes {
+		if writtenBytes > fromSize {
+			ers[6] = fmt.Errorf("wrote more bytes (%d) than original filesize(%d)",
+				writtenBytes, fromSize)
+		} else {
+			ers[6] = fmt.Errorf("Did not write enire file: size %d, written %d", fromSize, writtenBytes)
+		}
+	}
+	return ers
+}
+
+func GetDirContents(dirpath string) (map[string]bool, error) {
+	contentsIsDir := make(map[string]bool)
+	e := filepath.WalkDir(dirpath, func(p string, d DirEntry, e error) error {
+		if d.IsDir() {
+			contentsIsDir[p] = true
+		}
+		contentsIsDir[p] = false
+		return nil
+	})
+	return contentsIsDir, e
+}
+
+// ReadFile will read contents of file into a ReadResult object and return a ptr
+// result contains file and/or operation outcome/error if e!=nil
+func ReadFile(pathElements ...string) *ReadResult {
+	fpath := filepath.Join(pathElements...)
 	result := &ReadResult{Fail: None, readpath: fpath}
 	file, e := os.ReadFile(fpath)
 	if e != nil && os.IsNotExist(e) {
@@ -138,15 +532,118 @@ func ReadFile(fpath string) *ReadResult {
 		result.Fail = FailedOpen
 		result.Err = e
 	}
+	if e != nil {
+		result.Err = e
+
+		if os.IsNotExist(e) {
+			result.Fail = FileNotExist
+		} else if os.IsPermission(e) {
+			result.Fail = PermissionDenied
+		} else {
+			result.Fail = Error
+		}
+	}
+	result.Contents = file //? cause panic on failure to read?
+	return result
+}
+
+//TODO: migrate to ReadFileOrErr method; remove error wrapper
+
+// ReadFileOrErr will read contents of file into a ReadResult and return a ptr to it.
+// adds error to result.Err if not nil. Does not populate result.Fail
+func ReadFileOrErr(pathElements ...string) *ReadResult {
+	fpath := filepath.Join(pathElements...)
+	result := &ReadResult{Fail: None, readpath: fpath}
+	file, e := os.ReadFile(fpath)
+	if e != nil {
+		result.Err = e
+	}
 	result.Contents = file
 	return result
 }
 
+// CalledFrom returns the path of the file that called the current program, or panics
 func CalledFrom() string {
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 		//what
 	}
 	return dir
+}
+
+// Cwd returns the current working dir or error text
+func Cwd() string {
+	dir, err := os.Getwd()
+	if err != nil && dir == "" {
+		if errors.Is(err, os.ErrNotExist) {
+			return "Error: cwd does not exist"
+		} else if errors.Is(err, os.ErrInvalid) {
+			return "Error: cwd is invalid"
+		} else {
+			return fmt.Sprintf("Error getting cwd: %s", err.Error())
+		}
+	}
+	return dir
+}
+
+// CleanPath returns the shortest path name equivalent to path
+// via lexical processing.
+// The following rules are applied iteratively:
+//
+//  1. Replace multiple [Separator] elements with a single one.
+//  2. Eliminate each . path name element (the current directory).
+//  3. Eliminate each inner .. path name element (the parent directory)
+//     along with the non-.. element that precedes it.
+//  4. Eliminate .. elements that begin a rooted path:
+//     that is, replace "/.." by "/" at the beginning of a path,
+//     assuming Separator is '/'.
+//
+// The returned path ends in a slash only if it represents a root directory,
+// such as "/" on Unix or `C:\` on Windows.
+//
+// Finally, any occurrences of slash are replaced by Separator.
+//
+// If the result of this process is an empty string, Clean
+// returns the string ".".
+var CleanPath = filepath.Clean
+
+// DirContents returns a map describing contents of dirpath and subdirectories
+// although not in very clear detail and it probably should not be used
+// map keys are paths of existing filesystem objects
+// value bool indicates whether or not that object is a directory
+// it returns nil if - dir doesn't exist, path is not a dir, any os.Stat error, any WalkDir error
+func PrintDir(dirpath string) string {
+	apath := MakeAbs(dirpath)
+	out := uout.NewOutf("DirContents: %s", apath)
+	dirstat, e := os.Stat(dirpath)
+	if e != nil {
+		out.F("Failure to stat: %s", e.Error())
+
+	} else if !dirstat.IsDir() {
+		out.F("Path is not a directory")
+	} else {
+		dir, e := os.ReadDir(dirpath)
+		if e != nil {
+			out.F("Error reading dir: %s", e.Error())
+		}
+		out.IndR()
+		for _, f := range dir {
+			if f.IsDir() {
+				out.F("\\%s\\", f.Name())
+			} else {
+				info, e := f.Info()
+				if e != nil {
+					out.F("\\%s (error getting info)", f.Name())
+				} else if info.Size() > (1 << 20) {
+					out.F("\\%s %.2f mb", f.Name(), float64(info.Size())/(1<<20))
+				} else {
+					out.F("\\%s %.2f kb", f.Name(), float64(info.Size())/1024)
+				}
+			}
+
+		}
+	}
+
+	return out.String()
 }

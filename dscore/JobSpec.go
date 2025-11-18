@@ -1,0 +1,103 @@
+package dscore
+
+import (
+	"fmt"
+	"maps"
+
+	"iidexic.dotstrike/config"
+	pops "iidexic.dotstrike/pathops"
+	"iidexic.dotstrike/uout"
+)
+
+type jobSpec struct {
+	*Spec
+	config                  map[config.OptionKey]bool
+	group                   *pops.JobGroup
+	manualSpec, partialSpec bool
+	configApplied, madeJobs bool
+}
+
+func (js jobSpec) String() string {
+	out := uout.NewOut(js.Alias)
+	if js.partialSpec {
+		out.A(" (partial job-spec)")
+	} else if js.manualSpec {
+		out.A(" (manual job-spec)")
+	} else {
+		out.A(" (normal job-spec)")
+	}
+	out.IndR()
+	out.F("base spec -> %v", *js.Spec)
+	if len(js.config) > 0 {
+		out.V("Job-Spec Config:")
+		out.IndR().LV(js.config)
+	} else {
+		out.V("(no job-spec config)")
+	}
+	return out.String()
+}
+func (js *jobSpec) briefDetail() string {
+	detail := fmt.Sprintf("spec %s - ", js.Alias)
+	if js.partialSpec {
+		detail += "partial, "
+	}
+	if js.manualSpec {
+		detail += "manual, "
+	}
+	detail += fmt.Sprintf("sources:  %d, targets: %d", len(js.Sources), len(js.Targets))
+
+	return detail
+
+}
+
+// Applies configs AND performs contradiction check
+// The only error that can be returned is from contradiction; currently kill/useglobal
+func (js *jobSpec) applyAndCheckConfigs(lowPriority, highPriority map[ConfigOption]bool) error {
+	if js.config == nil {
+		js.config = make(map[ConfigOption]bool, int(config.NumberOfOptions))
+	}
+	maps.Copy(js.config, lowPriority)
+	if js.OverrideOn && len(js.Overrides.Bools) > 0 {
+		maps.Copy(js.config, js.Overrides.Bools)
+	}
+	maps.Copy(js.config, highPriority)
+
+	e := js.configCheckContradicting()
+	if e != nil {
+		return fmt.Errorf("Config Error: %w", e)
+	}
+	return nil
+}
+
+func (js *jobSpec) configCheckContradicting() error {
+	useval, useok := js.config[BoolUseGlobalTarget]
+	killval, killok := js.config[BoolKillGlobalTarget]
+
+	if useok && killok && useval && killval {
+		return fmt.Errorf("Conflicting Options enabled: UseGlobalTarget, KillGlobalTarget")
+	}
+	return nil
+}
+
+// this is seriously only for input into NewJobGroup as that function is a mess
+func (js *jobSpec) groupExport() (string, []string, []string, map[ConfigOption]bool) {
+	return js.Alias, js.sourcePaths(), js.targetPaths(), js.config
+}
+func (js *jobSpec) addGlobalTarget() {
+	if globTarget := tempData.GlobalTargetPath; !js.IsPathChild(globTarget) {
+		js.CheckAddPath(globTarget, false)
+	}
+	//TODO:(low) make this function more flexible
+}
+
+// removeGlobalTarget - used to implement bKillglobtgt
+func (js *jobSpec) removeGlobalTarget() {
+	if globTarget := tempData.GlobalTargetPath; js.IsPathChild(globTarget) {
+		if js.IsPathSource(globTarget) {
+			// Do I want to do anything here?
+		}
+		if js.IsPathTarget(globTarget) {
+			js.runtimeRemoveMatching(globTarget, false)
+		}
+	}
+}

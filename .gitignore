@@ -1,0 +1,12 @@
+_xtra/
+thingy.go
+slicecaddy
+output/
+rt/
+dsutil.py
+notes.md
+tomlutil.py
+tu.py
+./bin/*
+./magefiles/mage-installdir.toml
+./installwsl.sh
