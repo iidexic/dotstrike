@@ -23,24 +23,27 @@ cfg expects arguments in pairs, with each pair containing:
 	- Name of the option to be changed
 	- New value of that option
 	EX: '> ds cfg ignorehidden true'
+
 To modify global config options, use the '--global' flag.
-ALL OPTIONS:
-	Booleans(true/false or 1/0)
-	 - ignore-repo [norepo/nore]: ignore ./.git dir when copying
-	 - ignore-hidden [nohidden/nohi]: ignore hidden files/dirs when copying
-	 - root-subdir [mrsd]: make a new dir in target folder to copy a spec into
-	- no-copy [dryrun]: disable filecopy for run. Use for dry runs, or with --all-dir to copy only the directory structure
-	- copy-all-dir [aldr]:  Copy all Source subdirectories, including empty subdirectories. 
-				Use with --no-copy to only copy the directories themselves.
-	- useglobaltarget [gton]: copy to global target
-	- killglobtarget [gtoff]: disable copy to global target
+
+Boolean Options:	(optionValue = true/false | on/off | 1/0)
+  ignore-repo [norepo/nore]:	ignore ./.git dir when copying
+  root-subdir [mrsd]:		make a new dir in target folder to copy a spec into
+  no-copy [dryrun]:		disable filecopy for run. Use for dry runs, or with --all-dir to copy only the directory structure
+  copy-all-dir [aldr]:		Copy all Source subdirectories, including empty subdirectories. 
+				  Use with --no-copy to copy only directories.
+  useglobaltarget [gton]:	Copy to global target
+  killglobtarget [gtoff]:	Disable copy to global target
 
 	--- Strings ---
-	-globaltargetpath [gtpath]: set global target path
+  globaltargetpath [gtpath]:	set global target path
 	`,
 	// global flag as bool? as arg list?
 	Run: cfg.run,
 }
+
+// Remove from help for now (unknown status)
+//ignore-hidden [nohi]:ignore hidden files/dirs when copying
 
 type cfgOp struct {
 	*cobra.Command

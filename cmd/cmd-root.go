@@ -12,33 +12,19 @@ import (
 	"iidexic.dotstrike/dscore"
 )
 
-const verstr string = "0.0.1"
+const verstr string = "0.1.0"
 
-func ce(e error) {
-	if e != nil {
-		panic(e)
-	}
-}
-
-// // TODO:(low-implement) SET UP LOGGING
-// func initLogging() {
-// 	lf, e := pops.MakeOpenFileF("dslog.txt")
-// 	if e != nil {
-// 		panic(e)
-// 	}
-// 	logger := slog.NewTextHandler(lf, nil)
-// 	_ = logger
-// }
+// TODO:(low-implement) SET UP LOGGING
 
 type cmdData struct {
 	*cobra.Command
 	args       []string
 	specs      []*dscore.Spec
 	components []*dscore.PathComponent
-	ignoreptns []string
-	countArgs  int
-	msg        opString
-	runFunc    func(*cobra.Command, []string)
+	// ignoreptns []string
+	// countArgs  int
+	// msg        opString
+	runFunc func(*cobra.Command, []string)
 }
 
 // NOTE: Not currently used. started as attempt to standardize output regarding operations
@@ -67,9 +53,9 @@ func (O opString) String() string {
 
 func newCmdData(cmd *cobra.Command, args []string) *cmdData {
 	c := &cmdData{
-		args:      args,
-		specs:     make([]*dscore.Spec, len(args)+1),
-		countArgs: len(args),
+		args:  args,
+		specs: make([]*dscore.Spec, len(args)+1),
+		// countArgs: len(args),
 	}
 	c.Command = cmd
 	return c
