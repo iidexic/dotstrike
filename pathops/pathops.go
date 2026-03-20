@@ -532,17 +532,18 @@ func ReadFile(pathElements ...string) *ReadResult {
 		result.Fail = FailedOpen
 		result.Err = e
 	}
-	if e != nil {
-		result.Err = e
-
-		if os.IsNotExist(e) {
-			result.Fail = FileNotExist
-		} else if os.IsPermission(e) {
-			result.Fail = PermissionDenied
-		} else {
-			result.Fail = Error
-		}
-	}
+	// this is doing nothing. Leftover from when there was another function here
+	// if e != nil {
+	// 	result.Err = e
+	//
+	// 	if os.IsNotExist(e) {
+	// 		result.Fail = FileNotExist
+	// 	} else if os.IsPermission(e) {
+	// 		result.Fail = PermissionDenied
+	// 	} else {
+	// 		result.Fail = Error
+	// 	}
+	// }
 	result.Contents = file //? cause panic on failure to read?
 	return result
 }
