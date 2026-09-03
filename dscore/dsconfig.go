@@ -253,9 +253,6 @@ func (G *globals) forcelogG(outStr string) {
 	print(outStr)
 }
 
-func (G *globals) logG(outStr string) {
-	G.GlobalMessage = append(G.GlobalMessage, outStr)
-}
 func (G *globals) logfG(outStr string, anyfmt ...any) {
 	G.GlobalMessage = append(G.GlobalMessage, fmt.Sprintf(outStr, anyfmt...))
 }

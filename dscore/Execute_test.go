@@ -1,38 +1,12 @@
 package dscore
 
 import (
-	"fmt"
 	"maps"
 	"testing"
 
 	"iidexic.dotstrike/config"
-	pops "iidexic.dotstrike/pathops"
 )
 
-func (J *jobProcessor) testSetupAndDryRun(abortOnError bool) error {
-	// if confirmHaveRuntimeConfig && (J.runtimeConfig == nil || len(J.runtimeConfig) == 0) {
-	// 	return fmt.Errorf("Run terminated: No runtime config (confirmHaveRuntimeConfig on)")
-	// }
-	J.runtimeConfig[BoolNoFiles] = true
-	var runErr error
-	for i := range J.specs {
-		J.specs[i].applyAndCheckConfigs(gd.data.Prefs.Bools, J.runtimeConfig)
-		J.specs[i].group = pops.Copier().NewJobGroup(J.specs[i].groupExport())
-		e := J.specs[i].group.RunAll(abortOnError)
-		if e != nil {
-			if abortOnError {
-				return fmt.Errorf("Problem with run of group %s: %w", J.specs[i].Alias, e)
-			}
-			if runErr == nil {
-				runErr = fmt.Errorf("Group Fails: (GRP-%s - %w)", J.specs[i].Alias, e)
-			} else {
-				runErr = fmt.Errorf("%w (GRP-%s - %w})", runErr, J.specs[i].Alias, e)
-			}
-		}
-
-	}
-	return runErr
-}
 func testConfig() map[ConfigOption]bool {
 	m := make(map[ConfigOption]bool, 5)
 	m[BoolIgnoreRepo] = true

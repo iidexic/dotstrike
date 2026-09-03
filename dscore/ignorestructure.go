@@ -3,14 +3,7 @@ package dscore
 import (
 	"slices"
 
-	"iidexic.dotstrike/match"
 	"iidexic.dotstrike/uout"
-)
-
-type (
-	ignoreptn  = match.TextPattern
-	subptn     = match.SubPattern
-	ignorelist = []ignoreptn
 )
 
 type preIgnoreList []string

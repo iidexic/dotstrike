@@ -11,17 +11,6 @@ import (
 	"iidexic.dotstrike/uout"
 )
 
-// honestly probably not using this
-var testCmdMap = map[string][]string{
-	"makeDeleteMult": {"spec test-sound test-svg", "spec test-sound test-svg --delete -y"},
-	"newspec-pathFlags": {"spec test-img --src='d:/coding/exampleFiles/imagesets/svg-x-circle,d:/coding/exampleFiles/imagesets/svg_circle' --tgt=d:/coding/exampleFiles/OUTPUT/images -y",
-		"src d:/coding/exampleFiles/imagesets/svg_png"},
-	"full-run": {"spec test-audio test-audiodirs --src=d:/coding/exampleFiles/audio -y", "tgt d:/coding/exampleFiles/OUTPUT/audio --ignore=*.mp3",
-		"sel iodir", "cfg dry makealldirs", "tgt d:/coding/exampleFiles/OUTPUT/audio-structure"},
-	"cleanup":         {"spec test-img test-audio test-audiodirs --delete -y"},
-	"makeRun-DirOnly": {"spec test-audiodirs --src=d:/coding/exampleFiles/audio --tgt=d:/coding/exampleFiles/OUTPUT/audio-structure -y", "run"},
-}
-
 type tRunner struct {
 	inputs   []string
 	outputs  []string
@@ -106,16 +95,6 @@ func (R *tRunner) ExecuteNextLog(t *testing.T) {
 
 func (R *tRunner) Done() bool { return R.runIndex >= len(R.inputs) }
 
-func testClearFlags() { // Run into reinitialization error
-	runCmd.ResetFlags()
-	specCmd.ResetFlags()
-	configCmd.ResetFlags()
-
-	runMakeFlags()
-	specMakeFlags()
-	configMakeFlags()
-}
-
 func testSetFlagsDefault() {
 	// add more if causing issues
 	*specOps.flags.delete = false
@@ -130,17 +109,6 @@ func testSetFlagsDefault() {
 func shutdown() {
 	dscore.TempData().Modified = false
 
-}
-
-// idk
-func testClearFlag(cmd *cobra.Command, flag string) {
-	cmd.Flag(flag).Value.Set("")
-}
-
-func containsSubstring(text, sub string) bool {
-	text = strings.ToLower(text)
-	sub = strings.ToLower(sub)
-	return strings.Contains(text, sub)
 }
 
 func testCmdLines(cmd *cobra.Command, args string) ([]string, error) {
@@ -160,10 +128,6 @@ func testExec(cmd *cobra.Command, args string) (string, error) {
 	e := cmd.Execute()
 	return bout.String(), e
 }
-
-func testRoot(args string) (string, error) { return testExec(runCmd, args) }
-
-func testRootSl(args string) ([]string, error) { return testCmdLines(runCmd, args) }
 
 func TestTestCommand(t *testing.T) {
 	execArgs := "cfg --global"

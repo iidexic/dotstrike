@@ -241,10 +241,6 @@ Alias not unique (spec '%s' already exists)`, spec.Alias, newAlias, newAlias)
 	}
 }
 
-func (op *specOpData) runargCheck() {
-	rootCmd.InOrStdin()
-}
-
 func (op *specOpData) checkConfirm(detail string) bool {
 	return checkConfirmF(detail, op.flags.yconfirm)
 }

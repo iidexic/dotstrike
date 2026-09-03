@@ -89,10 +89,6 @@ func cleanDelete(cmd *cobra.Command, deleteList []string) []string {
 	return skip
 }
 
-func cleanRename(cmd *cobra.Command, skipList []string) {
-
-}
-
 var confirm *bool
 
 func init() {

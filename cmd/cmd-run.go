@@ -149,11 +149,6 @@ func detailMainRun() string {
 	return strings.Join(detail, "\n")
 }
 
-// to handle different run modes/methods
-type runMethod interface {
-	execute() error
-}
-
 // runCmd represents the run command
 var runCmd = &cobra.Command{
 	Use:   "run",
@@ -264,12 +259,6 @@ func (r *runner) prepAndRun() error {
 		err := jm.SetupAndRunAll(true)
 		return err
 	}
-}
-
-func (r *runner) finishRun() error {
-	r.runTriggered = true
-	err := dscore.JobManager().SetupAndRunAll(true)
-	return err
 }
 
 func (r *runner) processPartial() error {

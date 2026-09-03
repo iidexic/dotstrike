@@ -33,27 +33,6 @@ func getpath(path string) string {
 	return p
 }
 
-// BUG: expandNamedPath Doesn't work
-func expandNamedPath(path string) string {
-	// for k := range namedPaths {
-	// 	if strings.HasPrefix(strings.ToLower(path), k) {
-	// 		path = namedPaths[k] + path[len(k):]
-	// 	}
-	// }
-	// return path
-	// OR:
-	path = pops.CleanPath(path)
-	if strings.Contains(path, `\`) {
-		b, end, _ := strings.Cut(path, `\`)
-		if npb := getpath(b); npb != b {
-			path = pops.Joinpath(npb, end)
-		}
-	} else if np := getpath(path); np != path {
-		path = pops.Joinpath(np, path)
-	}
-	return path
-}
-
 // checkCmd represents the check command
 var checkCmd = &cobra.Command{
 	Use:    "check",

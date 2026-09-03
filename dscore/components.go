@@ -36,12 +36,6 @@ func (c componentType) String() string {
 
 var ErrComponentNotInitialized error = errors.New("Component not initialized")
 
-// component interface for interop search
-// type component interface {
-// 	getAlias() string
-// 	getCtype() componentType
-// }
-
 // pathComponent is the core of a source or target;
 // contains path info
 // TODO: Refactor Source and Target; eliminate complexity
@@ -55,13 +49,6 @@ type PathComponent struct {
 	Ctype   componentType `toml:"ctype"`   //NOTE: not  implemented. Inherent??
 	Parent  string        //NOTE: INITIALIZE INHERENT
 }
-
-// isInitialized to check pc inherent-initialized. This is performed during startup and should never be false
-func (pc PathComponent) isInitialized() bool { return pc.Parent != "" && pc.Ctype > 0 }
-
-// interface methods //TODO: think I deleted this
-func (pc PathComponent) getAlias() string        { return pc.Alias }
-func (pc PathComponent) getCtype() componentType { return pc.Ctype }
 
 // TODO: replace this or replace the MakeAbs call
 func newPathComponent(ospath string, ctype componentType) *PathComponent {
