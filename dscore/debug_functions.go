@@ -24,10 +24,6 @@ func DumpGlobals() []string {
 	return dump
 }
 
-func (G globals) DumpRaw() string {
-	return fmt.Sprintf("%+v", G)
-}
-
 func printTkeys(keys []toml.Key) {
 	for i, k := range keys {
 		fmt.Printf("[%d] %s (%+v)\n", i, k.String(), k)

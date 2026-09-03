@@ -4,7 +4,6 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"fmt"
 	"os"
 	"strings"
 
@@ -21,34 +20,7 @@ type cmdData struct {
 	args       []string
 	specs      []*dscore.Spec
 	components []*dscore.PathComponent
-	// ignoreptns []string
-	// countArgs  int
-	// msg        opString
-	runFunc func(*cobra.Command, []string)
-}
-
-// NOTE: Not currently used. started as attempt to standardize output regarding operations
-type opString struct {
-	operation, opVerb              string
-	directType, parentType         string
-	directNames, parentNames       string
-	directAffected, parentAffected int
-}
-
-func (O opString) String() string {
-	str := O.operation + "."
-	if O.parentType != "" {
-		str += fmt.Sprintf("This will %s %d %ss in %d %ss.", O.opVerb, O.directAffected, O.directType, O.parentAffected, O.parentType)
-	} else {
-		str += fmt.Sprintf("This will %s %d %ss.", O.opVerb, O.directAffected, O.directType)
-	}
-	if O.directNames != "" {
-		str += fmt.Sprintf("\n%s %s Names: (%s)", O.opVerb, O.directType, O.directNames)
-	}
-	if O.parentNames != "" {
-		str += fmt.Sprintf("\nAffected %s Names: (%s)", O.directType, O.directNames)
-	}
-	return str
+	runFunc    func(*cobra.Command, []string)
 }
 
 func newCmdData(cmd *cobra.Command, args []string) *cmdData {

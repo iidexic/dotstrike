@@ -5,18 +5,6 @@ import (
 	"strings"
 )
 
-type patternList []string
-
-type PrePatternData struct {
-	*patternList
-}
-
-func (p PrePatternData) Append(patterns ...string) {
-	if lp := len(patterns); lp == 0 {
-	}
-
-}
-
 // Textpattern takes comparison strings as input and output the result of the match (boolean Matches/Doesn't)
 // They all have a function to Set the pattern that will be matched against.
 type TextPattern interface {
