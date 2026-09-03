@@ -5,6 +5,7 @@ output/
 rt/
 dsutil.py
 notes.md
+go-callvis.exe
 tomlutil.py
 tu.py
 ./bin/*
