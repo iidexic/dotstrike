@@ -261,6 +261,9 @@ func HaveHome() bool { return HomePath != nil && filepath.IsAbs(*HomePath) }
 // TildeExpand replaces a leading tilde in path string with the actual home path
 func TildeExpand(ospath string) string {
 	// tilde code: 126
+	if len(ospath) == 0 {
+		return ospath
+	}
 	if ospath[0] == tilde {
 		return HomeJoinC(ospath[1:])
 	}
@@ -268,6 +271,9 @@ func TildeExpand(ospath string) string {
 }
 
 func TildeCheck(ospath string) bool {
+	if len(ospath) == 0 {
+		return false
+	}
 	return ospath[0] == tilde && (len(ospath) == 1 || ospath[1] == '/' || ospath[1] == '\\')
 }
 

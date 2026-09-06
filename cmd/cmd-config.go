@@ -1,5 +1,5 @@
 /*
-Copyright © 2025 NAME HERE <EMAIL ADDRESS>
+Copyright © 2025 Derek
 */
 package cmd
 
@@ -229,10 +229,13 @@ func (c *cfgOp) applyToGlobals(args []string) {
 	}
 }
 
-// BUG: Fail, nil ptr dereference, in SetOptionString
 func (c *cfgOp) cfgApplyGlobalTargetCautious(newpath string) {
-	y := false
 	temp := dscore.TempData()
+	if temp == nil {
+		c.Println("Error: user data not initialized; cannot set global target path")
+		return
+	}
+	y := false
 	exist, e := pops.PathExists(newpath)
 	if e != nil {
 		y = checkConfirm("Error checking path. Set as Global Target path anyway", c.fYes)

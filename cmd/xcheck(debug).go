@@ -1,5 +1,5 @@
 /*
-Copyright © 2025 NAME HERE <EMAIL ADDRESS>
+Copyright © 2025 Derek
 */
 package cmd
 
@@ -31,6 +31,13 @@ func getpath(path string) string {
 		return path
 	}
 	return p
+}
+
+func ptrOrUnset(p *string) string {
+	if p == nil {
+		return "<unset>"
+	}
+	return *p
 }
 
 // checkCmd represents the check command
@@ -189,10 +196,12 @@ func (c *checkCmdFlags) runDefault(cmd *cobra.Command, args []string) {
 	case "md":
 		cmd.Println(dscore.MD())
 	case "dirs", "paths", "sysdirs":
-		// BUG: Getting nil pointer error
-		cmd.Printf("Home: %s\n", *pops.HomePath)
-		cmd.Printf("Config: %s\n", *pops.ConfigPath)
-		cmd.Printf("Cache: %s\n", *pops.CachePath)
+		if _, errs := pops.PopulateSysDirs(); len(errs) > 0 {
+			cmd.Printf("sysdir populate errors: %v\n", errs)
+		}
+		cmd.Printf("Home: %s\n", ptrOrUnset(pops.HomePath))
+		cmd.Printf("Config: %s\n", ptrOrUnset(pops.ConfigPath))
+		cmd.Printf("Cache: %s\n", ptrOrUnset(pops.CachePath))
 		cmd.Printf("Temp: %s\n", os.TempDir())
 		cmd.Printf("Current: %s\n", pops.Cwd())
 		cmd.Printf("CalledFrom: %s\n", pops.CalledFrom())

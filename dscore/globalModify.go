@@ -235,6 +235,12 @@ func (gm *globalModify) Modify() { gm.Modified = true }
 
 // Sets the global option opt. Persistent
 func (gm *globalModify) SetOptionBool(opt ConfigOption, newValue bool) bool {
+	if gm == nil || gm.globalData == nil {
+		return false
+	}
+	if gm.Prefs.Bools == nil {
+		gm.Prefs.Bools = make(map[ConfigOption]bool)
+	}
 	val, exist := gm.Prefs.Bools[opt]
 	switch {
 	case !exist:
@@ -252,6 +258,9 @@ func (gm *globalModify) SetOptionBool(opt ConfigOption, newValue bool) bool {
 // SetOptionString sets global prefs[opt] to newValue
 // Returns an error if opt is not a string option
 func (gm *globalModify) SetOptionString(opt ConfigOption, newValue string) error {
+	if gm == nil || gm.globalData == nil {
+		return fmt.Errorf("SetOptionString: tempData not initialized")
+	}
 	if !opt.IsString() {
 		return fmt.Errorf("Not a string option,")
 	}
@@ -416,9 +425,11 @@ func (p *prefs) setByName(name string, val bool) error {
 	return fmt.Errorf("OptionID: String %s produced NotAnOption", name)
 }
 
-// BUG: Testing assigns to nil map
 func (p *prefs) setOpt(opt ConfigOption, val bool) error {
 	if opt.IsBool() && opt.IsRealOption() {
+		if p.Bools == nil {
+			p.Bools = make(map[ConfigOption]bool)
+		}
 		p.Bools[opt] = val
 		tempData.Modify()
 		return nil

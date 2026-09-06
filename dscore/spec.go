@@ -181,21 +181,33 @@ func (S *Spec) SetOverrideMap(mpref map[string]bool) ([]string, error) {
 	return fails[:n], eout
 }
 
-//TODO: (VERY HIGH) IsPathChild failing to determine match. Fix
+// componentMatchesPath reports whether pc represents the given path.
+// Uses pc.Abspath as authoritative when populated, otherwise normalizes pc.Path.
+// Empty components (no Path, Abspath, or matching Alias) never match.
+func componentMatchesPath(pc PathComponent, path, abs string) bool {
+	if pc.Alias != "" && pc.Alias == path {
+		return true
+	}
+	stored := pc.Abspath
+	if stored == "" {
+		if pc.Path == "" {
+			return false
+		}
+		stored = pops.MakeAbs(pc.Path)
+	}
+	return stored == abs
+}
 
 // IsPathChild looks for the path within the Spec's pathComponent slices
 func (S *Spec) IsPathChild(path string) bool {
-	for _, src := range S.Sources {
-		if src.Alias == path || src.Path == pops.MakeAbs(path) ||
-			src.Path == path || src.Path == pops.CleanPath(path) ||
-			src.Path == pops.TildeExpand(path) {
+	abs := pops.MakeAbs(path)
+	for i := range S.Sources {
+		if componentMatchesPath(S.Sources[i], path, abs) {
 			return true
 		}
 	}
-	for _, tgt := range S.Targets {
-		if tgt.Alias == path || tgt.Path == pops.MakeAbs(path) ||
-			tgt.Path == path || tgt.Path == pops.CleanPath(path) ||
-			tgt.Path == pops.TildeExpand(path) {
+	for i := range S.Targets {
+		if componentMatchesPath(S.Targets[i], path, abs) {
 			return true
 		}
 	}
@@ -203,8 +215,9 @@ func (S *Spec) IsPathChild(path string) bool {
 }
 
 func (S *Spec) IsPathSource(path string) bool {
-	for _, src := range S.Sources {
-		if src.Alias == path || src.Path == pops.MakeAbs(path) {
+	abs := pops.MakeAbs(path)
+	for i := range S.Sources {
+		if componentMatchesPath(S.Sources[i], path, abs) {
 			return true
 		}
 	}
@@ -212,8 +225,9 @@ func (S *Spec) IsPathSource(path string) bool {
 }
 
 func (S *Spec) IsPathTarget(path string) bool {
-	for _, tgt := range S.Targets {
-		if tgt.Alias == path || tgt.Path == pops.MakeAbs(path) {
+	abs := pops.MakeAbs(path)
+	for i := range S.Targets {
+		if componentMatchesPath(S.Targets[i], path, abs) {
 			return true
 		}
 	}
@@ -277,14 +291,15 @@ func (S *Spec) GetMatchingComponents(identifiers []string, isSource bool) []*Pat
 
 // GetIfChild returns a pointer to the child source or target with the path or alias passed. Returns nil if none found
 func (S *Spec) GetIfChild(identifier string) *PathComponent {
-	for _, src := range S.Sources {
-		if src.Alias == identifier || src.Path == pops.MakeAbs(identifier) {
-			return &src
+	abs := pops.MakeAbs(identifier)
+	for i := range S.Sources {
+		if componentMatchesPath(S.Sources[i], identifier, abs) {
+			return &S.Sources[i]
 		}
 	}
-	for _, tgt := range S.Targets {
-		if tgt.Alias == identifier || tgt.Path == pops.MakeAbs(identifier) {
-			return &tgt
+	for i := range S.Targets {
+		if componentMatchesPath(S.Targets[i], identifier, abs) {
+			return &S.Targets[i]
 		}
 	}
 	return nil
@@ -397,21 +412,27 @@ func (S *Spec) DeleteIfChild(identifier string, isSource bool, singleDelete bool
 	return count
 }
 
-// BUG: Nil Ptr
-// TODO: (VERY HIGH) Fix DeleteByPtr
 func (S *Spec) DeleteByPtr(components ...*PathComponent) error {
-	mc := make(map[string]bool, len(components))
-	for _, c := range components {
-		mc[c.Path] = false
+	if S == nil {
+		return fmt.Errorf("DeleteByPtr called on nil Spec")
 	}
-	for i, src := range S.Sources {
-		if _, ok := mc[src.Path]; ok {
+	mc := make(map[string]struct{}, len(components))
+	for _, c := range components {
+		if c == nil {
+			continue
+		}
+		mc[c.Path] = struct{}{}
+	}
+	if len(mc) == 0 {
+		return fmt.Errorf("DeleteByPtr received no non-nil components")
+	}
+	for i := len(S.Sources) - 1; i >= 0; i-- {
+		if _, ok := mc[S.Sources[i].Path]; ok {
 			S.removeSourceByIndex(i)
 		}
 	}
-
-	for i, tgt := range S.Targets {
-		if _, ok := mc[tgt.Path]; ok {
+	for i := len(S.Targets) - 1; i >= 0; i-- {
+		if _, ok := mc[S.Targets[i].Path]; ok {
 			S.removeTargetByIndex(i)
 		}
 	}

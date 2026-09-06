@@ -227,7 +227,6 @@ func TestFeatureset(t *testing.T) {
 		"tgt d:/coding/exampleFiles/OUTPUT/audio --ignore=*.mp3",
 		// [6] select test-audiodirs
 		"sel iodir",
-		// BUG: Config Change; Prefs.setOpt() assigns to nil map
 		// [7] set cfg for test-audiodirs
 		"cfg dry true makealldirs true",
 		// [8] add tgt to test-audiodirs

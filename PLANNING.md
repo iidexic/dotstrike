@@ -4,7 +4,7 @@ Living punch list. Update in the same change as any planning decision, scope cha
 
 Status legend: `[ ]` open · `[~]` in progress · `[x]` done · `[-]` dropped/deferred
 
-Last reviewed: 2026-09-03
+Last reviewed: 2026-09-03 (Phase 1 complete)
 
 ---
 
@@ -16,21 +16,28 @@ Last reviewed: 2026-09-03
 - [x] 2026-09-03 remove `pelletier/go-toml/v2` dep (only used in scratch comparison)
 - [x] 2026-09-03 audit `.extra_code/` — verdict: no salvageable code
 
-Pending user decision:
-- [ ] flush `.extra_code/` directory (audit complete, awaiting go-ahead)
-- [ ] decide fate of `tu.py` python helper (user pulled out; missing `pyproject.toml`, half-broken)
+- [x] 2026-09-03 flush `.extra_code/` (done by user)
+- [x] 2026-09-03 remove `tu.py` (done by user)
 
 ---
 
-## Phase 1 — Nil-safety and small bugs (low blast radius)
+## Phase 1 — Nil-safety and small bugs (low blast radius) — complete
 
-Do these first. Each is a bounded fix, most 1–2 files.
+- [x] 2026-09-03 **`dscore/globalModify.go` — `prefs.setOpt` assigns to nil map.** Init `p.Bools` if nil before write. Also cleared mirror `BUG:` comment in `cmd/cmd-root_test.go`.
+- [x] 2026-09-03 **`cmd/xcheck(debug).go` — `dirs`/`paths`/`sysdirs` nil deref.** Now calls `pops.PopulateSysDirs()` first and prints `<unset>` via new `ptrOrUnset` helper if any path pointer is still nil.
+- [x] 2026-09-03 **`dscore/spec.go` — `Spec.DeleteByPtr` nil ptr.** Nil-checks receiver + components; skips nils; errors on all-nil; iterates in reverse to survive `slices.Delete` index shift.
+- [x] 2026-09-03 **`cmd/cmd-config.go` → `dscore/globalModify.go` — `SetOptionString` nil deref.** Receiver-side guard on `gm`/`gm.globalData`; parallel guard added to `SetOptionBool` (plus nil-map init); caller `cfgApplyGlobalTargetCautious` now bails early with a user-facing message if `dscore.TempData()` is nil.
+- [x] 2026-09-03 **`dscore/spec.go` — `Spec.IsPathChild` match logic.** New shared helper `componentMatchesPath` normalizes both sides using `pc.Abspath` (authoritative when set) or `pops.MakeAbs(pc.Path)` compared against `pops.MakeAbs(incoming)`. Refactored `IsPathSource`, `IsPathTarget`, and `GetIfChild` onto the same helper — `GetIfChild` also fixed to return `&S.Sources[i]` (real slice element) instead of the pre-Go-1.22-era `&src` bug that returned a pointer to a per-iteration copy.
 
-- [ ] **`dscore/globalModify.go:419` — `prefs.setOpt` assigns to nil map.** If `p.Bools == nil`, initialize before write. This is the underlying issue behind `cmd/cmd-root_test.go:230` "Config Change; Prefs.setOpt() assigns to nil map".
-- [ ] **`cmd/xcheck(debug).go:192` — `dirs`/`paths`/`sysdirs` prints `*pops.HomePath` etc.** Nil-check `HomePath`, `ConfigPath`, `CachePath` before dereference. Call `pops.PopulateSysDirs()` on the fly if unset, or print `<unset>`.
-- [ ] **`dscore/spec.go:400` — `Spec.DeleteByPtr` nil ptr.** Iterating `components ...*PathComponent` and reading `c.Path` without nil-checking `c`. Skip nil entries and/or return error if all nil.
-- [ ] **`cmd/cmd-config.go:232` → `dscore/globalModify.go:254` — `SetOptionString` nil ptr in `cfgApplyGlobalTargetCautious`.** Trace: probably `tempData` is nil (not initialized) or `gm.globalData` is nil. Add nil guard + return descriptive error, and ensure init path is exercised before this call.
-- [ ] **`dscore/spec.go:184` — `Spec.IsPathChild` fails to match.** Currently compares `src.Path` against multiple transforms of `path` but never compares transforms of `src.Path` against `path`. Very likely the stored `src.Path` was TildeExpanded/MakeAbs'd at write time, so a raw incoming `path` never equals it. Fix: normalize both sides (probably: compare `pops.MakeAbs(src.Path) == pops.MakeAbs(path)` and treat `src.Abspath` as authoritative when set).
+### Phase 1 collateral fixes
+
+- [x] 2026-09-03 `pathops/pathops.go` — `TildeCheck` and `TildeExpand` panicked on empty string (`ospath[0]` on zero-length). Both now short-circuit on empty. Surfaced by the new `componentMatchesPath` running against zero-value `PathComponent{}` entries in `TestAddComponent`.
+
+### Phase 1 verification
+
+- `go build ./...` — clean
+- `go vet ./...` — clean
+- `go test ./...` — the panic in `TestAddComponent` from `TildeCheck` on empty is gone. Many pre-existing test failures remain (reference the now-deleted `_xtra/[samplefiles]` fixtures, or use `Spec` zero-value shortcuts that mask other pre-existing bugs). None of the remaining failures are Phase 1 regressions. **Follow-up:** dedicated test-suite rehab pass — track separately below.
 
 ## Phase 2 — Config lookup ambiguity
 
@@ -50,9 +57,18 @@ Signatures change for several of these; do one at a time with `go build ./...` b
 
 ## Phase 4 — Housekeeping
 
-- [ ] **Copyright header cleanup.** `main.go` and several `cmd/*.go` still say `Copyright © 2025 NAME HERE <EMAIL ADDRESS>`; `cmd/cmd-source.go` uses `Copyright © 2025 derek :)`. Pick one format and apply uniformly. **Awaiting user preference** — see Open Questions.
+- [x] 2026-09-03 **Copyright header cleanup.** Unified all `cmd/*.go` + `main.go` to `Copyright © 2025 Derek`.
 - [ ] **`cmd/cmd-root.go:82` — bare `cmd.Printf("DEBUG")` with no newline.** Change to `Println("DEBUG")` or drop entirely (`DumpGlobals` output that follows is already labeled).
 - [ ] **`cmd/cmd-source.go:36` — same bare `Printf("DEBUG")` pattern.** Same fix.
+
+## Phase 5 — Test suite rehab (added 2026-09-03)
+
+Pre-existing failures uncovered while verifying Phase 1. Not regressions, but blocking a clean CI baseline.
+
+- [ ] Delete or reroute tests that require `_xtra/[samplefiles]` fixtures (deleted by user): `TestEncodeHardAssign`, `TestEncodeToBuffer`, `TestForceEncodeDefaults`, and any others under `dscore/` that hard-code that path.
+- [ ] `TestAddComponent` (`dscore/spec_test.go:9`) — both `if`/`else` branches call `t.Errorf`; test is un-passable. Rewrite assertions to reflect real intent.
+- [ ] `TestRunMultiSource` — panics via `pathops.(*JobGroup).ConfigToJobs` (`copyjobGroup.go:64`), probably nil `spec.group`. Investigate under Phase 2/3 depending on scope.
+- [ ] `TestRunFSdirs` — panics inside `pathops.testing_job` (`moveData_test.go:23`). Missing fixture or nil setup.
 
 ## Deferred / low-priority tracked TODOs
 
@@ -65,6 +81,4 @@ Left in-source, not scheduled:
 
 ## Open Questions
 
-- **Copyright boilerplate**: which format? Suggested options — `// Copyright © 2025 Derek <derekqvandam@gmail.com>` (formal), `// Copyright © 2025 Derek` (name-only), or delete header entirely (Go convention rarely requires it).
-- **`.extra_code/` flush**: `git rm -r .extra_code` now, or leave since already committed as backup?
-- **`tu.py`**: bring back into `scripts/` with `pyproject.toml`, or drop entirely?
+- **`LookupOption` policy (Phase 2)**: reject ambiguous input with "did you mean" (recommended, safest), longest-match, or prefix-only? Blocks Phase 2 start.
