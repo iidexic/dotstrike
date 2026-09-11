@@ -2,7 +2,6 @@ package dscore
 
 import (
 	"fmt"
-	"maps"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -67,6 +66,7 @@ const (
 
 // Delete if not in use (or probably even if it is)
 var OptionID = config.LookupOption
+var OptionIDCandidates = config.LookupOptionCandidates
 
 func OptionIsBool(opt ConfigOption) bool   { return config.AllOptions[opt].Type == config.Tbool }
 func OptionIsString(opt ConfigOption) bool { return config.AllOptions[opt].Type == config.Tstring }
@@ -175,10 +175,6 @@ func (p prefs) Detail() string {
 		out = fmt.Sprintf("%s\n%s:%t", out, k.String(), v)
 	}
 	return out
-}
-
-func (p prefs) equal(p2 prefs) bool {
-	return maps.Equal(p.Bools, p2.Bools)
 }
 
 // tempData is the location where ALL changes to user data are written to before encode

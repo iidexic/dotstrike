@@ -44,12 +44,6 @@ func (S *Spec) initializeInherent() {
 }
 
 // ── Find/Get Spec Info ──────────────────────────────────────────────
-func specEqual(S, S2 Spec) bool {
-	return S.Alias == S2.Alias && S.Overrides.equal(S2.Overrides) && S.Ctype == S2.Ctype &&
-		slices.EqualFunc(S.Sources, S2.Sources, pathComponentEqual) &&
-		slices.EqualFunc(S.Targets, S2.Targets, pathComponentEqual) &&
-		slices.Equal(S.Ignorepat, S2.Ignorepat)
-}
 
 func (S Spec) Identify() string { return S.Alias }
 

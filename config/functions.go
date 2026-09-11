@@ -5,19 +5,60 @@ import (
 	"strings"
 )
 
-// NOTE: Added check of LookupExacts to make life easier
+// LookupOption resolves user input to a single OptionKey.
+// Exact matches (LookupExacts) win over substring matches.
+// Returns NotAnOption if input matches zero opts OR more than one — silent
+// misroute would be worse than a lookup failure for a config command.
+// Use LookupOptionCandidates to also get the ambiguous candidates.
 func LookupOption(input string) OptionKey {
+	opt, _ := LookupOptionCandidates(input)
+	return opt
+}
+
+// LookupOptionCandidates returns the resolved OptionKey plus the ambiguous
+// candidate list when resolution fails due to ambiguity.
+//   - Exactly one match (exact or substring): (opt, nil)
+//   - Zero matches: (NotAnOption, nil)
+//   - Multiple matches: (NotAnOption, candidates)
+//
+// Exact matches take precedence: if any opt has input in its LookupExacts,
+// substring hits are ignored.
+func LookupOptionCandidates(input string) (OptionKey, []OptionKey) {
 	input = strings.TrimSpace(strings.ToLower(input))
+	if input == "" {
+		return NotAnOption, nil
+	}
+	var exactHits, subHits []OptionKey
 	for id, opt := range AllOptions {
+		if slices.Contains(opt.LookupExacts, input) {
+			exactHits = append(exactHits, id)
+			continue
+		}
+		if len(opt.LookupSubstrings) == 0 {
+			continue
+		}
 		match := true
 		for _, substr := range opt.LookupSubstrings {
-			match = match && lookupSubstringMatch(input, substr)
+			if !lookupSubstringMatch(input, substr) {
+				match = false
+				break
+			}
 		}
-		if match || slices.Contains(opt.LookupExacts, input) {
-			return id
+		if match {
+			subHits = append(subHits, id)
 		}
 	}
-	return NotAnOption
+	switch {
+	case len(exactHits) == 1:
+		return exactHits[0], nil
+	case len(exactHits) > 1:
+		return NotAnOption, exactHits
+	case len(subHits) == 1:
+		return subHits[0], nil
+	case len(subHits) > 1:
+		return NotAnOption, subHits
+	}
+	return NotAnOption, nil
 }
 
 func OptByNameExact(optionName string) OptionKey {

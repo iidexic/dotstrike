@@ -166,8 +166,19 @@ func HomeJoin(suffix string) (string, error) {
 	return Joinpath(home, suffix), nil
 }
 
-// HomeJoinC uses HomePath var (populated on init) to prepend homedir to suffix
-func HomeJoinC(suffix string) string { return Joinpath(*HomePath, suffix) }
+// HomeJoinC uses HomePath var (populated on init) to prepend homedir to suffix.
+// If HomePath is not yet populated, lazily fetches from os.UserHomeDir; on failure
+// returns suffix unchanged rather than panicking on nil dereference.
+func HomeJoinC(suffix string) string {
+	if HomePath == nil || *HomePath == "" {
+		home, e := os.UserHomeDir()
+		if e != nil || home == "" {
+			return suffix
+		}
+		HomePath = &home
+	}
+	return Joinpath(*HomePath, suffix)
+}
 
 // TODO: (mid-high) Clean up the multiple system dir functions
 

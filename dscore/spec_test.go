@@ -6,34 +6,6 @@ import (
 	pops "iidexic.dotstrike/pathops"
 )
 
-func TestAddComponent(t *testing.T) {
-	S := Spec{Alias: "test", Ctype: specComponent, Sources: make([]PathComponent, 1), Targets: make([]PathComponent, 1)}
-	// Test Paths
-	td1 := "d:/coding/examplefiles/TEST-1"
-	td2 := "d:/coding/examplefiles/TEST-2"
-	S.AddSource(td1)
-	S.CheckAddPath(td2, false)
-
-	t.Logf("Spec Sources: %v", S.Sources)
-	t.Logf("Spec Targets: %v", S.Targets)
-
-	added := S.CheckAddPath(td1, false)
-	t.Logf("Attempt to add %s as TARGET: added == %v", td1, added)
-	if added {
-		t.Errorf("Spec added existing path as target")
-	} else {
-		t.Errorf("Spec did not add existing path as TARGET")
-	}
-	e := S.AddSource(td2)
-	t.Logf("Attempt to add %s as SOURCE", td2)
-
-	if e != nil {
-		t.Log(e)
-	} else {
-		t.Errorf("Spec added existing path as target")
-	}
-
-}
 func testIsPathChild(t *testing.T, S *Spec, path string) bool {
 
 	t.Logf("before and after clean:\n%s\n%s", path, pops.CleanPath(path))

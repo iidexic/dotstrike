@@ -3,7 +3,6 @@ package dscore
 import (
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 
 	pops "iidexic.dotstrike/pathops"
@@ -109,10 +108,3 @@ func (pc PathComponent) MatchesID(id string) bool {
 }
 
 func (pc PathComponent) IsSource() bool { return pc.Ctype == sourceComponent }
-
-// ── Equality Check ──────────────────────────────────────────────────
-
-func pathComponentEqual(pc, pc2 PathComponent) bool {
-	return pc.Alias == pc2.Alias && pc.Abspath == pc2.Abspath && pc.Path == pc2.Path &&
-		pc.Ctype == pc2.Ctype && slices.Equal(pc.Ignores, pc2.Ignores)
-}

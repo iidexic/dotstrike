@@ -4,13 +4,13 @@ import "testing"
 
 func testInput() map[string]OptionKey {
 	return map[string]OptionKey{
-		"copydir":            BoolCopyAllDirs,
+		"copyalldir":         BoolCopyAllDirs,
 		"ignorehidden":       BoolIgnoreHidden,
 		"useglobal":          BoolUseGlobalTarget,
 		"baddabingbaddaboom": NotAnOption,
-		"globaltarget":       NotAnOption,         //TODO: fix this, will probably get annoying
-		"nohiddenrepo":       BoolIgnoreRepo,      //BUG: Outcome is UNCERTAIN! Points to both IgnoreHidden and IgnoreRepo.
-		"useglobaltgtdir":    BoolUseGlobalTarget, //BUG: same bug as above (UseGlobalTarget/GlobalTargetPath)
+		"globaltarget":       StringGlobalTargetPath, // hits LookupExacts
+		"nohiddenrepo":       NotAnOption,            // ambiguous: IgnoreHidden + IgnoreRepo
+		"useglobaltgtdir":    NotAnOption,            // ambiguous: ForceGlobalTarget + GlobalTargetPath
 		"override":           BoolOverrideOn,
 		"killglobal":         BoolKillGlobalTarget,
 		"killglobaltarget":   BoolKillGlobalTarget,

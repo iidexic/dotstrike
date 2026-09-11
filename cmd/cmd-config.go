@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"iidexic.dotstrike/dscore"
@@ -211,7 +212,19 @@ func (c *cfgOp) cfgArgsMap(args []string) (map[string]bool, []string) {
 func (c *cfgOp) applyToGlobals(args []string) {
 	temp := dscore.TempData()
 	for i := 0; i < len(args)-1; i += 2 {
-		opt := dscore.OptionID(args[i])
+		opt, cands := dscore.OptionIDCandidates(args[i])
+		if opt == dscore.NotAnOption {
+			if len(cands) > 0 {
+				names := make([]string, len(cands))
+				for j, k := range cands {
+					names[j] = k.String()
+				}
+				c.Printf("ambiguous option '%s'; did you mean: %s\n", args[i], strings.Join(names, ", "))
+			} else {
+				c.Printf("unknown option '%s'\n", args[i])
+			}
+			continue
+		}
 		switch {
 		case dscore.OptionIsBool(opt):
 			barg := dscore.StringToBool(args[i+1])
