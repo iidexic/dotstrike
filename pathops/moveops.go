@@ -105,10 +105,7 @@ func (CM copierMaschine) GroupDetails() string {
 // It also automatically creates all copy jobs, and stores the job names in JobGroup.jobNames.
 // Job names are created as (name-[job#])
 func (CM *copierMaschine) NewJobGroup(UniqueName string, inPaths []string, outPaths []string, bools boolConfig) *JobGroup {
-	// Unique the group name FIRST so derived jobNames also stay unique.
-	// Without this, a repeat call with the same UniqueName produces jobName
-	// collisions inside makeJobs; NewJob returns nil for the dupes and
-	// later ConfigToJobs derefs nil.
+	// Unique the group name before makeJobs so derived jobNames don't collide.
 	key := UniqueName
 	for n := 0; ; n++ {
 		candidate := key

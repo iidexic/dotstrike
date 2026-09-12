@@ -280,17 +280,13 @@ func TildeCheck(ospath string) bool {
 	return ospath[0] == tilde && (len(ospath) == 1 || ospath[1] == '/' || ospath[1] == '\\')
 }
 
-// MakeAbs returns the absolute form of inpath. It never panics —
-// when filepath.Abs cannot resolve cwd, the tilde-expanded input is returned
-// as-is. Callers that need the error should use MakeAbsE.
+// MakeAbs is a no-error wrapper around MakeAbsE; on failure returns the tilde-expanded input.
 func MakeAbs(inpath string) string {
 	out, _ := MakeAbsE(inpath)
 	return out
 }
 
-// MakeAbsE returns the absolute form of inpath plus any error from filepath.Abs.
-// Tilde-prefixed paths are expanded first. Already-absolute inputs are cleaned.
-// On filepath.Abs failure the tilde-expanded input is returned unchanged alongside the error.
+// MakeAbsE returns the absolute, cleaned form of inpath. Leading tilde is expanded first.
 func MakeAbsE(inpath string) (string, error) {
 	if TildeCheck(inpath) {
 		inpath = TildeExpand(inpath)
@@ -577,9 +573,7 @@ func ReadFileOrErr(pathElements ...string) *ReadResult {
 	return result
 }
 
-// CalledFrom returns the absolute path of the directory holding the current
-// executable (os.Args[0]). Returns the unresolved directory + error if
-// filepath.Abs fails.
+// CalledFrom returns the absolute directory of the current executable (os.Args[0]).
 func CalledFrom() (string, error) {
 	base := filepath.Dir(os.Args[0])
 	abs, err := filepath.Abs(base)

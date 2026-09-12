@@ -31,8 +31,7 @@ func checkConfirmF(detail string, cflag *bool, vars ...any) bool {
 	return yes
 }
 
-// promptYN asks a yes/no question without needing an "assume-yes" flag pointer.
-// On stdin error prints the error to stderr and returns false (safe deny).
+// promptYN asks a yes/no question; on stdin error prints to stderr and returns false.
 func promptYN(detail string, vars ...any) bool {
 	yes, e := askConfirmf(detail, vars...)
 	if e != nil {
@@ -46,8 +45,7 @@ func promptYN(detail string, vars ...any) bool {
 
 // TODO:(med) Add a full prompt for user input
 
-// askConfirmf prompts the user until they answer yes/no or 4 blanks pass.
-// Returns (false, err) if reading stdin fails; callers should treat that as deny.
+// askConfirmf prompts until yes/no or 4 blanks. Returns (false, err) on stdin failure.
 func askConfirmf(detail string, vars ...any) (bool, error) {
 	reader := bufio.NewReader(os.Stdin)
 	n := 4
