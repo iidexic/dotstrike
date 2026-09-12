@@ -73,7 +73,7 @@ func cleanDelete(cmd *cobra.Command, deleteList []string) []string {
 	td := dscore.TempData()
 	for _, s := range deleteList {
 		spec := td.GetSpec(s)
-		if y || askConfirmf("Delete spec '%s' (%d Sources, %d Targets)", s, len(spec.Sources), len(spec.Targets)) {
+		if y || promptYN("Delete spec '%s' (%d Sources, %d Targets)", s, len(spec.Sources), len(spec.Targets)) {
 
 			del := dscore.TempData().DeleteSpec(s)
 			if del {

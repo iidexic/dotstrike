@@ -180,14 +180,6 @@ func (p prefs) Detail() string {
 // tempData is the location where ALL changes to user data are written to before encode
 var tempData globalModify
 
-func (G *globals) decodeRawData() {
-	md, err := toml.Decode(G.rawContents, &G.data)
-	if err != nil {
-		panic(fmt.Errorf("Error in dscore DecodeRawData() from data toml\n%w", err))
-	}
-	G.md = md //? Is this used at all
-}
-
 func (G *globals) decodeAsConfig(data []byte) error {
 	md, err := toml.Decode(string(data), &G.data)
 	if err != nil {

@@ -69,7 +69,11 @@ func (G *globals) encodeDefaultsTo(fpath string) error {
 
 // encodeModified gm data exclusively to main toml
 func (gm *globalModify) encodeModified() error {
-	file, e := pops.OpenFileRW(globalsFilepath())
+	fpath, e := globalsFilepath()
+	if e != nil {
+		return e
+	}
+	file, e := pops.OpenFileRW(fpath)
 	if e != nil || file == nil {
 		return e
 	}

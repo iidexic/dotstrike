@@ -271,32 +271,6 @@ func (J *CopyJob) configCheck(opt config.OptionKey) bool {
 
 	return false
 }
-func (J *CopyJob) wipeOutputDir() error {
-	wpath := J.PathOut
-	if J.configCheck(bRootSubdir) {
-		e := os.RemoveAll(wpath)
-		return e
-	}
-	dir := os.DirFS(wpath)
-	gobby, eeror := fs.Glob(dir, `.\*`)
-	if eeror != nil {
-		return eeror
-	}
-	var eout error
-	for _, g := range gobby {
-
-		e := os.RemoveAll(g)
-		if e != nil {
-			if eout == nil {
-				eout = fmt.Errorf("RemoveAll Errors: %w", e)
-			} else {
-				eout = fmt.Errorf("%w, %w", eout, e)
-			}
-		}
-	}
-	return eout
-}
-
 type checkDir struct {
 	dirpath   string
 	record    fileRecord
@@ -339,13 +313,6 @@ func ReadDir(dirpath string) *checkDir {
 	cd.walked = true
 	cd.walkErr = err
 	return cd
-}
-
-func (C *checkDir) deleteDir() error {
-	if C.wipeDirOn {
-		return os.RemoveAll(C.dirpath)
-	}
-	return fmt.Errorf("wipeDirOn is false")
 }
 
 func (C *checkDir) String() string {

@@ -86,30 +86,6 @@ func MakeSysConfigPaths(filename string) namedpaths {
 	return npaths
 }
 
-// Performs no checks to the path of the toml file beforehand
-func loadConfigToml(path string) (*initializer, error) {
-	s, e := pops.PathExists(path)
-	if e != nil {
-		return nil, e
-	}
-	ip := initpath{path: path, exists: s}
-	I := initializer{
-		tomlpaths:     make(namedpaths, 1),
-		failpaths:     make([]string, 0),
-		SysFileErrors: make(map[string]error),
-		filename:      pops.Base(path),
-		configpath:    path,
-	}
-	I.tomlpaths[pops.Base(path)] = &ip
-
-	e = I.populateGlobalData()
-
-	return &I, e
-}
-func loadConfigFromDir(dirpath string) (*initializer, error) {
-	return loadConfigToml(pops.Joinpath(dirpath, globalsFilename))
-}
-
 type initializer struct {
 	tomlpaths     namedpaths
 	failpaths     []string

@@ -22,7 +22,6 @@ var (
 	bNoFiles    = config.BoolNoFiles
 	bAllDirs    = config.BoolCopyAllDirs
 	bRootSubdir = config.BoolRootSubdir
-	bUseGlobal  = config.BoolUseGlobalTarget
 	bNoHidden   = config.BoolIgnoreHidden
 	bNoRepo     = config.BoolIgnoreRepo
 )
@@ -106,8 +105,24 @@ func (CM copierMaschine) GroupDetails() string {
 // It also automatically creates all copy jobs, and stores the job names in JobGroup.jobNames.
 // Job names are created as (name-[job#])
 func (CM *copierMaschine) NewJobGroup(UniqueName string, inPaths []string, outPaths []string, bools boolConfig) *JobGroup {
+	// Unique the group name FIRST so derived jobNames also stay unique.
+	// Without this, a repeat call with the same UniqueName produces jobName
+	// collisions inside makeJobs; NewJob returns nil for the dupes and
+	// later ConfigToJobs derefs nil.
+	key := UniqueName
+	for n := 0; ; n++ {
+		candidate := key
+		if n > 0 {
+			candidate = key + strconv.Itoa(n)
+		}
+		if _, exists := CM.JobGroups[candidate]; !exists {
+			key = candidate
+			break
+		}
+	}
+
 	numJobs := len(inPaths) * len(outPaths)
-	group := &JobGroup{groupName: UniqueName, bcfg: bools,
+	group := &JobGroup{groupName: key, bcfg: bools,
 		jobNames: make([]string, numJobs),
 		jobPtrs:  make([]*CopyJob, numJobs),
 		pathSet:  pathSet{ins: inPaths, outs: outPaths},
@@ -115,24 +130,6 @@ func (CM *copierMaschine) NewJobGroup(UniqueName string, inPaths []string, outPa
 
 	group.makeJobs()
 	group.initialized = true
-	//  what is happening here
-	key := group.groupName
-	_, ok := CM.JobGroups[key]
-
-	// lazy way to make sure group names are unique.
-	n := 0
-	k := key
-	for {
-		if ok {
-			n++
-			k = key + strconv.Itoa(n)
-			_, ok = CM.JobGroups[k]
-			continue
-		}
-		key = k
-		break
-	}
-
 	CM.JobGroups[key] = group
 	return group
 }

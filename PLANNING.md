@@ -4,7 +4,7 @@ Living punch list. Update in the same change as any planning decision, scope cha
 
 Status legend: `[ ]` open · `[~]` in progress · `[x]` done · `[-]` dropped/deferred
 
-Last reviewed: 2026-09-10 (Phase 2 complete; test suite passes)
+Last reviewed: 2026-09-11 (Phase 3 + Phase 4 complete; test suite passes)
 
 ---
 
@@ -45,24 +45,23 @@ Last reviewed: 2026-09-10 (Phase 2 complete; test suite passes)
 - [x] 2026-09-10 **`cmd/cmd-config.go` `applyToGlobals` surfaces "did you mean".** Uses new `dscore.OptionIDCandidates` (re-export of `config.LookupOptionCandidates`); prints candidate list on ambiguous input, "unknown option" on zero match.
 - [x] 2026-09-10 **Test fixture updates.** `config/config_test.go` testInput cases updated: `"nohiddenrepo"` and `"useglobaltgtdir"` → `NotAnOption`; `"copydir"` → `"copyalldir"` (real subs require "all"); `"globaltarget"` → `StringGlobalTargetPath` (hits `LookupExacts`).
 
-## Phase 3 — Panic → error (higher blast radius)
+## Phase 3 — Panic → error — complete
 
-Signatures change for several of these; do one at a time with `go build ./...` between.
+- [x] 2026-09-11 **Deleted `pathops/pathops.go` `ce()` helper.** Zero call sites, inverted panic logic. Removed cleanly.
+- [x] 2026-09-11 **`pathops.MakeAbs` no longer panics.** Introduced `MakeAbsE(string) (string, error)` (proper error return). `MakeAbs` is now a thin wrapper that soft-fails to the tilde-expanded input on `filepath.Abs` error. `dscore.Spec.AddSource` and `magefiles/magefile.go` migrated to `MakeAbsE` since they already had error paths. Query methods (`IsPathChild`, `IsPathSource`, `IsPathTarget`, `GetIfChild`, `GetMatchingComponents`, `componentMatchesPath`, `newPathComponent`, `PrintDir`, `ReadDir`) keep `MakeAbs` — soft-fail is fine there.
+- [x] 2026-09-11 **`pathops.CalledFrom` → `(string, error)`.** All 3 call sites in `cmd/xcheck(debug).go` updated to print `<err: ...>` on failure.
+- [x] 2026-09-11 **`dscore.globalsFilepath` → `(string, error)`.** `dscore/globalToml.go:72` (`encodeModified`) propagates.
+- [x] 2026-09-11 **`dscore.decodeRawData` deleted.** Only caller was the stripped test; fully dead — removed rather than reworked.
+- [x] 2026-09-11 **`cmd.configLoadInit` soft-fails.** Now sets package-level `configLoadErr` (accessible via `ConfigLoadErr()`) and prints to stderr; subcommands can check and bail cleanly.
+- [x] 2026-09-11 **`cmd.askConfirmf` → `(bool, error)`.** `checkConfirm`/`checkConfirmF` absorb the error (stderr log + treat as deny) to keep their `bool` signature and avoid rippling to every caller. New `promptYN` helper replaces direct `askConfirmf` calls in `cmd/cmd-source.go` (3), `cmd/xcheck(debug).go` (2), `cmd/utilCmd-clean.go` (1) — needed a rename from `confirm` because `utilCmd-clean.go` already has a package-level `confirm *bool` flag.
+- [x] 2026-09-11 **`pathops.(*JobGroup).ConfigToJobs` nil-jobPtrs fix.** Root cause: `copierMaschine.NewJobGroup` uniqued the group name AFTER calling `makeJobs`, so a repeat call with the same UniqueName produced colliding jobNames — `NewJob` silently returned nil for the dupes and `ConfigToJobs`/`RunAll` derefed nil. Now uniques first, and both `ConfigToJobs` and `RunAll` also skip nil entries defensively.
 
-- [ ] **Delete `pathops/pathops.go:49` — `ce()` helper.** Dead (zero call sites); it panics only if you pass a message, which is inverted logic anyway. Safe delete.
-- [ ] **`pathops/pathops.go:286` — `MakeAbs` panics.** ~10 call sites across `dscore/`, `cmd/`, `magefiles/`, and internal `pathops/`. Options: (a) rename to `MakeAbsE(string) (string, error)` and add call-site fixes, (b) keep name and just log + return `""` on failure. Recommend (a); many callers already have error paths. Note the existing `MakeAbsIfPathlike` already returns `(string, error)`, use it as reference.
-- [ ] **`pathops/pathops.go:570` — `CalledFrom` panics.** Only 3 call sites, all in `cmd/xcheck(debug).go`. Return `(string, error)`; xcheck can print `<err: ...>`.
-- [ ] **`dscore/globals.go:78` — `globalsFilepath` panics if unset.** One caller (`dscore/globalToml.go:72`). Return `(string, error)`; propagate.
-- [ ] **`dscore/dsconfig.go:190` — `decodeRawData` panics on toml decode failure.** One test caller (`globals_test.go:54`). Return error; already have `decodeAsConfig` as the pattern.
-- [ ] **`cmd/cmd-root.go:136` — `configLoadInit` panics on `LoadGlobals` error.** Called via `cobra.OnInitialize`. Convert to soft-fail: print to stderr, set a global flag, let subsequent commands decide whether to bail.
-- [ ] **`cmd/user_confirmation.go:32` — `askConfirmf` panics on stdin read error.** Return `(bool, error)`; callers (`checkConfirm`, `checkConfirmF`) also update.
-
-## Phase 4 — Housekeeping
+## Phase 4 — Housekeeping — complete
 
 - [x] 2026-09-03 **Copyright header cleanup.** Unified all `cmd/*.go` + `main.go` to `Copyright © 2025 Derek`.
-- [ ] **`cmd/cmd-root.go:82` — bare `cmd.Printf("DEBUG")` with no newline.** Change to `Println("DEBUG")` or drop entirely (`DumpGlobals` output that follows is already labeled).
-- [ ] **`cmd/cmd-source.go:36` — same bare `Printf("DEBUG")` pattern.** Same fix.
-- [ ] **Dead-code sweep** (exposed by Phase 5 strip): `pathops.readPost`, `pathops.looksLikeRawCopy`, `pathops.newDirLog`, `pathops.wipeOutputDir`, `pathops.deleteDir`, `pathops.bUseGlobal`, `dscore.loadConfigFromDir`. Verify grep-clean across the tree, then delete.
+- [x] 2026-09-11 **`cmd/cmd-root.go:82` — bare `Printf("DEBUG")`.** Changed to `Println("DEBUG")`.
+- [x] 2026-09-11 **`cmd/cmd-source.go:36` — same bare `Printf` pattern.** Changed to `Println`.
+- [x] 2026-09-11 **Dead-code sweep** (exposed by Phase 5 strip). Deleted `pathops.readPost`, `pathops.looksLikeRawCopy`, `pathops.newDirLog` + the entire `dirlog`/`filedetail` struct pair + `_walk_dir_` method (all self-contained cluster), `pathops.wipeOutputDir`, `pathops.deleteDir`, `pathops.bUseGlobal`, `dscore.loadConfigFromDir` + its now-only-caller `dscore.loadConfigToml`, plus the stale `//if looksLikeRawCopy(outpath, info) {}` comment in `moveData.go`. Grep-verified clean before each delete.
 
 ## Phase 5 — Test suite rehab — complete (2026-09-10)
 
@@ -81,16 +80,13 @@ Stripped everything that referenced dead fixtures or had un-passable assertions.
 - [x] 2026-09-10 `pathops/pathops.go` — `HomeJoinC` was dereferencing `HomePath` without a nil-check, panicking whenever tilde expansion ran before init (surfaced by `TestDeleteIfChildTilde` calling `S.AddSource("~")` in a fresh package). Now lazily calls `os.UserHomeDir()` if `HomePath` is nil/empty, and returns `suffix` unchanged if that also fails — no panic path remains.
 - [x] 2026-09-10 `dscore/spec.go`, `dscore/components.go`, `dscore/dsconfig.go` — deleted `specEqual`, `pathComponentEqual`, and `prefs.equal`. All three were only called from stripped encode tests. Cleaned up the now-unused `slices` and `maps` imports.
 
-### Deferred dead-code, exposed by Phase 5 strip
-
-Live callers were only the stripped tests. Safe to delete, but out of scope for the Phase 5 test-rehab pass — will grab in a Phase 4 sweep:
-
-- `pathops/util.go` — `readPost` (method), `looksLikeRawCopy`, `newDirLog`
-- `pathops/copyjob.go` — `wipeOutputDir`, `deleteDir`
-- `pathops/moveops.go` — `bUseGlobal` var
-- `dscore/initialize.go` — `loadConfigFromDir`
-
 ## Phase 5 — Test suite verification
+
+- `go build ./...` — clean
+- `go vet ./...` — clean
+- `go test ./...` — all packages pass
+
+## Post-Phase-4 verification (2026-09-11)
 
 - `go build ./...` — clean
 - `go vet ./...` — clean
@@ -104,7 +100,8 @@ Left in-source, not scheduled:
 - `dscore/dsconfig.go:246` — `standardizeAlias` cleanup pass.
 - `dscore/globalModify.go:234` — global prefs missing keys should populate as `false`.
 - `pathops/pathops.go:172` — dedupe multiple system-dir helpers (`SystemDirectories` vs `PopulateSysDirs` vs `GetSysDirs`).
+- `pathops/util.go` — `PathsMatch`, `SplitAbsPath`, `DateTimeDetail` exported but unused within the tree. Kept because they're API-shaped; delete if never adopted.
 
 ## Open Questions
 
-_(none open — Phase 3 next, no blockers)_
+_(none open — Phases 1–5 complete)_

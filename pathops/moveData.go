@@ -79,7 +79,6 @@ func (J *CopyJob) WalkFS(p string, d DirEntry, e error) error {
 	if J.BPrefs[bNoFiles] { // for dry runs
 		return nil
 	}
-	//if looksLikeRawCopy(outpath, info) {}
 
 	// ── 1. open in file ──
 	inF, e := OpenExistingFile(inpath)

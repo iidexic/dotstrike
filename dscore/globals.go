@@ -67,15 +67,14 @@ const globalDirConfigRelative = "/dotstrike"
 
 var GlobalConfigPath string
 
-// TODO: # 2 0- FINISH
-func globalsFilepath() string {
+func globalsFilepath() (string, error) {
 	if GlobalConfigPath != "" {
-		return GlobalConfigPath
+		return GlobalConfigPath, nil
 	}
 	if gd.dsconfigPath != "" {
-		return gd.dsconfigPath
+		return gd.dsconfigPath, nil
 	}
-	panic(fmt.Errorf("Global config path not set"))
+	return "", fmt.Errorf("global config path not set")
 }
 
 func ConfigTomlPath() string {

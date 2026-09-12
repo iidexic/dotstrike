@@ -4,6 +4,7 @@ Copyright © 2025 Derek
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -79,7 +80,7 @@ If you have multiple specs, you will need to either:
 			cmd.Print("version: ", verstr)
 		}
 		if *persistentFlags.debug {
-			cmd.Printf("DEBUG")
+			cmd.Println("DEBUG")
 			gdump := dscore.DumpGlobals()
 			for _, l := range gdump {
 				cmd.Println(l)
@@ -130,10 +131,20 @@ func (p *persistentData) setup() {
 var persistentFlags persistentData
 var version *bool
 
+// configLoadErr captures any LoadGlobals failure from configLoadInit.
+// Subcommands that require loaded config should check ConfigLoadErr() and
+// bail with a friendly message rather than segfaulting downstream.
+var configLoadErr error
+
+// ConfigLoadErr returns any error raised by the initial LoadGlobals call.
+// Nil means startup config loaded cleanly.
+func ConfigLoadErr() error { return configLoadErr }
+
 func configLoadInit() {
 	e := dscore.LoadGlobals()
 	if e != nil {
-		panic(e)
+		configLoadErr = e
+		fmt.Fprintf(os.Stderr, "dotstrike: failed to load config: %s\n", e)
 	}
 }
 

@@ -46,14 +46,6 @@ var (
 	Joinpath = filepath.Join
 )
 
-func ce(e error, msg ...string) {
-	if e != nil {
-		if len(msg) > 0 {
-			panic(e)
-		}
-	}
-}
-
 //TODO:(low-recl) Replace ALL os.IsExist/os.IsNotExist with errors.Is()
 //TODO:(med-recl) Clean up Home functions - here and where used
 //TODO:(med-feat) Replace current config path system with more robust system with fallbacks
@@ -288,24 +280,29 @@ func TildeCheck(ospath string) bool {
 	return ospath[0] == tilde && (len(ospath) == 1 || ospath[1] == '/' || ospath[1] == '\\')
 }
 
-//TODO: (mid-hi) delete/replace MakeAbs. Don't Swallow errors with panic
-
-// MakeAbs returns absolute path of inpath
-// inpath may or may not be relative from home dir/cwd
+// MakeAbs returns the absolute form of inpath. It never panics —
+// when filepath.Abs cannot resolve cwd, the tilde-expanded input is returned
+// as-is. Callers that need the error should use MakeAbsE.
 func MakeAbs(inpath string) string {
+	out, _ := MakeAbsE(inpath)
+	return out
+}
+
+// MakeAbsE returns the absolute form of inpath plus any error from filepath.Abs.
+// Tilde-prefixed paths are expanded first. Already-absolute inputs are cleaned.
+// On filepath.Abs failure the tilde-expanded input is returned unchanged alongside the error.
+func MakeAbsE(inpath string) (string, error) {
 	if TildeCheck(inpath) {
 		inpath = TildeExpand(inpath)
 	}
-	if !filepath.IsAbs(inpath) {
-		var e error
-		inpath, e = filepath.Abs(inpath)
-		if e != nil {
-			panic(e)
-		}
-	} else {
-		inpath = filepath.Clean(inpath)
+	if filepath.IsAbs(inpath) {
+		return filepath.Clean(inpath), nil
 	}
-	return inpath
+	abs, e := filepath.Abs(inpath)
+	if e != nil {
+		return inpath, e
+	}
+	return abs, nil
 }
 
 func MakeAbsIfPathlike(inpath string) (string, error) {
@@ -580,14 +577,16 @@ func ReadFileOrErr(pathElements ...string) *ReadResult {
 	return result
 }
 
-// CalledFrom returns the path of the file that called the current program, or panics
-func CalledFrom() string {
-	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+// CalledFrom returns the absolute path of the directory holding the current
+// executable (os.Args[0]). Returns the unresolved directory + error if
+// filepath.Abs fails.
+func CalledFrom() (string, error) {
+	base := filepath.Dir(os.Args[0])
+	abs, err := filepath.Abs(base)
 	if err != nil {
-		panic(err)
-		//what
+		return base, err
 	}
-	return dir
+	return abs, nil
 }
 
 // Cwd returns the current working dir or error text

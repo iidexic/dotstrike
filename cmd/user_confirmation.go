@@ -8,19 +8,47 @@ import (
 )
 
 func checkConfirm(detail string, cflag *bool) bool {
-	return *cflag || askConfirmf(detail)
+	if *cflag {
+		return true
+	}
+	yes, e := askConfirmf(detail)
+	if e != nil {
+		fmt.Fprintf(os.Stderr, "confirm read failed: %s\n", e)
+		return false
+	}
+	return yes
 }
 
 func checkConfirmF(detail string, cflag *bool, vars ...any) bool {
-	return *cflag || askConfirmf(detail, vars...)
+	if *cflag {
+		return true
+	}
+	yes, e := askConfirmf(detail, vars...)
+	if e != nil {
+		fmt.Fprintf(os.Stderr, "confirm read failed: %s\n", e)
+		return false
+	}
+	return yes
+}
+
+// promptYN asks a yes/no question without needing an "assume-yes" flag pointer.
+// On stdin error prints the error to stderr and returns false (safe deny).
+func promptYN(detail string, vars ...any) bool {
+	yes, e := askConfirmf(detail, vars...)
+	if e != nil {
+		fmt.Fprintf(os.Stderr, "confirm read failed: %s\n", e)
+		return false
+	}
+	return yes
 }
 
 // TODO: (low) Switch to just using cobra.Command.InOrStdin()
 
 // TODO:(med) Add a full prompt for user input
 
-// askConfirmF Does NOT check any flags
-func askConfirmf(detail string, vars ...any) bool {
+// askConfirmf prompts the user until they answer yes/no or 4 blanks pass.
+// Returns (false, err) if reading stdin fails; callers should treat that as deny.
+func askConfirmf(detail string, vars ...any) (bool, error) {
 	reader := bufio.NewReader(os.Stdin)
 	n := 4
 	fdetail := "[request to confirm]: " + detail + "\n:::"
@@ -29,7 +57,7 @@ func askConfirmf(detail string, vars ...any) bool {
 		fmt.Printf(fdetail, vars...)
 		response, err := reader.ReadString('\n')
 		if err != nil {
-			panic(err)
+			return false, err
 		}
 		response = strings.ToLower(response)
 		for _, no := range []string{"n", "no", "false"} {
@@ -45,20 +73,15 @@ func askConfirmf(detail string, vars ...any) bool {
 			}
 		}
 		if yesindex >= 0 && noindex >= 0 {
-			if yesindex < noindex {
-				return true
-			} else {
-				return false
-			}
-
+			return yesindex < noindex, nil
 		} else if yesindex >= 0 {
-			return true
+			return true, nil
 		} else if noindex >= 0 {
-			return false
+			return false, nil
 		}
 		n--
 		if n < 0 {
-			return false
+			return false, nil
 		}
 
 	}

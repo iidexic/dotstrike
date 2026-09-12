@@ -33,7 +33,7 @@ var src = componentCmd{}
 
 func sourceRun(cmd *cobra.Command, args []string) {
 	if *persistentFlags.debug {
-		cmd.Printf("DEBUG")
+		cmd.Println("DEBUG")
 		gdump := dscore.DumpGlobals()
 		for _, l := range gdump {
 			cmd.Println(l)
@@ -103,7 +103,7 @@ func runComponent(cmp *componentCmd) error {
 		case *cmp.delete: //Delete components
 			// if have exactly 1 spec or -y, or user confirm; delete
 			if ls := len(cmp.specs); ls == 1 || *cmp.y ||
-				askConfirmf("Delete %d %ss from %d specs?", numcomp, componentTypeString(cmp.isSource), ls) {
+				promptYN("Delete %d %ss from %d specs?", numcomp, componentTypeString(cmp.isSource), ls) {
 				cmp.deleteComponents()
 			}
 		case len(*cmp.ignore) > 0: // Add Ignores
@@ -140,14 +140,14 @@ func (C *componentCmd) runMixedQty() error {
 			return C.addIgnores()
 		}
 	case *C.delete:
-		if askConfirmf("Found %d sources from %d arguments. Delete?", len(C.components), len(C.args)) {
+		if promptYN("Found %d sources from %d arguments. Delete?", len(C.components), len(C.args)) {
 			C.deleteComponents()
 		} else {
 			C.Println("Cancelled.")
 		}
 	default:
 		// must have >1 spec or >1 arg to reach mixed qty
-		if askConfirmf("Some of the provided arg paths exist in specs and some do not. Try to add nonexisting to all?") {
+		if promptYN("Some of the provided arg paths exist in specs and some do not. Try to add nonexisting to all?") {
 			C.addAll()
 		} else {
 			C.Println("Cancelled.")

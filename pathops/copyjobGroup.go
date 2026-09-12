@@ -42,6 +42,9 @@ func (g *JobGroup) makeJobs() {
 func (g *JobGroup) RunAll(abortOnError bool) error {
 	var outError error
 	for i := range g.jobPtrs {
+		if g.jobPtrs[i] == nil {
+			continue
+		}
 		if len(g.jobPtrs[i].BPrefs) == 0 && len(g.bcfg) > 0 {
 			g.jobPtrs[i].BPrefs = g.bcfg
 		}
@@ -61,6 +64,9 @@ func (g *JobGroup) RunAll(abortOnError bool) error {
 
 func (g *JobGroup) ConfigToJobs() {
 	for i := range g.jobPtrs {
+		if g.jobPtrs[i] == nil {
+			continue
+		}
 		g.jobPtrs[i].BPrefs = g.bcfg
 	}
 }

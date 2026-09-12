@@ -335,8 +335,11 @@ func (S *Spec) removeTargetByIndex(index int) {
 // TODO: Replace CheckAddPath with S.AddSource! why
 func (S *Spec) AddSource(path string, ignorelist ...string) error {
 	if !S.IsPathChild(path) {
+		abs, e := pops.MakeAbsE(path)
+		if e != nil {
+			return fmt.Errorf("resolve abs path for %q: %w", path, e)
+		}
 		tempData.Modify()
-		abs := pops.MakeAbs(path)
 		S.Sources = append(S.Sources,
 			PathComponent{
 				Path:    path,

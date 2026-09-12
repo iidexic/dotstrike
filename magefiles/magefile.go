@@ -193,7 +193,10 @@ func Clean() error {
 		}
 		if bfn := pops.Base(path); strings.HasPrefix(bfn, "ds-") {
 			p := pops.Joinpath(outputDir, path)
-			p = pops.MakeAbs(p)
+			p, ea := pops.MakeAbsE(p)
+			if ea != nil {
+				return fmt.Errorf("resolve abs path %q: %w", p, ea)
+			}
 			e := os.Remove(p)
 			if e != nil {
 				return e

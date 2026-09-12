@@ -76,9 +76,9 @@ var checkCmd = &cobra.Command{
 		cmd.Println(fmt.Sprintf("Run %s", os.Args[1:]))
 		switch {
 		case *checkf.ask:
-			conf := askConfirmf("Is this question true")
+			conf := promptYN("Is this question true")
 			fmt.Printf("function gave: %t\n", conf)
-			confright := askConfirmf("Was that correct")
+			confright := promptYN("Was that correct")
 			if confright {
 				print("thats good")
 			} else {
@@ -158,7 +158,12 @@ func (c *checkCmdFlags) runDefault(cmd *cobra.Command, args []string) {
 	case "cwd":
 		cmd.Println(pops.Cwd())
 	case "from":
-		cmd.Println(pops.CalledFrom())
+		from, e := pops.CalledFrom()
+		if e != nil {
+			cmd.Printf("<err: %s>\n", e)
+		} else {
+			cmd.Println(from)
+		}
 	case "toml":
 		cmd.Println(dscore.GlobalConfigPath)
 	case "ls", "dir":
@@ -204,14 +209,22 @@ func (c *checkCmdFlags) runDefault(cmd *cobra.Command, args []string) {
 		cmd.Printf("Cache: %s\n", ptrOrUnset(pops.CachePath))
 		cmd.Printf("Temp: %s\n", os.TempDir())
 		cmd.Printf("Current: %s\n", pops.Cwd())
-		cmd.Printf("CalledFrom: %s\n", pops.CalledFrom())
+		if from, e := pops.CalledFrom(); e != nil {
+			cmd.Printf("CalledFrom: <err: %s>\n", e)
+		} else {
+			cmd.Printf("CalledFrom: %s\n", from)
+		}
 	case "everything":
 		out := uout.NewOut("----[ Some Stuff ]----")
 		out.F("TempDir: %s", os.TempDir())
 		abs, e := pops.Abs(".")
 		out.IferF("Abs: %s", abs, e)
 		out.F("Cwd: %s", pops.Cwd())
-		out.F("CalledFrom: %s", pops.CalledFrom())
+		if from, e := pops.CalledFrom(); e != nil {
+			out.F("CalledFrom: <err: %s>", e)
+		} else {
+			out.F("CalledFrom: %s", from)
+		}
 		out.F("GlobalConfigPath: %s", dscore.GlobalConfigPath)
 		out.Sep()
 		td := dscore.TempData()
