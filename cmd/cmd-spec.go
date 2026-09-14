@@ -145,7 +145,7 @@ func (op *specOpData) outputSelected() {
 func (op *specOpData) specNew() error {
 	temp := dscore.TempData()
 	if op.reqMultNewWithPaths() {
-		ask := checkConfirmF("make %d specs with same source/target?", op.flags.yconfirm, len(op.args))
+		ask := checkConfirm("make %d specs with same source/target?", op.flags.yconfirm, len(op.args))
 		if !ask {
 			op.cmd.Print("0 specs made")
 			return nil
@@ -242,7 +242,7 @@ Alias not unique (spec '%s' already exists)`, spec.Alias, newAlias, newAlias)
 }
 
 func (op *specOpData) checkConfirm(detail string) bool {
-	return checkConfirmF(detail, op.flags.yconfirm)
+	return checkConfirm(detail, op.flags.yconfirm)
 }
 
 func (op *specOpData) processDeletion() error {

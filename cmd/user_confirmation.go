@@ -7,31 +7,19 @@ import (
 	"strings"
 )
 
-func checkConfirm(detail string, cflag *bool) bool {
+// checkConfirm short-circuits to true if the assume-yes flag pointed to by cflag
+// is set; otherwise it prompts. Stdin read failure is logged to stderr and
+// treated as a deny (returns false) so an unusable terminal cannot silently
+// approve a destructive op.
+func checkConfirm(detail string, cflag *bool, vars ...any) bool {
 	if *cflag {
 		return true
 	}
-	yes, e := askConfirmf(detail)
-	if e != nil {
-		fmt.Fprintf(os.Stderr, "confirm read failed: %s\n", e)
-		return false
-	}
-	return yes
+	return promptYN(detail, vars...)
 }
 
-func checkConfirmF(detail string, cflag *bool, vars ...any) bool {
-	if *cflag {
-		return true
-	}
-	yes, e := askConfirmf(detail, vars...)
-	if e != nil {
-		fmt.Fprintf(os.Stderr, "confirm read failed: %s\n", e)
-		return false
-	}
-	return yes
-}
-
-// promptYN asks a yes/no question; on stdin error prints to stderr and returns false.
+// promptYN asks the user a yes/no question. Stdin read failure is logged to
+// stderr and treated as a deny (returns false).
 func promptYN(detail string, vars ...any) bool {
 	yes, e := askConfirmf(detail, vars...)
 	if e != nil {
@@ -45,7 +33,9 @@ func promptYN(detail string, vars ...any) bool {
 
 // TODO:(med) Add a full prompt for user input
 
-// askConfirmf prompts until yes/no or 4 blanks. Returns (false, err) on stdin failure.
+// askConfirmf prompts the user with detail (formatted via vars) until they
+// answer yes/no or 4 blank responses pass (returning false). Returns
+// (false, err) if reading stdin fails; callers should treat that as a deny.
 func askConfirmf(detail string, vars ...any) (bool, error) {
 	reader := bufio.NewReader(os.Stdin)
 	n := 4
